@@ -2,6 +2,7 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
 import { HeaderCard } from '@/components/Header-Card';
+import { StockOverviewChart } from '@/components/chart';
 import { LowStockAlertTable } from '@/components/low-stock-alertTable';
 
 export default function Dashboard() {
@@ -28,8 +29,9 @@ export default function Dashboard() {
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <HeaderCard />
                     </div>
-                    <div className="grid gid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                         <LowStockAlertTable />
+                        <StockOverviewChart />
                     </div>                    
                 </div>
             </SidebarInset>
