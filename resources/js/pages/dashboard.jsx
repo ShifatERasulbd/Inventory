@@ -28,7 +28,9 @@ export default function Dashboard() {
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <HeaderCard />
                     </div>
-                    <LowStockAlertTable />
+                    <div className="grid gid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
+                        <LowStockAlertTable />
+                    </div>                    
                 </div>
             </SidebarInset>
         </SidebarProvider>
