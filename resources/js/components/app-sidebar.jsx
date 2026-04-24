@@ -5,14 +5,18 @@ import {
     FolderKanban,
     Gauge,
     LifeBuoy,
+    LogOut,
     MoreHorizontal,
     Sparkles,
     Users,
 } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import {
     Sidebar,
     SidebarContent,
+    SidebarFooter,
     SidebarGroup,
     SidebarGroupContent,
     SidebarGroupLabel,
@@ -38,6 +42,39 @@ const docsItems = [
 ];
 
 export function AppSidebar(props) {
+    const navigate = useNavigate();
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const handleLogout = async () => {
+        if (isLoggingOut) {
+            return;
+        }
+
+        setIsLoggingOut(true);
+
+        try {
+            await fetch('/sanctum/csrf-cookie', {
+                credentials: 'include',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            await fetch('/api/logout', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+        } finally {
+            setIsLoggingOut(false);
+            navigate('/');
+        }
+    };
+
     return (
         <Sidebar collapsible="icon" variant="sidebar" {...props}>
             <SidebarHeader className="border-b border-sidebar-border px-3 py-3">
@@ -84,6 +121,17 @@ export function AppSidebar(props) {
                     </SidebarGroupContent>
                 </SidebarGroup>
             </SidebarContent>
+
+            <SidebarFooter className="border-t border-sidebar-border">
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton tooltip="Logout" onClick={handleLogout} disabled={isLoggingOut}>
+                            <LogOut />
+                            <span>{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
+            </SidebarFooter>
         </Sidebar>
     );
 }
