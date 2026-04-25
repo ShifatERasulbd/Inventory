@@ -1,7 +1,18 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { useAppContext } from '@/context/AppContext';
 import StateTable from '@/components/state/table';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { deleteState, fetchStates } from './api';
 
 export default function States() {
@@ -11,6 +22,7 @@ export default function States() {
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
     const [deletingId, setDeletingId] = useState(null);
+    const [stateToDelete, setStateToDelete] = useState(null);
 
     useEffect(() => {
         setPageTitle('States');
@@ -46,14 +58,28 @@ export default function States() {
         };
     }, []);
 
-    const handleDelete = async (id) => {
+    const handleConfirmDelete = async () => {
+        if (!stateToDelete) {
+            return;
+        }
+
+        const id = stateToDelete.id;
+
         setDeletingId(id);
         setErrorMessage('');
         try {
             await deleteState(id);
             setStates((previous) => (Array.isArray(previous) ? previous : []).filter((state) => state.id !== id));
+            toast.success('State deleted successfully.', {
+                style: { color: '#16a34a' },
+            });
+            setStateToDelete(null);
         } catch (error) {
-            setErrorMessage(error.message || 'Failed to delete state.');
+            const message = error.message || 'Failed to delete state.';
+            setErrorMessage(message);
+            toast.error(message, {
+                style: { color: '#dc2626' },
+            });
         } finally {
             setDeletingId(null);
         }
@@ -69,9 +95,30 @@ export default function States() {
                     deletingId={deletingId}
                     onAdd={() => navigate('/states/add')}
                     onEdit={(id) => navigate(`/states/${id}/edit`)}
-                    onDelete={handleDelete}
+                    onRequestDelete={setStateToDelete}
                 />
             </div>
+
+            <AlertDialog open={Boolean(stateToDelete)} onOpenChange={(open) => !open && setStateToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete State</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete {stateToDelete?.name}? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deletingId !== null}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            variant="destructive"
+                            disabled={deletingId !== null}
+                            onClick={handleConfirmDelete}
+                        >
+                            {deletingId !== null ? 'Deleting...' : 'Delete'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

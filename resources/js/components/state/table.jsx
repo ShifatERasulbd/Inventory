@@ -11,7 +11,7 @@ import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
-export default function StateTable({ states = [], onAdd, onEdit, onDelete, deletingId, isLoading }) {
+export default function StateTable({ states = [], onAdd, onEdit, onRequestDelete, deletingId, isLoading }) {
     return (
         <>
         <div className="flex justify-end">
@@ -68,7 +68,7 @@ export default function StateTable({ states = [], onAdd, onEdit, onDelete, delet
                                             variant="ghost"
                                             size="icon"
                                             aria-label={`Delete ${state.name}`}
-                                            onClick={() => onDelete?.(state.id)}
+                                            onClick={() => onRequestDelete?.(state)}
                                             disabled={deletingId === state.id}
                                         >
                                             <Trash2 className="text-destructive" />

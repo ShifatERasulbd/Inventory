@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import AddForm from '@/components/country/addForm';
 
@@ -89,11 +90,18 @@ export default function AddContry() {
                 currency_code: form.currency_code.trim().toUpperCase(),
             });
 
+            toast.success('Country created successfully.', {
+                style: { color: '#16a34a' },
+            });
             navigate('/countries');
         } catch (error) {
             setErrors(error.payload?.errors || {});
             if (!error.payload?.errors) {
-                setRequestError(error.message || 'Failed to create country.');
+                const message = error.message || 'Failed to create country.';
+                setRequestError(message);
+                toast.error(message, {
+                    style: { color: '#dc2626' },
+                });
             }
         } finally {
             setIsSubmitting(false);

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import EditForm from '@/components/country/editForm';
 import { useAppContext } from '@/context/AppContext';
@@ -82,11 +83,18 @@ export default function EditContry() {
                 currency_code: form.currency_code.trim().toUpperCase(),
             });
 
+            toast.success('Country updated successfully.', {
+                style: { color: '#16a34a' },
+            });
             navigate('/countries');
         } catch (error) {
             setErrors(error.payload?.errors || {});
             if (!error.payload?.errors) {
-                setLoadError(error.message || 'Failed to update country.');
+                const message = error.message || 'Failed to update country.';
+                setLoadError(message);
+                toast.error(message, {
+                    style: { color: '#dc2626' },
+                });
             }
         } finally {
             setIsSubmitting(false);

@@ -11,7 +11,7 @@ import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
-export function CountryTable({ countries = [], onAdd, onEdit, onDelete, deletingId, isLoading }) {
+export function CountryTable({ countries = [], onAdd, onEdit, onRequestDelete, deletingId, isLoading }) {
     return (
         <>
         <div className="flex justify-end">
@@ -71,7 +71,7 @@ export function CountryTable({ countries = [], onAdd, onEdit, onDelete, deleting
                                             variant="ghost"
                                             size="icon"
                                             aria-label={`Delete ${country.name}`}
-                                            onClick={() => onDelete(country.id)}
+                                            onClick={() => onRequestDelete(country)}
                                             disabled={deletingId === country.id}
                                         >
                                             <Trash2 className="text-destructive" />

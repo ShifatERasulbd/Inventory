@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import EditForm from '@/components/state/editForm';
 import { useAppContext } from '@/context/AppContext';
@@ -108,11 +109,18 @@ export default function EditState() {
                 name: form.name.trim(),
             });
 
+            toast.success('State updated successfully.', {
+                style: { color: '#16a34a' },
+            });
             navigate('/states');
         } catch (error) {
             setErrors(error.payload?.errors || {});
             if (!error.payload?.errors) {
-                setLoadError(error.message || 'Failed to update state.');
+                const message = error.message || 'Failed to update state.';
+                setLoadError(message);
+                toast.error(message, {
+                    style: { color: '#dc2626' },
+                });
             }
         } finally {
             setIsSubmitting(false);

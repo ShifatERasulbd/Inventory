@@ -1,4 +1,5 @@
 import { LoginForm } from '@/components/login-form';
+import { Toaster } from '@/components/ui/sonner';
 import { AppProvider } from '@/context/AppContext';
 import AppLayout from '@/layouts/AppLayout';
 
@@ -40,6 +41,7 @@ export default function App() {
                     </Route>
                 </Routes>
             </BrowserRouter>
+            <Toaster position="top-right" richColors />
         </AppProvider>
     );
 }
