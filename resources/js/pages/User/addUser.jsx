@@ -5,11 +5,13 @@ import { toast } from 'sonner';
 import AddForm from '@/components/user/addForm';
 import { useAppContext } from '@/context/AppContext';
 import { fetchWarehouses } from '@/pages/Warehouse/api';
+import { fetchRoles } from '@/pages/Role/api';
 
 import { createUser } from './api';
 
 const initialForm = {
-    warehouse_id: '',
+    warehouse_ids: [],
+    role_ids: [],
     name: '',
     email: '',
     password: '',
@@ -18,10 +20,6 @@ const initialForm = {
 
 function validateForm(form) {
     const errors = {};
-
-    if (!form.warehouse_id) {
-        errors.warehouse_id = ['Please select a warehouse.'];
-    }
 
     if (!form.name.trim()) {
         errors.name = ['The user name field is required.'];
@@ -41,6 +39,10 @@ function validateForm(form) {
         errors.c_password = ['The confirm password must match password.'];
     }
 
+    if (!form.warehouse_ids || form.warehouse_ids.length === 0) {
+        errors.warehouse_ids = ['Please select at least one warehouse.'];
+    }
+
     return errors;
 }
 
@@ -53,19 +55,22 @@ export default function AddUser() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [requestError, setRequestError] = useState('');
     const [warehouses, setWarehouses] = useState([]);
+    const [roles, setRoles] = useState([]);
 
     useEffect(() => {
         setPageTitle('Add User');
     }, [setPageTitle]);
 
     useEffect(() => {
-        fetchWarehouses().then(setWarehouses);
+        Promise.all([fetchWarehouses(), fetchRoles()]).then(([w, r]) => {
+            setWarehouses(w);
+            setRoles(r);
+        });
     }, []);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
         setForm((previous) => ({ ...previous, [name]: value }));
-
         setErrors((previous) => {
             if (!previous[name]) return previous;
             const next = { ...previous };
@@ -74,13 +79,27 @@ export default function AddUser() {
         });
     };
 
-    const handleWarehouseChange = (value) => {
-        setForm((previous) => ({ ...previous, warehouse_id: value }));
+    const handleWarehouseToggle = (id) => {
+        setForm((previous) => {
+            const warehouse_ids = previous.warehouse_ids.includes(id)
+                ? previous.warehouse_ids.filter((w) => w !== id)
+                : [...previous.warehouse_ids, id];
+            return { ...previous, warehouse_ids };
+        });
         setErrors((previous) => {
-            if (!previous.warehouse_id) return previous;
+            if (!previous.warehouse_ids) return previous;
             const next = { ...previous };
-            delete next.warehouse_id;
+            delete next.warehouse_ids;
             return next;
+        });
+    };
+
+    const handleRoleToggle = (id) => {
+        setForm((previous) => {
+            const role_ids = previous.role_ids.includes(id)
+                ? previous.role_ids.filter((r) => r !== id)
+                : [...previous.role_ids, id];
+            return { ...previous, role_ids };
         });
     };
 
@@ -100,7 +119,8 @@ export default function AddUser() {
 
         try {
             await createUser({
-                warehouse_id: Number(form.warehouse_id),
+                warehouse_ids: form.warehouse_ids,
+                role_ids: form.role_ids,
                 name: form.name.trim(),
                 email: form.email.trim(),
                 password: form.password,
@@ -116,9 +136,7 @@ export default function AddUser() {
             if (!error.payload?.errors) {
                 const message = error.message || 'Failed to create user.';
                 setRequestError(message);
-                toast.error(message, {
-                    style: { color: '#dc2626' },
-                });
+                toast.error(message, { style: { color: '#dc2626' } });
             }
         } finally {
             setIsSubmitting(false);
@@ -132,14 +150,18 @@ export default function AddUser() {
                 <AddForm
                     form={form}
                     onChange={handleChange}
-                    onWarehouseChange={handleWarehouseChange}
+                    onWarehouseToggle={handleWarehouseToggle}
+                    onRoleToggle={handleRoleToggle}
                     onSubmit={handleSubmit}
                     onCancel={() => navigate('/users')}
                     isSubmitting={isSubmitting}
                     warehouses={warehouses}
+                    roles={roles}
                     errors={errors}
                 />
             </div>
         </div>
     );
 }
+
+

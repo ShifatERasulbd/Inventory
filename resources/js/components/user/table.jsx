@@ -34,14 +34,15 @@ export default function UserTable({
                         <TableHead className="w-[100px]">SL No</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
-                        <TableHead>Warehouse</TableHead>
+                        <TableHead>Warehouses</TableHead>
+                        <TableHead>Roles</TableHead>
                         <TableHead>Action</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {isLoading && (
                         <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                            <TableCell colSpan={6} className="text-center text-muted-foreground">
                                 Loading users...
                             </TableCell>
                         </TableRow>
@@ -49,7 +50,7 @@ export default function UserTable({
 
                     {!isLoading && users.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                            <TableCell colSpan={6} className="text-center text-muted-foreground">
                                 No users found.
                             </TableCell>
                         </TableRow>
@@ -61,7 +62,28 @@ export default function UserTable({
                                 <TableCell className="font-medium">{index + 1}</TableCell>
                                 <TableCell>{user.name}</TableCell>
                                 <TableCell>{user.email || '-'}</TableCell>
-                                <TableCell>{user.warehouse?.name || '-'}</TableCell>
+                                <TableCell>
+                                    <div className="flex flex-wrap gap-1">
+                                        {(user.warehouses || []).length > 0
+                                            ? (user.warehouses || []).map((w) => (
+                                                <span key={w.id} className="inline-block bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded">
+                                                    {w.name}
+                                                </span>
+                                            ))
+                                            : <span className="text-muted-foreground">-</span>}
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex flex-wrap gap-1">
+                                        {(user.roles || []).length > 0
+                                            ? (user.roles || []).map((r) => (
+                                                <span key={r.id} className="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">
+                                                    {r.name}
+                                                </span>
+                                            ))
+                                            : <span className="text-muted-foreground">-</span>}
+                                    </div>
+                                </TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                         <Button

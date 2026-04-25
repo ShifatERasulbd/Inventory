@@ -3,69 +3,109 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\WareHouse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
+    /**
+     * Resolve warehouse objects for the given IDs and attach to a user array.
+     */
+    private function attachWarehouses(array $userData, array $warehouseIds, \Illuminate\Database\Eloquent\Collection $warehouseMap): array
+    {
+        $userData['warehouses'] = collect($warehouseIds)
+            ->map(fn ($id) => $warehouseMap->firstWhere('id', $id))
+            ->filter()
+            ->values()
+            ->toArray();
+
+        return $userData;
+    }
+
     public function index(): JsonResponse
     {
-        return response()->json(
-            User::query()
-                ->with('warehouse:id,name')
-                ->orderBy('id')
-                ->get()
-        );
+        $users = User::query()->with('roles:id,name,slug')->orderBy('id')->get();
+
+        $allIds = $users->flatMap(fn ($u) => $u->warehouse_ids ?? [])->unique()->values()->all();
+        $warehouses = WareHouse::whereIn('id', $allIds)->get(['id', 'name']);
+
+        $result = $users->map(function ($user) use ($warehouses) {
+            return $this->attachWarehouses($user->toArray(), $user->warehouse_ids ?? [], $warehouses);
+        });
+
+        return response()->json($result);
     }
 
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
-            'name' => ['required', 'string', 'max:100'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:6', 'same:c_password'],
-            'c_password' => ['required', 'string', 'min:6'],
+            'warehouse_ids'   => ['required', 'array', 'min:1'],
+            'warehouse_ids.*' => ['integer', 'exists:warehouses,id'],
+            'role_ids'        => ['nullable', 'array'],
+            'role_ids.*'      => ['integer', 'exists:roles,id'],
+            'name'            => ['required', 'string', 'max:100'],
+            'email'           => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'password'        => ['required', 'string', 'min:6', 'same:c_password'],
+            'c_password'      => ['required', 'string', 'min:6'],
         ]);
 
-        unset($validated['c_password']);
+        $roleIds = $validated['role_ids'] ?? [];
+        unset($validated['role_ids'], $validated['c_password']);
 
         $user = User::query()->create($validated);
 
-        return response()->json($user->load('warehouse:id,name'), 201);
+        if (! empty($roleIds)) {
+            $user->roles()->sync($roleIds);
+        }
+
+        $warehouses = WareHouse::whereIn('id', $user->warehouse_ids ?? [])->get(['id', 'name']);
+        $userData = $this->attachWarehouses($user->load('roles:id,name,slug')->toArray(), $user->warehouse_ids ?? [], $warehouses);
+
+        return response()->json($userData, 201);
     }
 
     public function show(User $user): JsonResponse
     {
-        return response()->json($user->load('warehouse:id,name'));
+        $user->load('roles:id,name,slug');
+        $warehouses = WareHouse::whereIn('id', $user->warehouse_ids ?? [])->get(['id', 'name']);
+        $userData = $this->attachWarehouses($user->toArray(), $user->warehouse_ids ?? [], $warehouses);
+
+        return response()->json($userData);
     }
 
     public function update(Request $request, User $user): JsonResponse
     {
         $validated = $request->validate([
-            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
-            'name' => ['required', 'string', 'max:100'],
-            'email' => [
-                'required',
-                'string',
-                'email',
-                'max:255',
+            'warehouse_ids'   => ['required', 'array', 'min:1'],
+            'warehouse_ids.*' => ['integer', 'exists:warehouses,id'],
+            'role_ids'        => ['nullable', 'array'],
+            'role_ids.*'      => ['integer', 'exists:roles,id'],
+            'name'            => ['required', 'string', 'max:100'],
+            'email'           => [
+                'required', 'string', 'email', 'max:255',
                 Rule::unique('users', 'email')->ignore($user->id),
             ],
-            'password' => ['nullable', 'string', 'min:6', 'same:c_password'],
+            'password'   => ['nullable', 'string', 'min:6', 'same:c_password'],
             'c_password' => ['nullable', 'string', 'min:6'],
         ]);
+
+        $roleIds = $validated['role_ids'] ?? null;
+        unset($validated['role_ids'], $validated['c_password']);
 
         if (empty($validated['password'])) {
             unset($validated['password']);
         }
 
-        unset($validated['c_password']);
-
         $user->update($validated);
+        $user->roles()->sync($roleIds ?? []);
 
-        return response()->json($user->fresh()->load('warehouse:id,name'));
+        $fresh = $user->fresh()->load('roles:id,name,slug');
+        $warehouses = WareHouse::whereIn('id', $fresh->warehouse_ids ?? [])->get(['id', 'name']);
+        $userData = $this->attachWarehouses($fresh->toArray(), $fresh->warehouse_ids ?? [], $warehouses);
+
+        return response()->json($userData);
     }
 
     public function destroy(User $user): JsonResponse
@@ -78,7 +118,7 @@ class UserController extends Controller
     public function syncRoles(Request $request, User $user): JsonResponse
     {
         $validated = $request->validate([
-            'role_ids' => ['array'],
+            'role_ids'   => ['array'],
             'role_ids.*' => ['integer', 'exists:roles,id'],
         ]);
 

@@ -7,6 +7,7 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StateController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\UserController;
+use App\Models\WareHouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -19,9 +20,23 @@ Route::prefix('api')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/user', function (Request $request) {
-            return response()->json(
-                $request->user()->load('warehouse:id,name', 'roles.permissions:id,name,slug')
-            );
+            $user = $request->user()->load('roles.permissions:id,name,slug');
+
+            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+            $warehouseMap = WareHouse::query()
+                ->whereIn('id', $warehouseIds)
+                ->get(['id', 'name']);
+
+            $warehouses = collect($warehouseIds)
+                ->map(fn ($id) => $warehouseMap->firstWhere('id', $id))
+                ->filter()
+                ->values();
+
+            $payload = $user->toArray();
+            $payload['warehouses'] = $warehouses->toArray();
+            $payload['warehouse'] = $warehouses->first();
+
+            return response()->json($payload);
         });
 
         Route::post('/logout', [AuthController::class, 'logout']);
