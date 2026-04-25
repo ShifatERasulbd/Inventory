@@ -3,6 +3,7 @@ import { LoginForm } from '@/components/login-form';
 import { Toaster } from '@/components/ui/sonner';
 import { AppProvider } from '@/context/AppContext';
 import AppLayout from '@/layouts/AppLayout';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
 const Dashboard = lazy(() => import('@/pages/dashboard'));
 
@@ -13,7 +14,10 @@ const EditContry = lazy(() => import('@/pages/Country/editContry'));
 const States = lazy(() => import('@/pages/State/states'));
 const AddState = lazy(() => import('@/pages/State/addState'));
 const EditState = lazy(() => import('@/pages/State/editState'));
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+
+const Warehouse = lazy(()=>import ('@/pages/Warehouse/warehouse'));
+const AddWarehouse= lazy(()=>import ('@/pages/Warehouse/addWarehouse.jsx'))
+
 
 export default function App() {
     return (
@@ -42,6 +46,10 @@ export default function App() {
                             <Route path="/states" element={<States />} />
                             <Route path="/states/add" element={<AddState />} />
                             <Route path="/states/:id/edit" element={<EditState />} />
+
+                            {/* warehouses */}
+                            <Route path="/warehouses" element={<Warehouse/>}/>
+                            <Route path="/warehouses/add" element={<AddWarehouse/>}/>
                         </Route>
                     </Routes>
                 </Suspense>

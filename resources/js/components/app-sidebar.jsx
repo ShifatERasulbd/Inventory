@@ -31,7 +31,7 @@ const homeItems = [
     { title: 'Dashboard', icon: Gauge, path: '/dashboard' },
     { title: 'Country', icon: Globe, path: '/countries' },
     { title: 'State', icon: Airplay, path: '/states' },
-    { title: 'Projects', icon: FolderKanban, path: '/projects' },
+    { title: 'WareHouse', icon: BarChart3, path: '/warehouses' },
     { title: 'Team', icon: Users, path: '/team' },
 ];
 

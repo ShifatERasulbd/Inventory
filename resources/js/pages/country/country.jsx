@@ -93,36 +93,36 @@ export default function Countries() {
       {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-1">
-        <CountryTable
-          countries={countries}
-          onAdd={() => navigate('/countries/add')}
-          onEdit={(id) => navigate(`/countries/${id}/edit`)}
-          onRequestDelete={setCountryToDelete}
-          deletingId={deletingId}
-          isLoading={isLoading}
-        />
-            </div>
+                <CountryTable
+                countries={countries}
+                onAdd={() => navigate('/countries/add')}
+                onEdit={(id) => navigate(`/countries/${id}/edit`)}
+                onRequestDelete={setCountryToDelete}
+                deletingId={deletingId}
+                isLoading={isLoading}
+                />
+                    </div>
 
-      <AlertDialog open={Boolean(countryToDelete)} onOpenChange={(open) => !open && setCountryToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Country</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete {countryToDelete?.name}? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletingId !== null}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              disabled={deletingId !== null}
-              onClick={handleConfirmDelete}
-            >
-              {deletingId !== null ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            <AlertDialog open={Boolean(countryToDelete)} onOpenChange={(open) => !open && setCountryToDelete(null)}>
+                <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Country</AlertDialogTitle>
+                    <AlertDialogDescription>
+                    Are you sure you want to delete {countryToDelete?.name}? This action cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel disabled={deletingId !== null}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                    variant="destructive"
+                    disabled={deletingId !== null}
+                    onClick={handleConfirmDelete}
+                    >
+                    {deletingId !== null ? 'Deleting...' : 'Delete'}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
     </div>
     );
