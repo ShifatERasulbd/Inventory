@@ -38,6 +38,18 @@ class UserController extends Controller
         return response()->json($result);
     }
 
+    public function me(Request $request): JsonResponse
+    {
+        $user = $request->user()->load('roles.permissions:id,name,slug');
+        $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+        $warehouses = WareHouse::whereIn('id', $warehouseIds)->get(['id', 'name']);
+
+        $userData = $this->attachWarehouses($user->toArray(), $warehouseIds, $warehouses);
+        $userData['warehouse'] = collect($userData['warehouses'] ?? [])->first();
+
+        return response()->json($userData);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([

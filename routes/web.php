@@ -7,8 +7,6 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StateController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\UserController;
-use App\Models\WareHouse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -19,25 +17,7 @@ Route::prefix('api')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
 
     Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/user', function (Request $request) {
-            $user = $request->user()->load('roles.permissions:id,name,slug');
-
-            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
-            $warehouseMap = WareHouse::query()
-                ->whereIn('id', $warehouseIds)
-                ->get(['id', 'name']);
-
-            $warehouses = collect($warehouseIds)
-                ->map(fn ($id) => $warehouseMap->firstWhere('id', $id))
-                ->filter()
-                ->values();
-
-            $payload = $user->toArray();
-            $payload['warehouses'] = $warehouses->toArray();
-            $payload['warehouse'] = $warehouses->first();
-
-            return response()->json($payload);
-        });
+        Route::get('/user', [UserController::class, 'me']);
 
         Route::post('/logout', [AuthController::class, 'logout']);
         // Country Controller
