@@ -11,7 +11,7 @@ import {
     Users,
 } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import {
     Sidebar,
@@ -27,22 +27,23 @@ import {
 } from '@/components/ui/sidebar';
 
 const homeItems = [
-    { title: 'Dashboard', icon: Gauge, active: true },
-    { title: 'Lifecycle', icon: Sparkles },
-    { title: 'Analytics', icon: BarChart3 },
-    { title: 'Projects', icon: FolderKanban },
-    { title: 'Team', icon: Users },
+    { title: 'Dashboard', icon: Gauge, path: '/dashboard' },
+    { title: 'Lifecycle', icon: Sparkles, path: '/lifecycle' },
+    { title: 'Analytics', icon: BarChart3, path: '/analytics' },
+    { title: 'Projects', icon: FolderKanban, path: '/projects' },
+    { title: 'Team', icon: Users, path: '/team' },
 ];
 
 const docsItems = [
-    { title: 'Data Library', icon: Circle },
-    { title: 'Reports', icon: FileBarChart2 },
-    { title: 'Word Assistant', icon: LifeBuoy },
-    { title: 'More', icon: MoreHorizontal },
+    { title: 'Data Library', icon: Circle, path: '/data-library' },
+    { title: 'Reports', icon: FileBarChart2, path: '/reports' },
+    { title: 'Word Assistant', icon: LifeBuoy, path: '/word-assistant' },
+    { title: 'More', icon: MoreHorizontal, path: '/more' },
 ];
 
 export function AppSidebar(props) {
     const navigate = useNavigate();
+    const location = useLocation();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     const handleLogout = async () => {
@@ -91,11 +92,15 @@ export function AppSidebar(props) {
                         <SidebarMenu>
                             {homeItems.map((item) => (
                                 <SidebarMenuItem key={item.title}>
-                                    <SidebarMenuButton asChild tooltip={item.title} isActive={item.active}>
-                                        <a href="#">
+                                    <SidebarMenuButton
+                                        asChild
+                                        tooltip={item.title}
+                                        isActive={location.pathname === item.path}
+                                    >
+                                        <Link to={item.path}>
                                             <item.icon />
                                             <span>{item.title}</span>
-                                        </a>
+                                        </Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                             ))}
@@ -109,11 +114,15 @@ export function AppSidebar(props) {
                         <SidebarMenu>
                             {docsItems.map((item) => (
                                 <SidebarMenuItem key={item.title}>
-                                    <SidebarMenuButton asChild tooltip={item.title}>
-                                        <a href="#">
+                                    <SidebarMenuButton
+                                        asChild
+                                        tooltip={item.title}
+                                        isActive={location.pathname === item.path}
+                                    >
+                                        <Link to={item.path}>
                                             <item.icon />
                                             <span>{item.title}</span>
-                                        </a>
+                                        </Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                             ))}
