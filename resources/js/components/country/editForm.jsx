@@ -4,12 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 
-export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitting, errors = {} }) {
+export default function EditForm({ form, onChange, onSubmit, onCancel, isSubmitting, errors = {} }) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Create Country</CardTitle>
-                <CardDescription>Fill in the country details and save to create a new record.</CardDescription>
+                <CardTitle>Edit Country</CardTitle>
+                <CardDescription>Update country information and save your changes.</CardDescription>
             </CardHeader>
 
             <Separator />
@@ -25,6 +25,7 @@ export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitti
                                 value={form.name}
                                 onChange={onChange}
                                 placeholder="e.g. Bangladesh"
+                                required
                             />
                             {errors.name && <p className="text-xs text-destructive">{errors.name[0]}</p>}
                         </div>
@@ -37,6 +38,7 @@ export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitti
                                 value={form.code}
                                 onChange={onChange}
                                 placeholder="e.g. BD"
+                                required
                             />
                             {errors.code && <p className="text-xs text-destructive">{errors.code[0]}</p>}
                         </div>
@@ -49,6 +51,7 @@ export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitti
                                 value={form.currency_code}
                                 onChange={onChange}
                                 placeholder="e.g. BDT"
+                                required
                             />
                             {errors.currency_code && <p className="text-xs text-destructive">{errors.currency_code[0]}</p>}
                         </div>
@@ -60,7 +63,7 @@ export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitti
                         Cancel
                     </Button>
                     <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? 'Creating...' : 'Create Country'}
+                        {isSubmitting ? 'Updating...' : 'Update Country'}
                     </Button>
                 </CardFooter>
             </form>
