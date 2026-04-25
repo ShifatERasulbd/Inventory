@@ -4,9 +4,13 @@ import AppLayout from '@/layouts/AppLayout';
 
 import Dashboard from '@/pages/dashboard';
 
-import Countries from '@/pages/country/country';
-import AddContry from '@/pages/country/addContry';
-import EditContry from '@/pages/country/editContry';
+import Countries from '@/pages/Country/country';
+import AddContry from '@/pages/Country/addContry';
+import EditContry from '@/pages/Country/editContry';
+
+import States from '@/pages/State/states';
+import AddState from '@/pages/State/addState';
+import EditState from '@/pages/State/editState';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
 export default function App() {
@@ -24,10 +28,15 @@ export default function App() {
                     />
                     <Route element={<AppLayout />}>
                         <Route path="/dashboard" element={<Dashboard />} />
+                        {/* Countries List */}
                         <Route path="/countries" element={<Countries />} />
                         <Route path="/countries/add" element={<AddContry />} />
                         <Route path="/countries/:id/edit" element={<EditContry />} />
-                        {/* Add future protected pages here */}
+
+                        {/* State List */}
+                        <Route path="/states" element={<States />} />
+                        <Route path="/states/add" element={<AddState />} />
+                        <Route path="/states/:id/edit" element={<EditState />} />
                     </Route>
                 </Routes>
             </BrowserRouter>

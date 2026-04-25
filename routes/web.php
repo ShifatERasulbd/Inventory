@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CountryController;
+use App\Http\Controllers\StateController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -18,7 +19,11 @@ Route::prefix('api')->group(function () {
         });
 
         Route::post('/logout', [AuthController::class, 'logout']);
+        // Country Controller
         Route::apiResource('/countries', CountryController::class);
+
+        // State Controller
+        Route::apiResource('/states',StateController::class);
     });
 });
 

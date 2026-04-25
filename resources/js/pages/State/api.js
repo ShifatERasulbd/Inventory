@@ -1,11 +1,11 @@
-async function ensureCsrfCookie() {
-    await fetch('/sanctum/csrf-cookie', {
-        credentials: 'include',
-        headers: {
-            Accept: 'application/json',
+async function ensureCsrfCookie(){
+    await fetch('/sanctum/csrf-cookie',{
+        credentials:'include',
+        headers:{
+            Accept:'application/json',
             'X-Requested-With': 'XMLHttpRequest',
         },
-    });
+    })
 }
 
 async function requestJson(url, options = {}) {  
@@ -34,36 +34,36 @@ async function requestJson(url, options = {}) {
     return payload;
 }
 
-export async function fetchCountries() {
-    const payload = await requestJson('/api/countries');
 
-    // Keep UI stable even if the backend/auth layer returns an unexpected payload.
+export async function fetchStates(){
+    const payload =await requestJson('/api/states');
     return Array.isArray(payload) ? payload : [];
 }
 
-export async function fetchCountry(id) {
-    return requestJson(`/api/countries/${id}`);
+export async function fetchState(id){
+    return requestJson(`/api/states/${id}`);
 }
 
-export async function createCountry(data) {
+export async function createState(data){
     await ensureCsrfCookie();
-    return requestJson('/api/countries', {
-        method: 'POST',
+    return requestJson('/api/states',{
+        method:'POST',
         body: JSON.stringify(data),
     });
 }
 
-export async function updateCountry(id, data) {
+export async function updateState(id,data){
     await ensureCsrfCookie();
-    return requestJson(`/api/countries/${id}`, {
-        method: 'PUT',
+    return requestJson(`/api/states/${id}`,{
+        method:'PUT',
         body: JSON.stringify(data),
     });
 }
 
-export async function deleteCountry(id) {
+export async function deleteState(id){
     await ensureCsrfCookie();
-    return requestJson(`/api/countries/${id}`, {
-        method: 'DELETE',
+    return requestJson(`/api/states/${id}`,{
+        method:'DELETE'
     });
 }
+

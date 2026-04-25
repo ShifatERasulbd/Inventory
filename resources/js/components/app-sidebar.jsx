@@ -8,7 +8,7 @@ import {
     LifeBuoy,
     LogOut,
     MoreHorizontal,
-    Sparkles,
+    Airplay,
     Users,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -30,7 +30,7 @@ import {
 const homeItems = [
     { title: 'Dashboard', icon: Gauge, path: '/dashboard' },
     { title: 'Country', icon: Globe, path: '/countries' },
-    { title: 'Analytics', icon: BarChart3, path: '/analytics' },
+    { title: 'State', icon: Airplay, path: '/states' },
     { title: 'Projects', icon: FolderKanban, path: '/projects' },
     { title: 'Team', icon: Users, path: '/team' },
 ];

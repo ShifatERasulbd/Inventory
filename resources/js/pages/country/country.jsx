@@ -8,7 +8,7 @@ import { deleteCountry, fetchCountries } from './api';
 
 export default function Countries() {
   const navigate = useNavigate();
-    const { setPageTitle } = useAppContext();
+  const { setPageTitle } = useAppContext();
   const [countries, setCountries] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
