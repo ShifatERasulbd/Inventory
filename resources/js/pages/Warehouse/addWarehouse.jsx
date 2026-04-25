@@ -5,6 +5,7 @@ import { useAppContext } from '@/context/AppContext';
 import { fetchCountries } from '@/pages/Country/api';
 import { fetchStates } from '@/pages/State/api';
 import { toast } from 'sonner';
+import { createWarehouse } from './api';
 
 const initialForm={
     name:'',
@@ -39,6 +40,7 @@ export default function AddWarehouse(){
     const [form, setForm] = useState(initialForm);
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [requestError, setRequestError] = useState('');
 
     const [countries, setCountries] = useState([]);
     const [states, setStates] = useState([]);
@@ -107,13 +109,29 @@ export default function AddWarehouse(){
         }
 
         setIsSubmitting(true);
+        setRequestError('');
 
         try {
-            // TODO: Wire to warehouse API when backend endpoints are ready.
-            toast.success('Warehouse data is valid and ready to save.', {
+            await createWarehouse({
+                country_id: Number(form.country_id),
+                state_id: Number(form.state_id),
+                name: form.name.trim(),
+                fulladress: form.fulladress.trim(),
+            });
+
+            toast.success('Warehouse created successfully.', {
                 style: { color: '#16a34a' },
             });
             navigate('/warehouses');
+        } catch (error) {
+            setErrors(error.payload?.errors || {});
+            if (!error.payload?.errors) {
+                const message = error.message || 'Failed to create warehouse.';
+                setRequestError(message);
+                toast.error(message, {
+                    style: { color: '#dc2626' },
+                });
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -122,6 +140,7 @@ export default function AddWarehouse(){
     return (
         <>
               <div className="space-y-5">
+                {requestError && <p className="text-sm text-destructive">{requestError}</p>}
                      <div className="grid grid-cols-1 gap-4 lg:grid-cols-1">
                         <AddForm
                              form={form}

@@ -17,6 +17,7 @@ const EditState = lazy(() => import('@/pages/State/editState'));
 
 const Warehouse = lazy(()=>import ('@/pages/Warehouse/warehouse'));
 const AddWarehouse= lazy(()=>import ('@/pages/Warehouse/addWarehouse.jsx'))
+const EditWarehouse = lazy(() => import('@/pages/Warehouse/editWarehouse.jsx'));
 
 
 export default function App() {
@@ -50,6 +51,7 @@ export default function App() {
                             {/* warehouses */}
                             <Route path="/warehouses" element={<Warehouse/>}/>
                             <Route path="/warehouses/add" element={<AddWarehouse/>}/>
+                            <Route path="/warehouses/:id/edit" element={<EditWarehouse />} />
                         </Route>
                     </Routes>
                 </Suspense>

@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\StateController;
+use App\Http\Controllers\WarehouseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,9 @@ Route::prefix('api')->group(function () {
 
         // State Controller
         Route::apiResource('/states',StateController::class);
+
+        // Warehouse Controller
+        Route::apiResource('/warehouses',WarehouseController::class);
     });
 });
 

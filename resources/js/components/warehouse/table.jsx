@@ -10,12 +10,19 @@ import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
-export default function WarehouseTable({ onAdd }){
-    return(
+export default function WarehouseTable({
+    warehouses = [],
+    onAdd,
+    onEdit,
+    onRequestDelete,
+    deletingId,
+    isLoading,
+}) {
+    return (
         <>
         <div className="flex justify-end">
             <Button className="gap-2" onClick={onAdd}>
-                <plus />
+                <Plus />
                 Add Warehouse
             </Button>
         </div>
@@ -29,36 +36,57 @@ export default function WarehouseTable({ onAdd }){
                         <TableHead>Country</TableHead>
                         <TableHead>State</TableHead>
                         <TableHead>Full Address</TableHead>
-                         <TableHead>Action</TableHead>
+                        <TableHead>Action</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow>
-                        <TableCell className="font-medium">01</TableCell>
-                        <TableCell>WareHouse Name</TableCell>
-                        <TableCell>Country Name</TableCell>
-                        <TableCell>State Name</TableCell>
-                        <TableCell>Full Address</TableCell>
-                        <TableCell>
-                            <div className="flex items-center gap-2">
+                    {isLoading && (
+                        <TableRow>
+                            <TableCell colSpan={6} className="text-center text-muted-foreground">
+                                Loading warehouses...
+                            </TableCell>
+                        </TableRow>
+                    )}
+
+                    {!isLoading && warehouses.length === 0 && (
+                        <TableRow>
+                            <TableCell colSpan={6} className="text-center text-muted-foreground">
+                                No warehouses found.
+                            </TableCell>
+                        </TableRow>
+                    )}
+
+                    {!isLoading &&
+                        warehouses.map((warehouse, index) => (
+                            <TableRow key={warehouse.id}>
+                                <TableCell className="font-medium">{index + 1}</TableCell>
+                                <TableCell>{warehouse.name}</TableCell>
+                                <TableCell>{warehouse.country?.name || '-'}</TableCell>
+                                <TableCell>{warehouse.state?.name || '-'}</TableCell>
+                                <TableCell>{warehouse.fulladress}</TableCell>
+                                <TableCell>
+                                    <div className="flex items-center gap-2">
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                           
+                                            aria-label={`Edit ${warehouse.name}`}
+                                            onClick={() => onEdit?.(warehouse.id)}
                                         >
                                             <Pencil />
                                         </Button>
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                           
+                                            aria-label={`Delete ${warehouse.name}`}
+                                            onClick={() => onRequestDelete?.(warehouse)}
+                                            disabled={deletingId === warehouse.id}
                                         >
                                             <Trash2 className="text-destructive" />
                                         </Button>
                                     </div>
-                        </TableCell>
-                    </TableRow>
-                    
+                                </TableCell>
+                            </TableRow>
+                        ))}
                 </TableBody>
             </Table>
         </Card>
