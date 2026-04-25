@@ -2,6 +2,7 @@ import { LoginForm } from '@/components/login-form';
 import { AppProvider } from '@/context/AppContext';
 import AppLayout from '@/layouts/AppLayout';
 import Dashboard from '@/pages/dashboard';
+import Countries from '@/pages/country';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
                     />
                     <Route element={<AppLayout />}>
                         <Route path="/dashboard" element={<Dashboard />} />
+                        <Route path="/countries" element={<Countries/>}/>
                         {/* Add future protected pages here */}
                     </Route>
                 </Routes>

@@ -9,9 +9,9 @@ Route::get('/', function () {
 })->name('login');
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/dashboard', function () {
+    Route::get('/{path}', function () {
         return view('app');
-    });
+    })->where('path', '.*');
 });
 
 Route::prefix('api')->group(function () {

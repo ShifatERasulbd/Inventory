@@ -4,6 +4,7 @@ import {
     FileBarChart2,
     FolderKanban,
     Gauge,
+    Globe,
     LifeBuoy,
     LogOut,
     MoreHorizontal,
@@ -28,7 +29,7 @@ import {
 
 const homeItems = [
     { title: 'Dashboard', icon: Gauge, path: '/dashboard' },
-    { title: 'Lifecycle', icon: Sparkles, path: '/lifecycle' },
+    { title: 'Country', icon: Globe, path: '/countries' },
     { title: 'Analytics', icon: BarChart3, path: '/analytics' },
     { title: 'Projects', icon: FolderKanban, path: '/projects' },
     { title: 'Team', icon: Users, path: '/team' },
