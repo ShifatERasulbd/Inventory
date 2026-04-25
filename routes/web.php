@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\StateController;
 use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +29,9 @@ Route::prefix('api')->group(function () {
 
         // Warehouse Controller
         Route::apiResource('/warehouses',WarehouseController::class);
+
+        // User Controller
+        Route::apiResource('/users', UserController::class);
     });
 });
 

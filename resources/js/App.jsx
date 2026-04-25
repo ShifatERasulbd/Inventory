@@ -19,6 +19,10 @@ const Warehouse = lazy(()=>import ('@/pages/Warehouse/warehouse'));
 const AddWarehouse= lazy(()=>import ('@/pages/Warehouse/addWarehouse.jsx'))
 const EditWarehouse = lazy(() => import('@/pages/Warehouse/editWarehouse.jsx'));
 
+const Users = lazy(()=>import ('@/pages/User/user'))
+const AddUser = lazy(() => import('@/pages/User/addUser'));
+const EditUser = lazy(() => import('@/pages/User/editUser'));
+
 
 export default function App() {
     return (
@@ -52,6 +56,11 @@ export default function App() {
                             <Route path="/warehouses" element={<Warehouse/>}/>
                             <Route path="/warehouses/add" element={<AddWarehouse/>}/>
                             <Route path="/warehouses/:id/edit" element={<EditWarehouse />} />
+
+                            {/* users */}
+                            <Route path="/users" element={<Users/>}/>
+                            <Route path="/users/add" element={<AddUser />} />
+                            <Route path="/users/:id/edit" element={<EditUser />} />
                         </Route>
                     </Routes>
                 </Suspense>

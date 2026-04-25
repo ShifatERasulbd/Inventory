@@ -32,7 +32,7 @@ const homeItems = [
     { title: 'Country', icon: Globe, path: '/countries' },
     { title: 'State', icon: Airplay, path: '/states' },
     { title: 'WareHouse', icon: BarChart3, path: '/warehouses' },
-    { title: 'Team', icon: Users, path: '/team' },
+    { title: 'User', icon: Users, path: '/users' },
 ];
 
 const docsItems = [
