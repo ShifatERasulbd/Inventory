@@ -74,4 +74,16 @@ class UserController extends Controller
 
         return response()->json(['message' => 'User deleted']);
     }
+
+    public function syncRoles(Request $request, User $user): JsonResponse
+    {
+        $validated = $request->validate([
+            'role_ids' => ['array'],
+            'role_ids.*' => ['integer', 'exists:roles,id'],
+        ]);
+
+        $user->roles()->sync($validated['role_ids'] ?? []);
+
+        return response()->json($user->fresh()->load('roles:id,name,slug'));
+    }
 }

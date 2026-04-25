@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CountryController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StateController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\UserController;
@@ -17,7 +19,9 @@ Route::prefix('api')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/user', function (Request $request) {
-            return response()->json($request->user());
+            return response()->json(
+                $request->user()->load('warehouse:id,name', 'roles.permissions:id,name,slug')
+            );
         });
 
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -32,6 +36,12 @@ Route::prefix('api')->group(function () {
 
         // User Controller
         Route::apiResource('/users', UserController::class);
+
+        Route::middleware('super-admin')->group(function () {
+            Route::get('/permissions', [PermissionController::class, 'index']);
+            Route::apiResource('/roles', RoleController::class);
+            Route::put('/users/{user}/roles', [UserController::class, 'syncRoles']);
+        });
     });
 });
 

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 
 import { AppSidebar } from '@/components/app-sidebar';
@@ -5,7 +6,44 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/s
 import { useAppContext } from '@/context/AppContext';
 
 export default function AppLayout() {
-    const { pageTitle } = useAppContext();
+    const { pageTitle, user, setUser } = useAppContext();
+
+    useEffect(() => {
+        let ignore = false;
+
+        async function loadUser() {
+            try {
+                const response = await fetch('/api/user', {
+                    credentials: 'include',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+                if (!response.ok || ignore) {
+                    return;
+                }
+
+                const payload = await response.json();
+                if (!ignore) {
+                    setUser(payload);
+                }
+            } catch {
+                // Keep layout resilient even if user fetch fails.
+            }
+        }
+
+        if (!user) {
+            loadUser();
+        }
+
+        return () => {
+            ignore = true;
+        };
+    }, [setUser, user]);
+
+    const warehouseName = user?.warehouse?.name || 'No Warehouse Assigned';
 
     return (
         <SidebarProvider>
@@ -18,12 +56,9 @@ export default function AppLayout() {
                         <h1 className="text-sm font-semibold md:text-base">{pageTitle}</h1>
                     </div>
 
-                    <button
-                        type="button"
-                        className="inline-flex items-center rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background md:text-sm"
-                    >
-                        + Quick Create
-                    </button>
+                    <div className="inline-flex items-center rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background md:text-sm">
+                        {warehouseName}
+                    </div>
                 </header>
 
                 <div className="p-4 md:p-6">

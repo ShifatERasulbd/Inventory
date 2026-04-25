@@ -23,6 +23,10 @@ const Users = lazy(()=>import ('@/pages/User/user'))
 const AddUser = lazy(() => import('@/pages/User/addUser'));
 const EditUser = lazy(() => import('@/pages/User/editUser'));
 
+const Roles = lazy(() => import('@/pages/Role/roles'));
+const AddRole = lazy(() => import('@/pages/Role/addRole'));
+const EditRole = lazy(() => import('@/pages/Role/editRole'));
+
 
 export default function App() {
     return (
@@ -61,6 +65,11 @@ export default function App() {
                             <Route path="/users" element={<Users/>}/>
                             <Route path="/users/add" element={<AddUser />} />
                             <Route path="/users/:id/edit" element={<EditUser />} />
+
+                            {/* roles */}
+                            <Route path="/roles" element={<Roles/>}/>
+                            <Route path="/roles/add" element={<AddRole />} />
+                            <Route path="/roles/:id/edit" element={<EditRole />} />
                         </Route>
                     </Routes>
                 </Suspense>

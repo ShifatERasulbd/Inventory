@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAppContext } from '@/context/AppContext';
 
 export function LoginForm() {
     const navigate = useNavigate();
+    const { setUser } = useAppContext();
     const [form, setForm] = useState({ email: '', password: '' });
     const [errorMessage, setErrorMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -50,6 +52,19 @@ export function LoginForm() {
                 const payload = await response.json().catch(() => null);
                 setErrorMessage(payload?.message || 'Unable to login. Please check your credentials.');
                 return;
+            }
+
+            const userResponse = await fetch('/api/user', {
+                credentials: 'include',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (userResponse.ok) {
+                const userPayload = await userResponse.json();
+                setUser(userPayload);
             }
 
             navigate('/dashboard');

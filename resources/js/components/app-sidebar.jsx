@@ -10,6 +10,7 @@ import {
     MoreHorizontal,
     Airplay,
     Users,
+    Shield,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -26,13 +27,15 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { useAppContext } from '@/context/AppContext';
 
 const homeItems = [
-    { title: 'Dashboard', icon: Gauge, path: '/dashboard' },
-    { title: 'Country', icon: Globe, path: '/countries' },
-    { title: 'State', icon: Airplay, path: '/states' },
-    { title: 'WareHouse', icon: BarChart3, path: '/warehouses' },
-    { title: 'User', icon: Users, path: '/users' },
+    { title: 'Dashboard', icon: Gauge, path: '/dashboard', permission: 'view-dashboard' },
+    { title: 'Country', icon: Globe, path: '/countries', permission: 'manage-countries' },
+    { title: 'State', icon: Airplay, path: '/states', permission: 'manage-states' },
+    { title: 'WareHouse', icon: BarChart3, path: '/warehouses', permission: 'manage-warehouses' },
+    { title: 'User', icon: Users, path: '/users', permission: 'manage-users' },
+    { title: 'Role', icon: Shield, path: '/roles', permission: 'manage-roles' },
 ];
 
 const docsItems = [
@@ -45,7 +48,20 @@ const docsItems = [
 export function AppSidebar(props) {
     const navigate = useNavigate();
     const location = useLocation();
+    const { user } = useAppContext();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const permissionSlugs = Array.isArray(user?.permission_slugs) ? user.permission_slugs : [];
+    const roleSlugs = Array.isArray(user?.role_slugs) ? user.role_slugs : [];
+    const isSuperAdmin = roleSlugs.includes('super-admin');
+
+    const canAccess = (permission) => {
+        if (!permission) return true;
+        if (isSuperAdmin) return true;
+        return permissionSlugs.includes(permission);
+    };
+
+    const visibleHomeItems = homeItems.filter((item) => canAccess(item.permission));
 
     const handleLogout = async () => {
         if (isLoggingOut) {
@@ -91,7 +107,7 @@ export function AppSidebar(props) {
                     <SidebarGroupLabel>Home</SidebarGroupLabel>
                     <SidebarGroupContent>
                         <SidebarMenu>
-                            {homeItems.map((item) => (
+                            {visibleHomeItems.map((item) => (
                                 <SidebarMenuItem key={item.title}>
                                     <SidebarMenuButton
                                         asChild
