@@ -45,8 +45,8 @@ Route::prefix('api')->group(function () {
         // Rack Row Controller
         Route::apiResource('/racks/{rack}/rows', RackRowController::class);
 
-        // BrandController
-        Route::apiResources('/brands',BrandController::class);
+        // Brand Controller
+        Route::apiResource('/brands', BrandController::class);
         Route::middleware('super-admin')->group(function () {
             Route::get('/permissions', [PermissionController::class, 'index']);
             Route::apiResource('/roles', RoleController::class);

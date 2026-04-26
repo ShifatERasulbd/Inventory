@@ -34,12 +34,15 @@ async function requestJson(url, options = {}) {
     return payload;
 }
 
-export async function fetchbrands() {
+export async function fetchBrands() {
     const payload = await requestJson('/api/brands');
 
     // Keep UI stable even if the backend/auth layer returns an unexpected payload.
     return Array.isArray(payload) ? payload : [];
 }
+
+// Backward-compatible export while older imports are being migrated.
+export const fetchbrands = fetchBrands;
 
 export async function fetchBrand(id) {
     return requestJson(`/api/brands/${id}`);
