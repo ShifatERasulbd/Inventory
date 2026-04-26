@@ -11,6 +11,7 @@ import {
     Airplay,
     Users,
     Shield,
+    ChartBarDecreasing,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -36,7 +37,8 @@ const homeItems = [
     { title: 'WareHouse', icon: BarChart3, path: '/warehouses', permission: 'manage-warehouses' },
     { title: 'User', icon: Users, path: '/users', permission: 'manage-users' },
     { title: 'Role', icon: Shield, path: '/roles', permission: 'manage-roles' },
-    { title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-products-for' }
+    { title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-products-for' },
+    {title: 'Rack', icon: ChartBarDecreasing, path:'/racks', permission:'manage-rack'}
 ];
 
 const docsItems = [

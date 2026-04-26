@@ -8,6 +8,7 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StateController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\RackController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -35,6 +36,9 @@ Route::prefix('api')->group(function () {
 
         // Products For Controller
         Route::apiResource('/products-for', ProductForController::class);
+
+        // Rack Controller
+        Route::apiResource('/racks', RackController::class);
 
         Route::middleware('super-admin')->group(function () {
             Route::get('/permissions', [PermissionController::class, 'index']);

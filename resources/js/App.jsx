@@ -31,6 +31,11 @@ const ProductsFor=lazy(()=>import ('@/pages/ProductsFor/productsFor'));
 const AddProductsFor = lazy(() => import('@/pages/ProductsFor/addProductsFor'));
 const EditProductsFor = lazy(() => import('@/pages/ProductsFor/editProductsFor'));
 
+// Rack 
+const Rack=lazy(()=>import ('@/pages/Rack/rack'));
+const AddRacks=lazy(()=>import('@/pages/Rack/addRack'));
+const EditRack=lazy(()=>import('@/pages/Rack/editRack'));
+
 export default function App() {
     return (
         <AppProvider>
@@ -78,6 +83,11 @@ export default function App() {
                             <Route path="/productsfor" element={<ProductsFor/>}/>
                             <Route path="/productsfor/add" element={<AddProductsFor />} />
                             <Route path="/productsfor/:id/edit" element={<EditProductsFor />} />
+
+                            {/* Rack */}
+                            <Route path="/racks" element={<Rack/>}/>
+                            <Route path="/racks/add" element={<AddRacks/>}/>
+                            <Route path="/racks/:id/edit" element={<EditRack/>}/>
                         </Route>
                     </Routes>
                 </Suspense>

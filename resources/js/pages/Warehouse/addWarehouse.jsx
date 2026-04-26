@@ -146,13 +146,13 @@ export default function AddWarehouse(){
                              form={form}
                              onChange={handleChange}
                              onCountryChange={handleCountryChange}
-                                onStateChange={handleStateChange}
-                                          onStateOpenChange={handleStateOpenChange}
+                             onStateChange={handleStateChange}
+                             onStateOpenChange={handleStateOpenChange}
                              onSubmit={handleSubmit}
                              onCancel={() => navigate('/warehouses')}
                              isSubmitting={isSubmitting}
                              countries={countries}
-                                states={filteredStates}
+                             states={filteredStates}
                              errors={errors}
                         />
                      </div>  
