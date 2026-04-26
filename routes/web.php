@@ -9,6 +9,7 @@ use App\Http\Controllers\StateController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RackController;
+use App\Http\Controllers\RackRowController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -39,6 +40,9 @@ Route::prefix('api')->group(function () {
 
         // Rack Controller
         Route::apiResource('/racks', RackController::class);
+
+        // Rack Row Controller
+        Route::apiResource('/racks/{rack}/rows', RackRowController::class);
 
         Route::middleware('super-admin')->group(function () {
             Route::get('/permissions', [PermissionController::class, 'index']);

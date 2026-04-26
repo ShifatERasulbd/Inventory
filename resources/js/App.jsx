@@ -35,6 +35,10 @@ const EditProductsFor = lazy(() => import('@/pages/ProductsFor/editProductsFor')
 const Rack=lazy(()=>import ('@/pages/Rack/rack'));
 const AddRacks=lazy(()=>import('@/pages/Rack/addRack'));
 const EditRack=lazy(()=>import('@/pages/Rack/editRack'));
+// Rack Rows
+const RackRows = lazy(() => import('@/pages/RackRow/rackRows'));
+const AddRackRow = lazy(() => import('@/pages/RackRow/addRackRow'));
+const EditRackRow = lazy(() => import('@/pages/RackRow/editRackRow'));
 
 export default function App() {
     return (
@@ -88,6 +92,11 @@ export default function App() {
                             <Route path="/racks" element={<Rack/>}/>
                             <Route path="/racks/add" element={<AddRacks/>}/>
                             <Route path="/racks/:id/edit" element={<EditRack/>}/>
+
+                            {/* Rack Rows */}
+                            <Route path="/racks/:rack_id/rows" element={<RackRows/>}/>
+                            <Route path="/racks/:rack_id/rows/add" element={<AddRackRow/>}/>
+                            <Route path="/racks/:rack_id/rows/:id/edit" element={<EditRackRow/>}/>
                         </Route>
                     </Routes>
                 </Suspense>
