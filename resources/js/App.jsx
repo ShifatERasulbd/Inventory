@@ -5,40 +5,63 @@ import { AppProvider } from '@/context/AppContext';
 import AppLayout from '@/layouts/AppLayout';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
-const Dashboard = lazy(() => import('@/pages/dashboard'));
+function lazyWithRetry(importer, key) {
+    return lazy(async () => {
+        const storageKey = `lazy-retry:${key}`;
+
+        try {
+            const module = await importer();
+            sessionStorage.removeItem(storageKey);
+            return module;
+        } catch (error) {
+            const hasRetried = sessionStorage.getItem(storageKey) === '1';
+
+            if (!hasRetried && error instanceof TypeError) {
+                sessionStorage.setItem(storageKey, '1');
+                window.location.reload();
+                return new Promise(() => {});
+            }
+
+            sessionStorage.removeItem(storageKey);
+            throw error;
+        }
+    });
+}
+
+const Dashboard = lazyWithRetry(() => import('@/pages/dashboard'), 'dashboard');
 // country route
-const Countries = lazy(() => import('@/pages/Country/country'));
-const AddContry = lazy(() => import('@/pages/Country/addContry'));
-const EditContry = lazy(() => import('@/pages/Country/editContry'));
+const Countries = lazyWithRetry(() => import('@/pages/Country/country'), 'countries');
+const AddContry = lazyWithRetry(() => import('@/pages/Country/addContry'), 'countries-add');
+const EditContry = lazyWithRetry(() => import('@/pages/Country/editContry'), 'countries-edit');
 // state route
-const States = lazy(() => import('@/pages/State/states'));
-const AddState = lazy(() => import('@/pages/State/addState'));
-const EditState = lazy(() => import('@/pages/State/editState'));
+const States = lazyWithRetry(() => import('@/pages/State/states'), 'states');
+const AddState = lazyWithRetry(() => import('@/pages/State/addState'), 'states-add');
+const EditState = lazyWithRetry(() => import('@/pages/State/editState'), 'states-edit');
 // warehouse route
-const Warehouse = lazy(()=>import ('@/pages/Warehouse/warehouse'));
-const AddWarehouse= lazy(()=>import ('@/pages/Warehouse/addWarehouse.jsx'))
-const EditWarehouse = lazy(() => import('@/pages/Warehouse/editWarehouse.jsx'));
+const Warehouse = lazyWithRetry(() => import('@/pages/Warehouse/warehouse'), 'warehouses');
+const AddWarehouse = lazyWithRetry(() => import('@/pages/Warehouse/addWarehouse.jsx'), 'warehouses-add');
+const EditWarehouse = lazyWithRetry(() => import('@/pages/Warehouse/editWarehouse.jsx'), 'warehouses-edit');
 // user route
-const Users = lazy(()=>import ('@/pages/User/user'))
-const AddUser = lazy(() => import('@/pages/User/addUser'));
-const EditUser = lazy(() => import('@/pages/User/editUser'));
+const Users = lazyWithRetry(() => import('@/pages/User/user'), 'users');
+const AddUser = lazyWithRetry(() => import('@/pages/User/addUser'), 'users-add');
+const EditUser = lazyWithRetry(() => import('@/pages/User/editUser'), 'users-edit');
 // role route
-const Roles = lazy(() => import('@/pages/Role/roles'));
-const AddRole = lazy(() => import('@/pages/Role/addRole'));
-const EditRole = lazy(() => import('@/pages/Role/editRole'));
+const Roles = lazyWithRetry(() => import('@/pages/Role/roles'), 'roles');
+const AddRole = lazyWithRetry(() => import('@/pages/Role/addRole'), 'roles-add');
+const EditRole = lazyWithRetry(() => import('@/pages/Role/editRole'), 'roles-edit');
 // Products for route
-const ProductsFor=lazy(()=>import ('@/pages/ProductsFor/productsFor'));
-const AddProductsFor = lazy(() => import('@/pages/ProductsFor/addProductsFor'));
-const EditProductsFor = lazy(() => import('@/pages/ProductsFor/editProductsFor'));
+const ProductsFor = lazyWithRetry(() => import('@/pages/ProductsFor/productsFor'), 'products-for');
+const AddProductsFor = lazyWithRetry(() => import('@/pages/ProductsFor/addProductsFor'), 'products-for-add');
+const EditProductsFor = lazyWithRetry(() => import('@/pages/ProductsFor/editProductsFor'), 'products-for-edit');
 
 // Rack 
-const Rack=lazy(()=>import ('@/pages/Rack/rack'));
-const AddRacks=lazy(()=>import('@/pages/Rack/addRack'));
-const EditRack=lazy(()=>import('@/pages/Rack/editRack'));
+const Rack = lazyWithRetry(() => import('@/pages/Rack/rack'), 'racks');
+const AddRacks = lazyWithRetry(() => import('@/pages/Rack/addRack'), 'racks-add');
+const EditRack = lazyWithRetry(() => import('@/pages/Rack/editRack'), 'racks-edit');
 // Rack Rows
-const RackRows = lazy(() => import('@/pages/RackRow/rackRows'));
-const AddRackRow = lazy(() => import('@/pages/RackRow/addRackRow'));
-const EditRackRow = lazy(() => import('@/pages/RackRow/editRackRow'));
+const RackRows = lazyWithRetry(() => import('@/pages/RackRow/rackRows'), 'rack-rows');
+const AddRackRow = lazyWithRetry(() => import('@/pages/RackRow/addRackRow'), 'rack-rows-add');
+const EditRackRow = lazyWithRetry(() => import('@/pages/RackRow/editRackRow'), 'rack-rows-edit');
 
 export default function App() {
     return (

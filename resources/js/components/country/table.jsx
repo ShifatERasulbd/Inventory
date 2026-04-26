@@ -6,16 +6,36 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
-
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 export function CountryTable({ countries = [], onAdd, onEdit, onRequestDelete, deletingId, isLoading }) {
+    const [search, setSearch] = useState('');
+    const filtered = countries.filter((c) => {
+        const q = search.toLowerCase();
+        return (
+            c.name?.toLowerCase().includes(q) ||
+            c.code?.toLowerCase().includes(q) ||
+            c.currency_code?.toLowerCase().includes(q)
+        );
+    });
+
     return (
         <>
-        <div className="flex justify-end">
-            <Button className="gap-2" onClick={onAdd}>
+        <div className="flex items-center gap-3 justify-between">
+            <div className="relative min-w-0 flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Search countries..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-9"
+                />
+            </div>
+            <Button className="shrink-0 gap-2" onClick={onAdd}>
                 <Plus />
                 Add Country
             </Button>
@@ -50,8 +70,16 @@ export function CountryTable({ countries = [], onAdd, onEdit, onRequestDelete, d
                         </TableRow>
                     )}
 
+                    {!isLoading && filtered.length === 0 && countries.length > 0 && (
+                        <TableRow>
+                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                No countries match your search.
+                            </TableCell>
+                        </TableRow>
+                    )}
+
                     {!isLoading &&
-                        countries.map((country, index) => (
+                        filtered.map((country, index) => (
                             <TableRow key={country.id}>
                                 <TableCell className="font-medium">{index + 1}</TableCell>
                                 <TableCell>{country.name}</TableCell>

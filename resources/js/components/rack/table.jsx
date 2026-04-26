@@ -6,17 +6,37 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Pencil, Plus, Trash2,Rows } from 'lucide-react';
+import { Pencil, Plus, Rows, Search, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useNavigate } from 'react-router-dom'
+import { Input } from '@/components/ui/input';
+import { useNavigate } from 'react-router-dom';
 
 export default function RackTable({ data = [], isLoading, onAdd, onEdit, onRequestDelete }){
-    const navigate= useNavigate();
+    const navigate = useNavigate();
+    const [search, setSearch] = useState('');
+    const filtered = data.filter((r) => {
+        const q = search.toLowerCase();
+        return (
+            r.name?.toLowerCase().includes(q) ||
+            (r.warehouse?.name ?? '').toLowerCase().includes(q)
+        );
+    });
+
     return (
         <>
-        <div className="flex justify-end">
-            <Button className="gap-2" onClick={onAdd}>
+        <div className="flex items-center gap-3 justify-between">
+            <div className="relative min-w-0 flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Search racks..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-9"
+                />
+            </div>
+            <Button className="shrink-0 gap-2" onClick={onAdd}>
                 <Plus/>
                 Add Rack
             </Button>
@@ -38,14 +58,14 @@ export default function RackTable({ data = [], isLoading, onAdd, onEdit, onReque
                                     Loading...
                                 </TableCell>
                             </TableRow>
-                        ) : data.length === 0 ? (
+                        ) : filtered.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan="4" className="text-center py-8 text-muted-foreground">
-                                    No racks found.
+                                    {search ? 'No racks match your search.' : 'No racks found.'}
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            data.map((rack, index) => (
+                            filtered.map((rack, index) => (
                                 <TableRow key={rack.id}>
                                     <TableCell className="font-medium">{index + 1}</TableCell>
                                     <TableCell>{rack.warehouse?.name || 'N/A'}</TableCell>

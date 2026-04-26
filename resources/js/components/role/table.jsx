@@ -8,9 +8,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Edit, Plus, Trash2 } from 'lucide-react';
+import { Edit, Plus, Search, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { Input } from '@/components/ui/input';
 
 export function RoleTable({ roles = [], onAdd, onEdit, onRequestDelete, isDeleting = false }) {
+  const [search, setSearch] = useState('');
+  const filtered = roles.filter((r) => {
+    const q = search.toLowerCase();
+    return (
+      r.name?.toLowerCase().includes(q) ||
+      (r.permissions || []).some((p) => p.name?.toLowerCase().includes(q))
+    );
+  });
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -18,15 +29,30 @@ export function RoleTable({ roles = [], onAdd, onEdit, onRequestDelete, isDeleti
           <CardTitle>Roles</CardTitle>
           <CardDescription>Manage system roles and their permissions.</CardDescription>
         </div>
-        <Button onClick={onAdd} size="sm">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Role
-        </Button>
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search roles..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9"
+            />
+          </div>
+          <Button onClick={onAdd} size="sm">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Role
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
-        {roles.length === 0 ? (
+        {!search && roles.length === 0 ? (
           <div className="text-center py-10">
             <p className="text-sm text-muted-foreground">No roles found.</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-sm text-muted-foreground">No roles match your search.</p>
           </div>
         ) : (
           <Table>
@@ -38,7 +64,7 @@ export function RoleTable({ roles = [], onAdd, onEdit, onRequestDelete, isDeleti
               </TableRow>
             </TableHeader>
             <TableBody>
-              {roles.map((role) => (
+              {filtered.map((role) => (
                 <TableRow key={role.id}>
                   <TableCell className="font-medium">{role.name}</TableCell>
                   <TableCell>
