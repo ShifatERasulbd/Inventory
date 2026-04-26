@@ -10,6 +10,7 @@ use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RackController;
 use App\Http\Controllers\RackRowController;
+use App\Http\Controllers\BrandController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -44,6 +45,8 @@ Route::prefix('api')->group(function () {
         // Rack Row Controller
         Route::apiResource('/racks/{rack}/rows', RackRowController::class);
 
+        // BrandController
+        Route::apiResources('/brands',BrandController::class);
         Route::middleware('super-admin')->group(function () {
             Route::get('/permissions', [PermissionController::class, 'index']);
             Route::apiResource('/roles', RoleController::class);

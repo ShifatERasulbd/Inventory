@@ -112,7 +112,7 @@ export function AppSidebar(props) {
                 </div>
             </SidebarHeader>
 
-            <SidebarContent className="px-2 py-3">
+            <SidebarContent className="py-3">
                 {visibleHomeItems.length > 0 && (
                     <SidebarGroup>
                         <SidebarGroupLabel>Home</SidebarGroupLabel>
