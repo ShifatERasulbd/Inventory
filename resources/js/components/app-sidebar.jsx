@@ -32,21 +32,24 @@ import { useAppContext } from '@/context/AppContext';
 
 const homeItems = [
     { title: 'Dashboard', icon: Gauge, path: '/dashboard', permission: 'view-dashboard' },
+    {title:'Brand', icon:Shield, path:'/brands',permission:'manage-brand'}
+];
+
+const locationItems=[
     { title: 'Country', icon: Globe, path: '/countries', permission: 'manage-countries' },
     { title: 'State', icon: Airplay, path: '/states', permission: 'manage-states' },
     { title: 'WareHouse', icon: BarChart3, path: '/warehouses', permission: 'manage-warehouses' },
-    { title: 'User', icon: Users, path: '/users', permission: 'manage-users' },
-    { title: 'Role', icon: Shield, path: '/roles', permission: 'manage-roles' },
-    { title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-products-for' },
-    {title: 'Rack', icon: ChartBarDecreasing, path:'/racks', permission:'manage-rack'}
-];
+]
 
-const docsItems = [
-    { title: 'Data Library', icon: Circle, path: '/data-library' },
-    { title: 'Reports', icon: FileBarChart2, path: '/reports' },
-    { title: 'Word Assistant', icon: LifeBuoy, path: '/word-assistant' },
-    { title: 'More', icon: MoreHorizontal, path: '/more' },
-];
+const StrorageItems=[
+    { title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-products-for' },
+    {title: 'Rack', icon: ChartBarDecreasing, path:'/racks', permission:'manage-rack'},
+]
+
+const userAccessItems=[
+     { title: 'User', icon: Users, path: '/users', permission: 'manage-users' },
+     { title: 'Role', icon: Shield, path: '/roles', permission: 'manage-roles' },
+]
 
 export function AppSidebar(props) {
     const navigate = useNavigate();
@@ -65,6 +68,10 @@ export function AppSidebar(props) {
     };
 
     const visibleHomeItems = homeItems.filter((item) => canAccess(item.permission));
+    const visibleLocationItems=locationItems.filter((item)=>canAccess(item.permission));
+    const visibleStrorageItems=StrorageItems.filter((item)=>canAccess(item.permission));
+    const visibleuserAccessItems=userAccessItems.filter((item)=>canAccess(item.permission));
+    
 
     const handleLogout = async () => {
         if (isLoggingOut) {
@@ -101,54 +108,112 @@ export function AppSidebar(props) {
             <SidebarHeader className="border-b border-sidebar-border px-3 py-3">
                 <div className="flex items-center gap-2 px-1">
                     <span className="inline-flex size-4 rounded-full border border-sidebar-foreground/60" />
-                    <span className="text-sm font-semibold">AVANTA</span>
+                    <span className="text-sm font-semibold">AVANT</span>
                 </div>
             </SidebarHeader>
 
             <SidebarContent className="px-2 py-3">
-                <SidebarGroup>
-                    <SidebarGroupLabel>Home</SidebarGroupLabel>
-                    <SidebarGroupContent>
-                        <SidebarMenu>
-                            {visibleHomeItems.map((item) => (
-                                <SidebarMenuItem key={item.title}>
-                                    <SidebarMenuButton
-                                        asChild
-                                        tooltip={item.title}
-                                        isActive={location.pathname === item.path}
-                                    >
-                                        <Link to={item.path}>
-                                            <item.icon />
-                                            <span>{item.title}</span>
-                                        </Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            ))}
-                        </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
+                {visibleHomeItems.length > 0 && (
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Home</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {visibleHomeItems.map((item) => (
+                                    <SidebarMenuItem key={item.title}>
+                                        <SidebarMenuButton
+                                            asChild
+                                            tooltip={item.title}
+                                            isActive={location.pathname === item.path}
+                                        >
+                                            <Link to={item.path}>
+                                                <item.icon />
+                                                <span>{item.title}</span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                ))}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                )}
 
-                <SidebarGroup>
-                    <SidebarGroupLabel>Documents</SidebarGroupLabel>
-                    <SidebarGroupContent>
-                        <SidebarMenu>
-                            {docsItems.map((item) => (
-                                <SidebarMenuItem key={item.title}>
-                                    <SidebarMenuButton
-                                        asChild
-                                        tooltip={item.title}
-                                        isActive={location.pathname === item.path}
-                                    >
-                                        <Link to={item.path}>
-                                            <item.icon />
-                                            <span>{item.title}</span>
-                                        </Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            ))}
-                        </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
+                {/* location Management  */}
+                 {visibleLocationItems.length > 0 && (
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Location Management</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {visibleLocationItems.map((item) => (
+                                    <SidebarMenuItem key={item.title}>
+                                        <SidebarMenuButton
+                                            asChild
+                                            tooltip={item.title}
+                                            isActive={location.pathname === item.path}
+                                        >
+                                            <Link to={item.path}>
+                                                <item.icon />
+                                                <span>{item.title}</span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                ))}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                )}
+
+                 {/* storage Management  */}
+                 {visibleStrorageItems.length > 0 && (
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Storage Management</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {visibleStrorageItems.map((item) => (
+                                    <SidebarMenuItem key={item.title}>
+                                        <SidebarMenuButton
+                                            asChild
+                                            tooltip={item.title}
+                                            isActive={location.pathname === item.path}
+                                        >
+                                            <Link to={item.path}>
+                                                <item.icon />
+                                                <span>{item.title}</span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                ))}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                )}
+
+{/* user access */}
+                {visibleuserAccessItems.length > 0 && (
+                    <SidebarGroup>
+                        <SidebarGroupLabel>User Access</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {visibleuserAccessItems.map((item) => (
+                                    <SidebarMenuItem key={item.title}>
+                                        <SidebarMenuButton
+                                            asChild
+                                            tooltip={item.title}
+                                            isActive={location.pathname === item.path}
+                                        >
+                                            <Link to={item.path}>
+                                                <item.icon />
+                                                <span>{item.title}</span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                ))}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                )}
+
+
+                
             </SidebarContent>
 
             <SidebarFooter className="border-t border-sidebar-border">
