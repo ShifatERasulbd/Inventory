@@ -66,6 +66,7 @@ const EditRackRow = lazyWithRetry(() => import('@/pages/RackRow/editRackRow'), '
 
 // Brand
 const Brand=lazyWithRetry(()=>import ('@/pages/Brand/brand'));
+const AddBrand=lazyWithRetry(()=>import ('@/pages/Brand/addBrand'));
 
 export default function App() {
     return (
@@ -127,6 +128,7 @@ export default function App() {
 
                             {/* Brand */}
                             <Route path="/brands" element={<Brand/>}/>
+                            <Route path="/brands/add" element={<AddBrand/>}/>
                         </Route>
                     </Routes>
                 </Suspense>
