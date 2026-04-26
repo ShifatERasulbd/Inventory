@@ -36,6 +36,7 @@ const homeItems = [
     { title: 'WareHouse', icon: BarChart3, path: '/warehouses', permission: 'manage-warehouses' },
     { title: 'User', icon: Users, path: '/users', permission: 'manage-users' },
     { title: 'Role', icon: Shield, path: '/roles', permission: 'manage-roles' },
+    { title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-products-for' }
 ];
 
 const docsItems = [

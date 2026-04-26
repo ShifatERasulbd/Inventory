@@ -6,27 +6,30 @@ import AppLayout from '@/layouts/AppLayout';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
 const Dashboard = lazy(() => import('@/pages/dashboard'));
-
+// country route
 const Countries = lazy(() => import('@/pages/Country/country'));
 const AddContry = lazy(() => import('@/pages/Country/addContry'));
 const EditContry = lazy(() => import('@/pages/Country/editContry'));
-
+// state route
 const States = lazy(() => import('@/pages/State/states'));
 const AddState = lazy(() => import('@/pages/State/addState'));
 const EditState = lazy(() => import('@/pages/State/editState'));
-
+// warehouse route
 const Warehouse = lazy(()=>import ('@/pages/Warehouse/warehouse'));
 const AddWarehouse= lazy(()=>import ('@/pages/Warehouse/addWarehouse.jsx'))
 const EditWarehouse = lazy(() => import('@/pages/Warehouse/editWarehouse.jsx'));
-
+// user route
 const Users = lazy(()=>import ('@/pages/User/user'))
 const AddUser = lazy(() => import('@/pages/User/addUser'));
 const EditUser = lazy(() => import('@/pages/User/editUser'));
-
+// role route
 const Roles = lazy(() => import('@/pages/Role/roles'));
 const AddRole = lazy(() => import('@/pages/Role/addRole'));
 const EditRole = lazy(() => import('@/pages/Role/editRole'));
-
+// Products for route
+const ProductsFor=lazy(()=>import ('@/pages/ProductsFor/productsFor'));
+const AddProductsFor = lazy(() => import('@/pages/ProductsFor/addProductsFor'));
+const EditProductsFor = lazy(() => import('@/pages/ProductsFor/editProductsFor'));
 
 export default function App() {
     return (
@@ -70,6 +73,11 @@ export default function App() {
                             <Route path="/roles" element={<Roles/>}/>
                             <Route path="/roles/add" element={<AddRole />} />
                             <Route path="/roles/:id/edit" element={<EditRole />} />
+
+                            {/* Products For */}
+                            <Route path="/productsfor" element={<ProductsFor/>}/>
+                            <Route path="/productsfor/add" element={<AddProductsFor />} />
+                            <Route path="/productsfor/:id/edit" element={<EditProductsFor />} />
                         </Route>
                     </Routes>
                 </Suspense>

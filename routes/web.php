@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\ProductForController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StateController;
 use App\Http\Controllers\WarehouseController;
@@ -31,6 +32,9 @@ Route::prefix('api')->group(function () {
 
         // User Controller
         Route::apiResource('/users', UserController::class);
+
+        // Products For Controller
+        Route::apiResource('/products-for', ProductForController::class);
 
         Route::middleware('super-admin')->group(function () {
             Route::get('/permissions', [PermissionController::class, 'index']);
