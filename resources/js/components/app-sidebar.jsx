@@ -7,6 +7,8 @@ import {
     Globe,
     LifeBuoy,
     LogOut,
+    Palette ,
+    Tag ,
     MoreHorizontal,
     Airplay,
     Users,
@@ -32,7 +34,8 @@ import { useAppContext } from '@/context/AppContext';
 
 const homeItems = [
     { title: 'Dashboard', icon: Gauge, path: '/dashboard', permission: 'view-dashboard' },
-    {title:'Brand', icon:Shield, path:'/brands',permission:'manage-brand'}
+    {title:'Brand', icon:Tag, path:'/brands',permission:'manage-brand'},
+    {title:'Color', icon: Palette, path:'/colors', permission:'manage-color'}
 ];
 
 const locationItems=[

@@ -65,8 +65,9 @@ const AddRackRow = lazyWithRetry(() => import('@/pages/RackRow/addRackRow'), 'ra
 const EditRackRow = lazyWithRetry(() => import('@/pages/RackRow/editRackRow'), 'rack-rows-edit');
 
 // Brand
-const Brand=lazyWithRetry(()=>import ('@/pages/Brand/brand'));
-const AddBrand=lazyWithRetry(()=>import ('@/pages/Brand/addBrand'));
+const Brand=lazyWithRetry(()=>import ('@/pages/Brand/brand'),'brands');
+const AddBrand=lazyWithRetry(()=>import ('@/pages/Brand/addBrand'),'brands-add');
+const EditBrand = lazyWithRetry(() => import('@/pages/Brand/editBrand'),'brands-edit');
 
 export default function App() {
     return (
@@ -129,6 +130,7 @@ export default function App() {
                             {/* Brand */}
                             <Route path="/brands" element={<Brand/>}/>
                             <Route path="/brands/add" element={<AddBrand/>}/>
+                             <Route path="/brands/:id/edit" element={<EditBrand/>}/>
                         </Route>
                     </Routes>
                 </Suspense>

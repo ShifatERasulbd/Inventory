@@ -16,7 +16,7 @@ class BrandController extends Controller
      public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:100', 'unique:countries,name'],
+            'name' => ['required', 'string', 'max:100'],
          
         ]);
 
@@ -33,12 +33,9 @@ class BrandController extends Controller
     public function update(Request $request, Brand $brand): JsonResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:100', 'unique:countries,name'],
+            'name' => ['required', 'string', 'max:100'],
          
         ]);
-
-     
-
         $brand->update($validated);
 
         return response()->json($brand->fresh());
