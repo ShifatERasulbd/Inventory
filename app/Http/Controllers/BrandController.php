@@ -10,7 +10,7 @@ class BrandController extends Controller
 {
       public function index(): JsonResponse
     {
-        return response()->json(Brand::query()->orderBy('size')->get());
+                return response()->json(Brand::query()->orderBy('name')->get());
     }
 
      public function store(Request $request): JsonResponse

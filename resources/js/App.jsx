@@ -85,6 +85,11 @@ const Size=lazyWithRetry(()=>import('@/pages/Size/size'),'size');
 const AddSize=lazyWithRetry(()=>import ('@/pages/Size/addSize'),'size-add');
 const EditSize = lazyWithRetry(() => import('@/pages/Size/editSize'),'size-edit');
 
+// Product
+const Product = lazyWithRetry(() => import('@/pages/Product/product'), 'products');
+const AddProduct = lazyWithRetry(() => import('@/pages/Product/addProduct'), 'products-add');
+const EditProduct = lazyWithRetry(() => import('@/pages/Product/editProduct'), 'products-edit');
+
 export default function App() {
     return (
         <AppProvider>
@@ -162,6 +167,11 @@ export default function App() {
                             <Route path="/sizes" element={<Size/>}/>
                             <Route path="/sizes/add" element={<AddSize/>}/>
                             <Route path="/sizes/:id/edit" element={<EditSize/>}/>
+
+                            {/* Product */}
+                            <Route path="/products" element={<Product/>}/>
+                            <Route path="/products/add" element={<AddProduct/>}/>
+                            <Route path="/products/:id/edit" element={<EditProduct/>}/>
                         </Route>
                     </Routes>
                 </Suspense>

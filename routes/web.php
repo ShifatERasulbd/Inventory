@@ -14,6 +14,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ColorController;
 use App\Http\Controllers\FabricController;
 use App\Http\Controllers\SizeController;
+use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -60,6 +61,9 @@ Route::prefix('api')->group(function () {
         // Size Controller
         Route::apiResource('/sizes',SizeController::class);
         
+        // Product Controller
+        Route::apiResource('/products', ProductController::class);
+
         Route::middleware('super-admin')->group(function () {
             Route::get('/permissions', [PermissionController::class, 'index']);
             Route::apiResource('/roles', RoleController::class);

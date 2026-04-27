@@ -53,7 +53,8 @@ const ProductionItems=[
     {title:'Color', icon: Palette, path:'/colors', permission:'manage-color'},
     {title:'Fabric', icon: LifeBuoy, path:'/fabrics', permission:'manage-fabrics'},
     {title:'Size', icon: FileBarChart2, path:'/sizes', permission:'manage-size'},
-    { title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-products-for' },
+    {title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-products-for'},
+    {title:'Product', icon: MoreHorizontal, path:'/products', permission:'manage-product'},
 ]
 
 const userAccessItems=[
