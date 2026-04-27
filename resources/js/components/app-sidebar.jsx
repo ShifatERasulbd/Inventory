@@ -44,7 +44,7 @@ const locationItems=[
 ]
 
 const StrorageItems=[
-    { title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-products-for' },
+    
     {title: 'Rack', icon: ChartBarDecreasing, path:'/racks', permission:'manage-rack'},
 ]
 
@@ -52,7 +52,8 @@ const ProductionItems=[
     {title:'Brand', icon:Tag, path:'/brands',permission:'manage-brand'},
     {title:'Color', icon: Palette, path:'/colors', permission:'manage-color'},
     {title:'Fabric', icon: LifeBuoy, path:'/fabrics', permission:'manage-fabrics'},
-    {title:'Size', icon: FileBarChart2, path:'/sizes', permission:'manage-size'}
+    {title:'Size', icon: FileBarChart2, path:'/sizes', permission:'manage-size'},
+    { title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-products-for' },
 ]
 
 const userAccessItems=[
@@ -122,7 +123,7 @@ export function AppSidebar(props) {
                 </div>
             </SidebarHeader>
 
-            <SidebarContent className="py-3">
+            <SidebarContent className="scrollbar-hidden py-3">
                 {visibleHomeItems.length > 0 && (
                     <SidebarGroup>
                         <SidebarGroupLabel>Home</SidebarGroupLabel>

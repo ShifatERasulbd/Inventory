@@ -2,6 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import RackRowTable from '@/components/rackrow/table';
 import { fetchRackRows, deleteRackRow } from './api';
+import { fetchRack } from '@/pages/Rack/api';
 import { toast } from 'sonner';
 import { useAppContext } from '@/context/AppContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -14,17 +15,28 @@ export default function RackRows() {
     const [isLoading, setIsLoading] = useState(true);
     const [requestError, setRequestError] = useState('');
     const [deleteConfirm, setDeleteConfirm] = useState(null);
+    const [rackName, setRackName] = useState('');
+    const [warehouseName, setWarehouseName] = useState('');
 
     useEffect(() => {
-        setPageTitle('Rack Rows');
-    }, [setPageTitle]);
+        setPageTitle(rackName ? `Rack Rows - ${rackName}` : 'Rack Rows');
+    }, [setPageTitle, rackName]);
 
     const loadRows = async () => {
         try {
             setIsLoading(true);
             setRequestError('');
             const data = await fetchRackRows(rack_id);
-            setRows(data);
+            setRows(Array.isArray(data) ? data : []);
+
+            try {
+                const rack = await fetchRack(rack_id);
+                setRackName(rack?.name || `Rack #${rack_id}`);
+                setWarehouseName(rack?.warehouse?.name || '');
+            } catch {
+                setRackName(`Rack #${rack_id}`);
+                setWarehouseName('');
+            }
         } catch (error) {
             const message = error.message || 'Failed to load rows.';
             setRequestError(message);
@@ -63,6 +75,12 @@ export default function RackRows() {
     return (
         <>
             <div className="space-y-5">
+                <div className="rounded-lg border bg-card px-4 py-3">
+                    <p className="text-xs text-muted-foreground">Viewing rows for</p>
+                    <p className="text-lg font-semibold">{rackName || `Rack #${rack_id}`}</p>
+                    {warehouseName && <p className="text-xs text-muted-foreground">Warehouse: {warehouseName}</p>}
+                </div>
+
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-1">
                     <RackRowTable
                         data={rows}
