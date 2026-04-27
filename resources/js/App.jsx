@@ -80,6 +80,11 @@ const Fabric=lazyWithRetry(()=>import('@/pages/Fabric/fabric'),'fabrics');
 const AddFabric=lazyWithRetry(()=>import ('@/pages/Fabric/addFabric'),'fabrics-add');
 const EditFabric = lazyWithRetry(() => import('@/pages/Fabric/editFabric'),'fabrics-edit');
 
+// Size
+const Size=lazyWithRetry(()=>import('@/pages/Size/size'),'size');
+const AddSize=lazyWithRetry(()=>import ('@/pages/Size/addSize'),'size-add');
+const EditSize = lazyWithRetry(() => import('@/pages/Size/editSize'),'size-edit');
+
 export default function App() {
     return (
         <AppProvider>
@@ -152,6 +157,11 @@ export default function App() {
                             <Route path="/fabrics" element={<Fabric/>}/>
                             <Route path="/fabrics/add" element={<AddFabric/>}/>
                             <Route path="/fabrics/:id/edit" element={<EditFabric/>}/>
+
+                             {/* Size */}
+                            <Route path="/sizes" element={<Size/>}/>
+                            <Route path="/sizes/add" element={<AddSize/>}/>
+                            <Route path="/sizes/:id/edit" element={<EditSize/>}/>
                         </Route>
                     </Routes>
                 </Suspense>

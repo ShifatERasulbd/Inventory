@@ -49,9 +49,10 @@ const StrorageItems=[
 ]
 
 const ProductionItems=[
-     {title:'Brand', icon:Tag, path:'/brands',permission:'manage-brand'},
+    {title:'Brand', icon:Tag, path:'/brands',permission:'manage-brand'},
     {title:'Color', icon: Palette, path:'/colors', permission:'manage-color'},
-    {title:'Fabric', icon: LifeBuoy, path:'/fabrics', permission:'manage-fabrics'}
+    {title:'Fabric', icon: LifeBuoy, path:'/fabrics', permission:'manage-fabrics'},
+    {title:'Size', icon: FileBarChart2, path:'/sizes', permission:'manage-size'}
 ]
 
 const userAccessItems=[

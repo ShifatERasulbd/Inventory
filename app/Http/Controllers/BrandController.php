@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers; 
 use App\Models\Brand;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,7 +10,7 @@ class BrandController extends Controller
 {
       public function index(): JsonResponse
     {
-        return response()->json(Brand::query()->orderBy('name')->get());
+        return response()->json(Brand::query()->orderBy('size')->get());
     }
 
      public function store(Request $request): JsonResponse
