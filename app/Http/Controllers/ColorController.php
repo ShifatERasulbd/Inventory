@@ -10,7 +10,7 @@ class ColorController extends Controller
 {
     public function index():JsonResponse
     {
-        return response()->json(Color::query()->orderBy('name'->get()));
+        return response()->json(Color::query()->orderBy('name')->get());
     }
 
     public function store(Request $request):JsonResponse

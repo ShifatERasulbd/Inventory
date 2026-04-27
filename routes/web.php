@@ -50,7 +50,7 @@ Route::prefix('api')->group(function () {
         Route::apiResource('/brands', BrandController::class);
 
         // Color Controller
-        Route::apiResources('/colors', ColorController::class);
+        Route::apiResource('/colors', ColorController::class);
         
         Route::middleware('super-admin')->group(function () {
             Route::get('/permissions', [PermissionController::class, 'index']);

@@ -42,7 +42,7 @@ export async function fetchColors() {
 }
 
 // Backward-compatible export while older imports are being migrated.
-export const fetchColors = fetchColors;
+// export const fetchColors = fetchColors;
 
 export async function fetchColor(id) {
     return requestJson(`/api/colors/${id}`);
