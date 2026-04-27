@@ -80,7 +80,7 @@ export function ColorTable({ colors = [], onAdd, onEdit, onRequestDelete, deleti
                         filtered.map((color, index) => (
                             <TableRow key={color.id}>
                                 <TableCell className="font-medium">{index + 1}</TableCell>
-                                <TableCell>{color}</TableCell>
+                                <TableCell>{color.name}</TableCell>
                                 
                                 <TableCell>
                                     <div className="flex items-center gap-2">
