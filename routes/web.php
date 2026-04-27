@@ -12,6 +12,7 @@ use App\Http\Controllers\RackController;
 use App\Http\Controllers\RackRowController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ColorController;
+use App\Http\Controllers\FabricController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -51,6 +52,9 @@ Route::prefix('api')->group(function () {
 
         // Color Controller
         Route::apiResource('/colors', ColorController::class);
+
+        // Fabric Controller
+        Route::apiResource('/fabrics',FabricController::class);
         
         Route::middleware('super-admin')->group(function () {
             Route::get('/permissions', [PermissionController::class, 'index']);

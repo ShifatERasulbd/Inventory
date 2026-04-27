@@ -35,7 +35,8 @@ import { useAppContext } from '@/context/AppContext';
 const homeItems = [
     { title: 'Dashboard', icon: Gauge, path: '/dashboard', permission: 'view-dashboard' },
     {title:'Brand', icon:Tag, path:'/brands',permission:'manage-brand'},
-    {title:'Color', icon: Palette, path:'/colors', permission:'manage-color'}
+    {title:'Color', icon: Palette, path:'/colors', permission:'manage-color'},
+    {title:'Fabric', icon: LifeBuoy, path:'/fabrics', permission:'manage-fabrics'}
 ];
 
 const locationItems=[
