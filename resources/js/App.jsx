@@ -75,6 +75,11 @@ const Color=lazyWithRetry(()=>import('@/pages/Color/color'),'colors');
 const AddColor=lazyWithRetry(()=>import ('@/pages/Color/addColor'),'colors-add');
 const EditColor = lazyWithRetry(() => import('@/pages/Color/editColor'),'colors-edit');
 
+// Fabric
+const Fabric=lazyWithRetry(()=>import('@/pages/Fabric/fabric'),'fabrics');
+const AddFabric=lazyWithRetry(()=>import ('@/pages/Fabric/addFabric'),'fabrics-add');
+const EditFabric = lazyWithRetry(() => import('@/pages/Fabric/editFabric'),'fabrics-edit');
+
 export default function App() {
     return (
         <AppProvider>
@@ -142,6 +147,11 @@ export default function App() {
                             <Route path="/colors" element={<Color/>}/>
                             <Route path="/colors/add" element={<AddColor/>}/>
                             <Route path="/colors/:id/edit" element={<EditColor/>}/>
+
+                            {/* Fabric */}
+                            <Route path="/fabrics" element={<Fabric/>}/>
+                            <Route path="/fabrics/add" element={<AddFabric/>}/>
+                            <Route path="/fabrics/:id/edit" element={<EditFabric/>}/>
                         </Route>
                     </Routes>
                 </Suspense>

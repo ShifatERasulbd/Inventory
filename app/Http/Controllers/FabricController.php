@@ -11,7 +11,7 @@ class FabricController extends Controller
     //
     public function index():JsonResponse
     {
-        return response()->json(Fabric::query()->orderBy('name'));
+        return response()->json(Fabric::query()->orderBy('name')->get());
     }
 
     public function store(Request $request):JsonResponse

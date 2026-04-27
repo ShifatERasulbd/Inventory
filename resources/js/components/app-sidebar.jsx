@@ -34,9 +34,7 @@ import { useAppContext } from '@/context/AppContext';
 
 const homeItems = [
     { title: 'Dashboard', icon: Gauge, path: '/dashboard', permission: 'view-dashboard' },
-    {title:'Brand', icon:Tag, path:'/brands',permission:'manage-brand'},
-    {title:'Color', icon: Palette, path:'/colors', permission:'manage-color'},
-    {title:'Fabric', icon: LifeBuoy, path:'/fabrics', permission:'manage-fabrics'}
+   
 ];
 
 const locationItems=[
@@ -48,6 +46,12 @@ const locationItems=[
 const StrorageItems=[
     { title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-products-for' },
     {title: 'Rack', icon: ChartBarDecreasing, path:'/racks', permission:'manage-rack'},
+]
+
+const ProductionItems=[
+     {title:'Brand', icon:Tag, path:'/brands',permission:'manage-brand'},
+    {title:'Color', icon: Palette, path:'/colors', permission:'manage-color'},
+    {title:'Fabric', icon: LifeBuoy, path:'/fabrics', permission:'manage-fabrics'}
 ]
 
 const userAccessItems=[
@@ -75,6 +79,7 @@ export function AppSidebar(props) {
     const visibleLocationItems=locationItems.filter((item)=>canAccess(item.permission));
     const visibleStrorageItems=StrorageItems.filter((item)=>canAccess(item.permission));
     const visibleuserAccessItems=userAccessItems.filter((item)=>canAccess(item.permission));
+    const visibleProductionItems=ProductionItems.filter((item)=>canAccess(item.permission));
     
 
     const handleLogout = async () => {
@@ -191,7 +196,33 @@ export function AppSidebar(props) {
                     </SidebarGroup>
                 )}
 
-{/* user access */}
+                {/* production management */}
+               
+                 {visibleProductionItems.length > 0 && (
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Production Management</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {visibleProductionItems.map((item) => (
+                                    <SidebarMenuItem key={item.title}>
+                                        <SidebarMenuButton
+                                            asChild
+                                            tooltip={item.title}
+                                            isActive={location.pathname === item.path}
+                                        >
+                                            <Link to={item.path}>
+                                                <item.icon />
+                                                <span>{item.title}</span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                ))}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                )}
+
+                {/* user access */}
                 {visibleuserAccessItems.length > 0 && (
                     <SidebarGroup>
                         <SidebarGroupLabel>User Access</SidebarGroupLabel>
