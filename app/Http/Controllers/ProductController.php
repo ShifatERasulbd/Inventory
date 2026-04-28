@@ -6,8 +6,8 @@ use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
@@ -54,11 +54,47 @@ class ProductController extends Controller
         $paths = collect($paths)
             ->map(fn ($path) => $this->normalizeStoredPath($path))
             ->filter()
+            ->unique()
             ->values()
             ->all();
 
         if ($paths !== []) {
             Storage::disk('public')->delete($paths);
+        }
+    }
+
+    private function isImageReferencedByOtherProducts(string $path, ?int $ignoreProductId = null): bool
+    {
+        $query = Product::query();
+
+        if ($ignoreProductId) {
+            $query->where('id', '!=', $ignoreProductId);
+        }
+
+        return $query
+            ->where(function ($innerQuery) use ($path) {
+                $innerQuery
+                    ->where('cover_image', $path)
+                    ->orWhereJsonContains('gallery_images', $path);
+            })
+            ->exists();
+    }
+
+    private function deleteImagesIfUnreferenced(array $paths, ?int $ignoreProductId = null): void
+    {
+        $normalizedPaths = collect($paths)
+            ->map(fn ($path) => $this->normalizeStoredPath($path))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $pathsToDelete = $normalizedPaths
+            ->reject(fn (string $path) => $this->isImageReferencedByOtherProducts($path, $ignoreProductId))
+            ->values()
+            ->all();
+
+        if ($pathsToDelete !== []) {
+            Storage::disk('public')->delete($pathsToDelete);
         }
     }
 
@@ -86,28 +122,82 @@ class ProductController extends Controller
             'style_number' => ['required', 'string', 'max:50'],
             'name' => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string', 'max:2000'],
-            'color_id' => ['required', 'integer', 'exists:colors,id'],
+            'color_ids' => ['required', 'array', 'min:1'],
+            'color_ids.*' => ['required', 'integer', 'exists:colors,id'],
             'fabric_id' => ['required', 'integer', 'exists:fabrics,id'],
-            'size_id' => ['required', 'integer', 'exists:sizes,id'],
+            'size_ids' => ['required', 'array', 'min:1'],
+            'size_ids.*' => ['required', 'integer', 'exists:sizes,id'],
             'gender_id' => ['required', 'integer', 'exists:products_for,id'],
-            'barCode' => ['required', 'string', 'max:200', 'unique:products,barCode'],
+            'barCode' => ['required', 'string', 'max:200'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'cover_image' => ['nullable', 'image', 'max:3072'],
             'gallery_images' => ['nullable', 'array', 'max:8'],
             'gallery_images.*' => ['image', 'max:3072'],
         ]);
 
+        $colorIds = collect($validated['color_ids'] ?? [])->filter()->unique()->values()->all();
+        $sizeIds = collect($validated['size_ids'] ?? [])->filter()->unique()->values()->all();
+
+        if ($colorIds === [] || $sizeIds === []) {
+            return response()->json([
+                'message' => 'Color and size values are required.',
+                'errors' => [
+                    'color_ids' => ['Please add at least one color.'],
+                    'size_ids' => ['Please add at least one size.'],
+                ],
+            ], 422);
+        }
+
+        $storedCoverImage = null;
+        $storedGalleryImages = [];
+
         if ($request->hasFile('cover_image')) {
-            $validated['cover_image'] = $this->storeImage($request->file('cover_image'));
+            $storedCoverImage = $this->storeImage($request->file('cover_image'));
         }
 
         if ($request->hasFile('gallery_images')) {
-            $validated['gallery_images'] = $this->storeGalleryImages($request->file('gallery_images'));
+            $storedGalleryImages = $this->storeGalleryImages($request->file('gallery_images'));
         }
 
-        $product = Product::query()->create($validated);
+        try {
+            $products = DB::transaction(function () use ($validated, $colorIds, $sizeIds, $storedCoverImage, $storedGalleryImages) {
+                $products = [];
 
-        return response()->json($this->productWithRelations($product), 201);
+                foreach ($colorIds as $colorId) {
+                    foreach ($sizeIds as $sizeId) {
+                        $products[] = Product::query()->create([
+                            'brand_id' => $validated['brand_id'],
+                            'style_number' => $validated['style_number'],
+                            'name' => $validated['name'],
+                            'description' => $validated['description'] ?? null,
+                            'color_id' => $colorId,
+                            'fabric_id' => $validated['fabric_id'],
+                            'size_id' => $sizeId,
+                            'gender_id' => $validated['gender_id'],
+                            'barCode' => $validated['barCode'],
+                            'warehouse_id' => $validated['warehouse_id'],
+                            'cover_image' => $storedCoverImage,
+                            'gallery_images' => $storedGalleryImages,
+                        ]);
+                    }
+                }
+
+                return $products;
+            });
+
+            return response()->json([
+                'message' => 'Products created successfully.',
+                'count' => count($products),
+                'data' => collect($products)
+                    ->map(fn (Product $product) => $this->productWithRelations($product)->toArray())
+                    ->values()
+                    ->all(),
+            ], 201);
+        } catch (\Throwable $exception) {
+            $this->deleteImages(array_merge([$storedCoverImage], $storedGalleryImages));
+
+            throw $exception;
+        }
     }
 
     public function show(Product $product): JsonResponse
@@ -126,7 +216,7 @@ class ProductController extends Controller
             'fabric_id' => ['required', 'integer', 'exists:fabrics,id'],
             'size_id' => ['required', 'integer', 'exists:sizes,id'],
             'gender_id' => ['required', 'integer', 'exists:products_for,id'],
-            'barCode' => ['required', 'string', 'max:200', Rule::unique('products', 'barCode')->ignore($product->id)],
+            'barCode' => ['required', 'string', 'max:200'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'cover_image' => ['nullable', 'image', 'max:3072'],
             'gallery_images' => ['nullable', 'array', 'max:8'],
@@ -140,12 +230,13 @@ class ProductController extends Controller
             ->filter()
             ->values()
             ->all();
+        $imagesToDeleteAfterUpdate = [];
 
         $removeCoverImage = filter_var($request->input('remove_cover_image'), FILTER_VALIDATE_BOOLEAN);
 
         if ($removeCoverImage && $product->cover_image) {
-            $this->deleteImages([$product->cover_image]);
             $validated['cover_image'] = null;
+            $imagesToDeleteAfterUpdate[] = $product->cover_image;
         }
 
         $removeGalleryInput = $request->input('remove_gallery_images', []);
@@ -164,16 +255,17 @@ class ProductController extends Controller
                 ->filter()
                 ->values()
                 ->all();
-
-            $this->deleteImages($removeGalleryPaths);
+            $imagesToDeleteAfterUpdate = array_merge($imagesToDeleteAfterUpdate, $removeGalleryPaths);
 
             $currentGalleryImages = array_values(array_diff($currentGalleryImages, $removeGalleryPaths));
             $validated['gallery_images'] = $currentGalleryImages;
         }
 
         if ($request->hasFile('cover_image')) {
-            $this->deleteImages([$product->cover_image]);
             $validated['cover_image'] = $this->storeImage($request->file('cover_image'));
+            if ($product->cover_image) {
+                $imagesToDeleteAfterUpdate[] = $product->cover_image;
+            }
         }
 
         if ($request->hasFile('gallery_images')) {
@@ -185,14 +277,17 @@ class ProductController extends Controller
         unset($validated['remove_cover_image'], $validated['remove_gallery_images']);
 
         $product->update($validated);
+        $this->deleteImagesIfUnreferenced($imagesToDeleteAfterUpdate, $product->id);
 
         return response()->json($this->productWithRelations($product->fresh()));
     }
 
     public function destroy(Product $product): JsonResponse
     {
-        $this->deleteImages(array_merge([$product->cover_image], $product->gallery_images ?? []));
+        $imagesToDelete = array_merge([$product->cover_image], $product->gallery_images ?? []);
+        $productId = $product->id;
         $product->delete();
+        $this->deleteImagesIfUnreferenced($imagesToDelete, $productId);
 
         return response()->json(['message' => 'Product deleted']);
     }
