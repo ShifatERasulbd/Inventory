@@ -142,3 +142,11 @@ export async function deleteProducts(id) {
         method: 'DELETE',
     });
 }
+
+export async function bulkDeleteProducts(ids) {
+    await ensureCsrfCookie();
+    return requestJson('/api/products/bulk-delete', {
+        method: 'POST',
+        body: JSON.stringify({ ids }),
+    });
+}

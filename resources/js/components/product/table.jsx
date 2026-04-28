@@ -10,9 +10,22 @@ import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 
-export function ProductTable({ products = [], onAdd, onEdit, onRequestDelete, deletingId, isLoading }) {
+export function ProductTable({
+    products = [],
+    selectedIds = [],
+    onToggleSelectAll,
+    onToggleSelectRow,
+    onRequestBulkDelete,
+    onAdd,
+    onEdit,
+    onRequestDelete,
+    deletingId,
+    isBulkDeleting,
+    isLoading,
+}) {
     const [search, setSearch] = useState('');
     const filtered = products.filter((product) => {
         const q = search.toLowerCase();
@@ -28,6 +41,11 @@ export function ProductTable({ products = [], onAdd, onEdit, onRequestDelete, de
             product.warehouse?.name?.toLowerCase().includes(q)
         );
     });
+    const filteredIds = filtered.map((product) => product.id);
+    const selectedSet = new Set(selectedIds);
+    const selectedVisibleCount = filteredIds.filter((id) => selectedSet.has(id)).length;
+    const allVisibleSelected = filteredIds.length > 0 && selectedVisibleCount === filteredIds.length;
+    const someVisibleSelected = selectedVisibleCount > 0 && !allVisibleSelected;
 
     return (
         <>
@@ -47,10 +65,31 @@ export function ProductTable({ products = [], onAdd, onEdit, onRequestDelete, de
                 </Button>
             </div>
 
+            <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                    {selectedIds.length} selected
+                </p>
+                <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={onRequestBulkDelete}
+                    disabled={selectedIds.length === 0 || isBulkDeleting || isLoading}
+                >
+                    {isBulkDeleting ? 'Deleting...' : 'Delete Selected'}
+                </Button>
+            </div>
+
             <Card>
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead className="w-[60px]">
+                                <Checkbox
+                                    checked={allVisibleSelected ? true : (someVisibleSelected ? 'indeterminate' : false)}
+                                    onCheckedChange={(checked) => onToggleSelectAll?.(filteredIds, Boolean(checked))}
+                                    aria-label="Select all products"
+                                />
+                            </TableHead>
                             <TableHead className="w-[90px]">SL No.</TableHead>
                             <TableHead className="w-[90px]">Image</TableHead>
                             <TableHead>Style No.</TableHead>
@@ -65,7 +104,7 @@ export function ProductTable({ products = [], onAdd, onEdit, onRequestDelete, de
                     <TableBody>
                         {isLoading && (
                             <TableRow>
-                                <TableCell colSpan={9} className="text-center text-muted-foreground">
+                                <TableCell colSpan={10} className="text-center text-muted-foreground">
                                     Loading Products...
                                 </TableCell>
                             </TableRow>
@@ -73,7 +112,7 @@ export function ProductTable({ products = [], onAdd, onEdit, onRequestDelete, de
 
                         {!isLoading && products.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={9} className="text-center text-muted-foreground">
+                                <TableCell colSpan={10} className="text-center text-muted-foreground">
                                     No Products found.
                                 </TableCell>
                             </TableRow>
@@ -81,7 +120,7 @@ export function ProductTable({ products = [], onAdd, onEdit, onRequestDelete, de
 
                         {!isLoading && filtered.length === 0 && products.length > 0 && (
                             <TableRow>
-                                <TableCell colSpan={9} className="text-center text-muted-foreground">
+                                <TableCell colSpan={10} className="text-center text-muted-foreground">
                                     No Products match your search.
                                 </TableCell>
                             </TableRow>
@@ -90,6 +129,13 @@ export function ProductTable({ products = [], onAdd, onEdit, onRequestDelete, de
                         {!isLoading &&
                             filtered.map((product, index) => (
                                 <TableRow key={product.id}>
+                                    <TableCell>
+                                        <Checkbox
+                                            checked={selectedSet.has(product.id)}
+                                            onCheckedChange={(checked) => onToggleSelectRow?.(product.id, Boolean(checked))}
+                                            aria-label={`Select ${product.name}`}
+                                        />
+                                    </TableCell>
                                     <TableCell className="font-medium">{index + 1}</TableCell>
                                     <TableCell>
                                         {product.cover_image_url ? (
@@ -130,7 +176,7 @@ export function ProductTable({ products = [], onAdd, onEdit, onRequestDelete, de
                                                 size="icon"
                                                 aria-label={`Delete ${product.name}`}
                                                 onClick={() => onRequestDelete(product)}
-                                                disabled={deletingId === product.id}
+                                                disabled={deletingId === product.id || isBulkDeleting}
                                             >
                                                 <Trash2 className="text-destructive" />
                                             </Button>

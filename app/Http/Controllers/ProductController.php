@@ -291,4 +291,34 @@ class ProductController extends Controller
 
         return response()->json(['message' => 'Product deleted']);
     }
+
+    public function bulkDestroy(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'integer', 'exists:products,id'],
+        ]);
+
+        $ids = collect($validated['ids'])->unique()->values()->all();
+        $imagesToDelete = [];
+
+        DB::transaction(function () use ($ids, &$imagesToDelete) {
+            $products = Product::query()
+                ->whereIn('id', $ids)
+                ->get();
+
+            foreach ($products as $product) {
+                $imagesToDelete = array_merge($imagesToDelete, [$product->cover_image], $product->gallery_images ?? []);
+            }
+
+            Product::query()->whereIn('id', $ids)->delete();
+        });
+
+        $this->deleteImagesIfUnreferenced($imagesToDelete);
+
+        return response()->json([
+            'message' => 'Products deleted successfully.',
+            'count' => count($ids),
+        ]);
+    }
 }

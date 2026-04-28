@@ -62,6 +62,7 @@ Route::prefix('api')->group(function () {
         Route::apiResource('/sizes',SizeController::class);
         
         // Product Controller
+        Route::post('/products/bulk-delete', [ProductController::class, 'bulkDestroy']);
         Route::apiResource('/products', ProductController::class);
 
         Route::middleware('super-admin')->group(function () {
