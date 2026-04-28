@@ -19,8 +19,10 @@ const initialForm = {
     name: '',
     description: '',
     color_id: '',
+    color_ids: [''],
     fabric_id: '',
     size_id: '',
+    size_ids: [''],
     gender_id: '',
     barCode: '',
     warehouse_id: '',
@@ -34,13 +36,15 @@ const MAX_GALLERY_IMAGES = 8;
 
 function validateForm(form) {
     const validationErrors = {};
+    const selectedColorIds = Array.isArray(form.color_ids) ? form.color_ids.filter(Boolean) : [];
+    const selectedSizeIds = Array.isArray(form.size_ids) ? form.size_ids.filter(Boolean) : [];
 
     if (!form.brand_id) validationErrors.brand_id = ['Please select a brand.'];
     if (!form.style_number.trim()) validationErrors.style_number = ['Please enter the style number.'];
     if (!form.name.trim()) validationErrors.name = ['Please enter the product name.'];
-    if (!form.color_id) validationErrors.color_id = ['Please select a color.'];
+    if (selectedColorIds.length === 0) validationErrors.color_ids = ['Please add at least one color.'];
     if (!form.fabric_id) validationErrors.fabric_id = ['Please select a fabric.'];
-    if (!form.size_id) validationErrors.size_id = ['Please select a size.'];
+    if (selectedSizeIds.length === 0) validationErrors.size_ids = ['Please add at least one size.'];
     if (!form.gender_id) validationErrors.gender_id = ['Please select product for.'];
     if (!form.barCode.trim()) validationErrors.barCode = ['Please enter the barcode.'];
     if (!form.warehouse_id) validationErrors.warehouse_id = ['Please select a warehouse.'];
@@ -137,14 +141,22 @@ export default function EditProduct() {
                 setCurrentGalleryImageUrls(galleryPairs.map((item) => item.url).filter(Boolean));
                 setRemoveCoverImage(false);
                 setRemoveGalleryImages([]);
+                const initialColorIds = Array.isArray(product.color_ids) && product.color_ids.length > 0
+                    ? product.color_ids.map((value) => String(value))
+                    : (product.color_id ? [String(product.color_id)] : ['']);
+                const initialSizeIds = Array.isArray(product.size_ids) && product.size_ids.length > 0
+                    ? product.size_ids.map((value) => String(value))
+                    : (product.size_id ? [String(product.size_id)] : ['']);
                 setForm({
                     brand_id: product.brand_id ? String(product.brand_id) : '',
                     style_number: product.style_number || '',
                     name: product.name || '',
                     description: product.description || '',
-                    color_id: product.color_id ? String(product.color_id) : '',
+                    color_id: initialColorIds.find(Boolean) || '',
+                    color_ids: initialColorIds,
                     fabric_id: product.fabric_id ? String(product.fabric_id) : '',
-                    size_id: product.size_id ? String(product.size_id) : '',
+                    size_id: initialSizeIds.find(Boolean) || '',
+                    size_ids: initialSizeIds,
                     gender_id: product.gender_id ? String(product.gender_id) : '',
                     barCode: product.barCode || '',
                     warehouse_id: product.warehouse_id ? String(product.warehouse_id) : '',
@@ -182,6 +194,66 @@ export default function EditProduct() {
             ...previous,
             [field]: value || '',
         }));
+
+        setErrors((previous) => {
+            if (!previous[field]) {
+                return previous;
+            }
+
+            const next = { ...previous };
+            delete next[field];
+            return next;
+        });
+    };
+
+    const handleRepeaterSelectChange = (field, index, value) => {
+        setForm((previous) => {
+            const current = Array.isArray(previous[field]) && previous[field].length > 0 ? [...previous[field]] : [''];
+            current[index] = value || '';
+
+            return {
+                ...previous,
+                [field]: current,
+                ...(field === 'color_ids' ? { color_id: current.find(Boolean) || '' } : {}),
+                ...(field === 'size_ids' ? { size_id: current.find(Boolean) || '' } : {}),
+            };
+        });
+
+        setErrors((previous) => {
+            if (!previous[field]) {
+                return previous;
+            }
+
+            const next = { ...previous };
+            delete next[field];
+            return next;
+        });
+    };
+
+    const handleAddRepeaterItem = (field) => {
+        setForm((previous) => ({
+            ...previous,
+            [field]: [...(Array.isArray(previous[field]) ? previous[field] : ['']), ''],
+        }));
+    };
+
+    const handleRemoveRepeaterItem = (field, index) => {
+        setForm((previous) => {
+            const current = Array.isArray(previous[field]) ? [...previous[field]] : [''];
+
+            if (current.length === 1) {
+                current[0] = '';
+            } else {
+                current.splice(index, 1);
+            }
+
+            return {
+                ...previous,
+                [field]: current,
+                ...(field === 'color_ids' ? { color_id: current.find(Boolean) || '' } : {}),
+                ...(field === 'size_ids' ? { size_id: current.find(Boolean) || '' } : {}),
+            };
+        });
 
         setErrors((previous) => {
             if (!previous[field]) {
@@ -236,6 +308,9 @@ export default function EditProduct() {
     const handleSubmit = async (event) => {
         event.preventDefault();
 
+        const selectedColorIds = Array.isArray(form.color_ids) ? form.color_ids.filter(Boolean) : [];
+        const selectedSizeIds = Array.isArray(form.size_ids) ? form.size_ids.filter(Boolean) : [];
+
         const validationErrors = validateForm(form);
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
@@ -251,9 +326,11 @@ export default function EditProduct() {
                 style_number: form.style_number.trim(),
                 name: form.name.trim(),
                 description: form.description.trim(),
-                color_id: Number(form.color_id),
+                color_id: Number(selectedColorIds[0]),
+                color_ids: selectedColorIds.map((value) => Number(value)),
                 fabric_id: Number(form.fabric_id),
-                size_id: Number(form.size_id),
+                size_id: Number(selectedSizeIds[0]),
+                size_ids: selectedSizeIds.map((value) => Number(value)),
                 gender_id: Number(form.gender_id),
                 barCode: form.barCode.trim(),
                 warehouse_id: Number(form.warehouse_id),
@@ -310,6 +387,9 @@ export default function EditProduct() {
                 currentGalleryImageUrls={currentGalleryImageUrls}
                 onChange={handleChange}
                 onSelectChange={handleSelectChange}
+                onRepeaterSelectChange={handleRepeaterSelectChange}
+                onAddRepeaterItem={handleAddRepeaterItem}
+                onRemoveRepeaterItem={handleRemoveRepeaterItem}
                 onFileChange={handleFileChange}
                 onRemoveCurrentCover={handleRemoveCurrentCover}
                 onRemoveCurrentGallery={handleRemoveCurrentGallery}

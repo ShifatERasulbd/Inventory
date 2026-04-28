@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { X } from 'lucide-react';
+import { Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 
 function ProductSelect({ id, label, value, options = [], placeholder, error, onValueChange, valueKey = 'id', labelKey = 'name' }) {
@@ -32,6 +32,80 @@ function ProductSelect({ id, label, value, options = [], placeholder, error, onV
     );
 }
 
+function ProductRepeaterSelect({
+    id,
+    label,
+    values = [''],
+    options = [],
+    placeholder,
+    error,
+    onValueChange,
+    onAdd,
+    onRemove,
+    valueKey = 'id',
+    labelKey = 'name',
+}) {
+    const resolvedValues = Array.isArray(values) && values.length > 0 ? values : [''];
+    const topError = Array.isArray(error) && typeof error[0] === 'string' ? error[0] : '';
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <Label>{label}</Label>
+                <Button type="button" variant="outline" size="sm" onClick={onAdd}>
+                    <Plus className="mr-1 h-4 w-4" />
+                    Add
+                </Button>
+            </div>
+
+            {options.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No options available.</p>
+            ) : (
+                <div className="space-y-2">
+                    {resolvedValues.map((value, index) => {
+                        const rowError = Array.isArray(error?.[index]) ? error[index][0] : '';
+
+                        return (
+                            <div key={`${id}-${index}`} className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <Select
+                                        value={value ? String(value) : ''}
+                                        onValueChange={(selectedValue) => onValueChange(index, selectedValue)}
+                                    >
+                                        <SelectTrigger id={`${id}-${index}`} className="w-full">
+                                            <SelectValue placeholder={placeholder} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {options.map((option) => (
+                                                <SelectItem key={option[valueKey]} value={String(option[valueKey])}>
+                                                    {option[labelKey]}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="outline"
+                                        onClick={() => onRemove(index)}
+                                        disabled={resolvedValues.length === 1}
+                                        aria-label={`Remove ${label} row ${index + 1}`}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                {rowError && <p className="text-xs text-destructive">{rowError}</p>}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {topError && <p className="text-xs text-destructive">{topError}</p>}
+        </div>
+    );
+}
+
 export default function AddForm({
     form,
     brands = [],
@@ -42,6 +116,9 @@ export default function AddForm({
     warehouses = [],
     onChange,
     onSelectChange,
+    onRepeaterSelectChange,
+    onAddRepeaterItem,
+    onRemoveRepeaterItem,
     onFileChange,
     onSubmit,
     onCancel,
@@ -118,16 +195,6 @@ export default function AddForm({
                             onValueChange={(value) => onSelectChange('brand_id', value)}
                         />
                          <ProductSelect
-                            id="product-color"
-                            label="Color"
-                            value={form.color_id}
-                            options={colors}
-                            placeholder="Select a color"
-                            error={errors.color_id}
-                            onValueChange={(value) => onSelectChange('color_id', value)}
-                        />
-
-                        <ProductSelect
                             id="product-fabric"
                             label="Fabric"
                             value={form.fabric_id}
@@ -135,17 +202,6 @@ export default function AddForm({
                             placeholder="Select a fabric"
                             error={errors.fabric_id}
                             onValueChange={(value) => onSelectChange('fabric_id', value)}
-                        />
-
-                        <ProductSelect
-                            id="product-size"
-                            label="Size"
-                            value={form.size_id}
-                            options={sizes}
-                            placeholder="Select a size"
-                            error={errors.size_id}
-                            onValueChange={(value) => onSelectChange('size_id', value)}
-                            labelKey="size"
                         />
 
                         <ProductSelect
@@ -168,6 +224,34 @@ export default function AddForm({
                             onValueChange={(value) => onSelectChange('warehouse_id', value)}
                         />
                      </div>
+
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                        <ProductRepeaterSelect
+                            id="product-color"
+                            label="Colors"
+                            values={form.color_ids}
+                            options={colors}
+                            placeholder="Select a color"
+                            error={errors.color_ids}
+                            onValueChange={(index, value) => onRepeaterSelectChange?.('color_ids', index, value)}
+                            onAdd={() => onAddRepeaterItem?.('color_ids')}
+                            onRemove={(index) => onRemoveRepeaterItem?.('color_ids', index)}
+                        />
+
+                        <ProductRepeaterSelect
+                            id="product-size"
+                            label="Sizes"
+                            values={form.size_ids}
+                            options={sizes}
+                            placeholder="Select a size"
+                            error={errors.size_ids}
+                            onValueChange={(index, value) => onRepeaterSelectChange?.('size_ids', index, value)}
+                            onAdd={() => onAddRepeaterItem?.('size_ids')}
+                            onRemove={(index) => onRemoveRepeaterItem?.('size_ids', index)}
+                            labelKey="size"
+                        />
+                    </div>
+
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                       
 

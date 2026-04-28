@@ -55,6 +55,15 @@ export async function createProducts(data) {
     const formData = new FormData();
 
     Object.entries(data).forEach(([key, value]) => {
+        if (Array.isArray(value) && key !== 'gallery_images' && key !== 'remove_gallery_images') {
+            value.forEach((item) => {
+                if (item !== undefined && item !== null && item !== '') {
+                    formData.append(`${key}[]`, item);
+                }
+            });
+            return;
+        }
+
         if (key === 'remove_gallery_images' && Array.isArray(value)) {
             value.forEach((path) => {
                 if (path) {
@@ -98,6 +107,15 @@ export async function updateProducts(id, data) {
     formData.append('_method', 'PUT');
 
     Object.entries(data).forEach(([key, value]) => {
+        if (Array.isArray(value) && key !== 'gallery_images') {
+            value.forEach((item) => {
+                if (item !== undefined && item !== null && item !== '') {
+                    formData.append(`${key}[]`, item);
+                }
+            });
+            return;
+        }
+
         if (key === 'gallery_images' && Array.isArray(value)) {
             value.forEach((file) => {
                 if (file) {
