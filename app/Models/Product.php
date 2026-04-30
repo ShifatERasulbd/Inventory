@@ -20,6 +20,7 @@ class Product extends Model
         'brand_id',
         'style_number',
         'name',
+        'available_stock',
         'description',
         'color_id',
         'fabric_id',
@@ -33,6 +34,7 @@ class Product extends Model
 
       protected $casts = [
         'gallery_images' => 'array',
+        'available_stock' => 'integer',
       ];
 
       protected $appends = [

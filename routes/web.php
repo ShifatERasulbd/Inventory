@@ -16,6 +16,7 @@ use App\Http\Controllers\FabricController;
 use App\Http\Controllers\SizeController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartoonController;
+use App\Http\Controllers\StockController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -68,6 +69,9 @@ Route::prefix('api')->group(function () {
 
         // Cartoon Controller
         Route::apiResource('/cartoons', CartoonController::class);
+
+        // Stock Controller
+        Route::apiResource('/stocks', StockController::class);
         
 
         Route::middleware('super-admin')->group(function () {

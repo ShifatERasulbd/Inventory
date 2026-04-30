@@ -95,6 +95,11 @@ const Cartoon =lazyWithRetry(()=>import('@/pages/Cartoon/cartoon'),'cartoon');
 const AddCartoon = lazyWithRetry(() => import('@/pages/Cartoon/addCartoon'), 'cartoon-add');
 const EditCartoon= lazyWithRetry(() => import('@/pages/Cartoon/editCartoon'), 'cartoon-edit');
 
+// Stock
+const Stock =lazyWithRetry(()=>import('@/pages/Stock/stock'),'stock');
+const AddStock = lazyWithRetry(() => import('@/pages/Stock/addStock'), 'stock-add');
+const EditStock = lazyWithRetry(() => import('@/pages/Stock/editStock'), 'stock-edit');
+
 export default function App() {
     return (
         <AppProvider>
@@ -182,6 +187,11 @@ export default function App() {
                             <Route path="/cartoons" element={<Cartoon/>}/>
                             <Route path="/cartoons/add" element={<AddCartoon/>}/>
                             <Route path="/cartoons/:id/edit" element={<EditCartoon/>}/>
+
+                            {/* Stocks */}
+                             <Route path="/stocks" element={<Stock/>}/>
+                             <Route path="/stocks/add" element={<AddStock/>}/>
+                             <Route path="/stocks/:id/edit" element={<EditStock/>}/>
                         </Route>
                     </Routes>
                 </Suspense>

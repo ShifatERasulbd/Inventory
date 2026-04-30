@@ -4,6 +4,7 @@ import {
     FileBarChart2,
     FolderKanban,
     Gauge,
+    Boxes ,
     Globe,
     LifeBuoy,
     LogOut,
@@ -46,6 +47,7 @@ const locationItems=[
 const StrorageItems=[
     
     {title: 'Rack', icon: ChartBarDecreasing, path:'/racks', permission:'manage-rack'},
+    {title: 'Stock', icon: Boxes, path:'/stocks', permission:'manage-stock'},
 ]
 
 const ProductionItems=[
