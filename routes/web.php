@@ -16,6 +16,8 @@ use App\Http\Controllers\FabricController;
 use App\Http\Controllers\SizeController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartoonController;
+use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\SellController;
 use App\Http\Controllers\StockController;
 use Illuminate\Support\Facades\Route;
 
@@ -72,7 +74,14 @@ Route::prefix('api')->group(function () {
 
         // Stock Controller
         Route::apiResource('/stocks', StockController::class);
-        
+
+        // Purchase Controller
+        Route::apiResource('/purchases', PurchaseController::class);
+        Route::get('/purchase-requests', [PurchaseController::class, 'getPurchaseRequests']);
+        Route::patch('/purchases/{purchase}/status', [PurchaseController::class, 'updateRequestStatus']);
+
+        // Sell Controller
+        Route::apiResource('/sells', SellController::class);
 
         Route::middleware('super-admin')->group(function () {
             Route::get('/permissions', [PermissionController::class, 'index']);

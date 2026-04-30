@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Role;
 use App\Models\WareHouse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,7 +54,7 @@ class UserController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'warehouse_ids'   => ['required', 'array', 'min:1'],
+            'warehouse_ids'   => ['nullable', 'array'],
             'warehouse_ids.*' => ['integer', 'exists:warehouses,id'],
             'role_ids'        => ['nullable', 'array'],
             'role_ids.*'      => ['integer', 'exists:roles,id'],
@@ -64,6 +65,25 @@ class UserController extends Controller
         ]);
 
         $roleIds = $validated['role_ids'] ?? [];
+        $warehouseIds = $validated['warehouse_ids'] ?? [];
+        $isSuperAdmin = Role::query()
+            ->whereIn('id', $roleIds)
+            ->where('slug', 'super-admin')
+            ->exists();
+
+        if (! $isSuperAdmin && $warehouseIds === []) {
+            return response()->json([
+                'message' => 'Warehouse is required for non-super-admin users.',
+                'errors' => [
+                    'warehouse_ids' => ['Warehouse is required for non-super-admin users.'],
+                ],
+            ], 422);
+        }
+
+        if ($isSuperAdmin) {
+            $validated['warehouse_ids'] = [];
+        }
+
         unset($validated['role_ids'], $validated['c_password']);
 
         $user = User::query()->create($validated);
@@ -90,7 +110,7 @@ class UserController extends Controller
     public function update(Request $request, User $user): JsonResponse
     {
         $validated = $request->validate([
-            'warehouse_ids'   => ['required', 'array', 'min:1'],
+            'warehouse_ids'   => ['nullable', 'array'],
             'warehouse_ids.*' => ['integer', 'exists:warehouses,id'],
             'role_ids'        => ['nullable', 'array'],
             'role_ids.*'      => ['integer', 'exists:roles,id'],
@@ -104,6 +124,26 @@ class UserController extends Controller
         ]);
 
         $roleIds = $validated['role_ids'] ?? null;
+        $warehouseIds = $validated['warehouse_ids'] ?? [];
+        $resultingRoleIds = $roleIds ?? $user->roles()->pluck('roles.id')->all();
+        $isSuperAdmin = Role::query()
+            ->whereIn('id', $resultingRoleIds)
+            ->where('slug', 'super-admin')
+            ->exists();
+
+        if (! $isSuperAdmin && $warehouseIds === []) {
+            return response()->json([
+                'message' => 'Warehouse is required for non-super-admin users.',
+                'errors' => [
+                    'warehouse_ids' => ['Warehouse is required for non-super-admin users.'],
+                ],
+            ], 422);
+        }
+
+        if ($isSuperAdmin) {
+            $validated['warehouse_ids'] = [];
+        }
+
         unset($validated['role_ids'], $validated['c_password']);
 
         if (empty($validated['password'])) {

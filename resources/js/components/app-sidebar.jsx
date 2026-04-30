@@ -48,6 +48,9 @@ const StrorageItems=[
     
     {title: 'Rack', icon: ChartBarDecreasing, path:'/racks', permission:'manage-rack'},
     {title: 'Stock', icon: Boxes, path:'/stocks', permission:'manage-stock'},
+    {title: 'Purchase', icon: Boxes, path:'/purchases'},
+    {title: 'Purchase Request', icon: Boxes, path:'/purchase-requests'},
+    {title: 'Sell', icon: Boxes, path:'/sells'},
 ]
 
 const ProductionItems=[

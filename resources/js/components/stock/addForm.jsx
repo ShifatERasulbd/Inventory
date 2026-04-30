@@ -9,7 +9,7 @@ export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitti
         <Card>
             <CardHeader>
                 <CardTitle>Create Stock</CardTitle>
-                <CardDescription>Add product name and available stock.</CardDescription>
+                <CardDescription>Add product, stock count, warehouse, cartoon, and barcode.</CardDescription>
             </CardHeader>
 
             <Separator />
@@ -18,29 +18,71 @@ export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitti
                 <CardContent className="space-y-6 pt-6">
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                         <div className="space-y-2">
-                            <Label htmlFor="name">Product Name</Label>
+                            <Label htmlFor="product_id">Product ID</Label>
                             <Input
-                                id="name"
-                                name="name"
-                                value={form.name}
+                                id="product_id"
+                                name="product_id"
+                                type="number"
+                                min="1"
+                                value={form.product_id}
                                 onChange={onChange}
-                                placeholder="e.g. Basic Tee"
+                                placeholder="e.g. 1"
                             />
-                            {errors.name && <p className="text-xs text-destructive">{errors.name[0]}</p>}
+                            {errors.product_id && <p className="text-xs text-destructive">{errors.product_id[0]}</p>}
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="available_stock">Available Stock</Label>
+                            <Label htmlFor="stocks">Stocks</Label>
                             <Input
-                                id="available_stock"
-                                name="available_stock"
+                                id="stocks"
+                                name="stocks"
                                 type="number"
                                 min="0"
-                                value={form.available_stock}
+                                value={form.stocks}
                                 onChange={onChange}
                                 placeholder="e.g. 120"
                             />
-                            {errors.available_stock && <p className="text-xs text-destructive">{errors.available_stock[0]}</p>}
+                            {errors.stocks && <p className="text-xs text-destructive">{errors.stocks[0]}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="warehouse_id">Warehouse ID</Label>
+                            <Input
+                                id="warehouse_id"
+                                name="warehouse_id"
+                                type="number"
+                                min="1"
+                                value={form.warehouse_id}
+                                onChange={onChange}
+                                placeholder="e.g. 1"
+                            />
+                            {errors.warehouse_id && <p className="text-xs text-destructive">{errors.warehouse_id[0]}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="cartoon_id">Cartoon ID</Label>
+                            <Input
+                                id="cartoon_id"
+                                name="cartoon_id"
+                                type="number"
+                                min="1"
+                                value={form.cartoon_id}
+                                onChange={onChange}
+                                placeholder="e.g. 1"
+                            />
+                            {errors.cartoon_id && <p className="text-xs text-destructive">{errors.cartoon_id[0]}</p>}
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                            <Label htmlFor="barcode">Barcode</Label>
+                            <Input
+                                id="barcode"
+                                name="barcode"
+                                value={form.barcode}
+                                onChange={onChange}
+                                placeholder="Scan or type barcode"
+                            />
+                            {errors.barcode && <p className="text-xs text-destructive">{errors.barcode[0]}</p>}
                         </div>
                     </div>
                 </CardContent>

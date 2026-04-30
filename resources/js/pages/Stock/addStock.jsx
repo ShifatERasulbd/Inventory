@@ -8,21 +8,39 @@ import { useAppContext } from '@/context/AppContext';
 import { createStock } from './api';
 
 const initialForm = {
-    name: '',
-    available_stock: '',
+    product_id: '',
+    stocks: '',
+    warehouse_id: '',
+    cartoon_id: '',
+    barcode: '',
 };
 
 function validateForm(form) {
-    const trimmedName = form.name.trim();
-    const stockValue = Number(form.available_stock);
+    const productId = Number(form.product_id);
+    const stockValue = Number(form.stocks);
+    const warehouseId = form.warehouse_id === '' ? null : Number(form.warehouse_id);
+    const cartoonId = form.cartoon_id === '' ? null : Number(form.cartoon_id);
+    const barcode = form.barcode.trim();
     const validationErrors = {};
 
-    if (!trimmedName) {
-        validationErrors.name = ['The product name field is required.'];
+    if (!Number.isInteger(productId) || productId <= 0) {
+        validationErrors.product_id = ['Product ID must be a positive integer.'];
     }
 
     if (!Number.isInteger(stockValue) || stockValue < 0) {
-        validationErrors.available_stock = ['Available stock must be a non-negative integer.'];
+        validationErrors.stocks = ['Stocks must be a non-negative integer.'];
+    }
+
+    if (warehouseId !== null && (!Number.isInteger(warehouseId) || warehouseId <= 0)) {
+        validationErrors.warehouse_id = ['Warehouse ID must be a positive integer.'];
+    }
+
+    if (cartoonId !== null && (!Number.isInteger(cartoonId) || cartoonId <= 0)) {
+        validationErrors.cartoon_id = ['Cartoon ID must be a positive integer.'];
+    }
+
+    if (barcode.length > 200) {
+        validationErrors.barcode = ['Barcode must not exceed 200 characters.'];
     }
 
     return validationErrors;
@@ -74,8 +92,11 @@ export default function AddStock() {
 
         try {
             await createStock({
-                name: form.name.trim(),
-                available_stock: Number(form.available_stock),
+                product_id: Number(form.product_id),
+                stocks: Number(form.stocks),
+                warehouse_id: form.warehouse_id === '' ? null : Number(form.warehouse_id),
+                cartoon_id: form.cartoon_id === '' ? null : Number(form.cartoon_id),
+                barcode: form.barcode.trim() || null,
             });
 
             toast.success('Stock created successfully.', {

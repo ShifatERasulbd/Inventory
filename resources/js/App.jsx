@@ -100,6 +100,17 @@ const Stock =lazyWithRetry(()=>import('@/pages/Stock/stock'),'stock');
 const AddStock = lazyWithRetry(() => import('@/pages/Stock/addStock'), 'stock-add');
 const EditStock = lazyWithRetry(() => import('@/pages/Stock/editStock'), 'stock-edit');
 
+// Purchase
+const Purchase = lazyWithRetry(() => import('@/pages/Purchase/purchase'), 'purchase');
+const AddPurchase = lazyWithRetry(() => import('@/pages/Purchase/addPurchase'), 'purchase-add');
+const EditPurchase = lazyWithRetry(() => import('@/pages/Purchase/editPurchase'), 'purchase-edit');
+
+// Purchase Request
+const PurchaseRequest = lazyWithRetry(() => import('@/pages/PurchaseRequest/purchaseRequest'), 'purchase-request');
+
+// Sell
+const Sell = lazyWithRetry(() => import('@/pages/Sell/sell'), 'sell');
+
 export default function App() {
     return (
         <AppProvider>
@@ -192,6 +203,17 @@ export default function App() {
                              <Route path="/stocks" element={<Stock/>}/>
                              <Route path="/stocks/add" element={<AddStock/>}/>
                              <Route path="/stocks/:id/edit" element={<EditStock/>}/>
+
+                            {/* Purchases */}
+                             <Route path="/purchases" element={<Purchase/>}/>
+                             <Route path="/purchases/add" element={<AddPurchase/>}/>
+                             <Route path="/purchases/:id/edit" element={<EditPurchase/>}/>
+
+                            {/* Purchase Requests */}
+                            <Route path="/purchase-requests" element={<PurchaseRequest/>}/>
+
+                            {/* Sells */}
+                            <Route path="/sells" element={<Sell/>}/>
                         </Route>
                     </Routes>
                 </Suspense>

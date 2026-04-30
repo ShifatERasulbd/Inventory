@@ -8,8 +8,11 @@ import { useAppContext } from '@/context/AppContext';
 import { fetchStock, updateStock } from './api';
 
 const initialForm = {
-    name: '',
-    available_stock: '',
+    product_id: '',
+    stocks: '',
+    warehouse_id: '',
+    cartoon_id: '',
+    barcode: '',
 };
 
 export default function EditStock() {
@@ -38,8 +41,11 @@ export default function EditStock() {
                 const stock = await fetchStock(id);
                 if (!ignore) {
                     setForm({
-                        name: stock.name || '',
-                        available_stock: String(stock.available_stock ?? 0),
+                        product_id: String(stock.product_id ?? ''),
+                        stocks: String(stock.stocks ?? stock.available_stock ?? 0),
+                        warehouse_id: stock.warehouse_id == null ? '' : String(stock.warehouse_id),
+                        cartoon_id: stock.cartoon_id == null ? '' : String(stock.cartoon_id),
+                        barcode: stock.barcode || '',
                     });
                 }
             } catch (error) {
@@ -76,8 +82,11 @@ export default function EditStock() {
 
         try {
             await updateStock(id, {
-                name: form.name.trim(),
-                available_stock: Number(form.available_stock),
+                product_id: Number(form.product_id),
+                stocks: Number(form.stocks),
+                warehouse_id: form.warehouse_id === '' ? null : Number(form.warehouse_id),
+                cartoon_id: form.cartoon_id === '' ? null : Number(form.cartoon_id),
+                barcode: form.barcode.trim() || null,
             });
 
             toast.success('Stock updated successfully.', {
