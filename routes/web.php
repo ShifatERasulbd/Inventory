@@ -15,6 +15,7 @@ use App\Http\Controllers\ColorController;
 use App\Http\Controllers\FabricController;
 use App\Http\Controllers\SizeController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\CartoonController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -64,6 +65,10 @@ Route::prefix('api')->group(function () {
         // Product Controller
         Route::post('/products/bulk-delete', [ProductController::class, 'bulkDestroy']);
         Route::apiResource('/products', ProductController::class);
+
+        // Cartoon Controller
+        Route::apiResource('/cartoons', CartoonController::class);
+        
 
         Route::middleware('super-admin')->group(function () {
             Route::get('/permissions', [PermissionController::class, 'index']);

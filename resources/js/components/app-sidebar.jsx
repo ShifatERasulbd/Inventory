@@ -55,6 +55,7 @@ const ProductionItems=[
     {title:'Size', icon: FileBarChart2, path:'/sizes', permission:'manage-size'},
     {title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-products-for'},
     {title:'Product', icon: MoreHorizontal, path:'/products', permission:'manage-product'},
+    {title:'Cartoon', icon: Circle, path:'/cartoons', permission:'manage-cartoon'},
 ]
 
 const userAccessItems=[

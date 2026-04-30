@@ -90,6 +90,11 @@ const Product = lazyWithRetry(() => import('@/pages/Product/product'), 'products
 const AddProduct = lazyWithRetry(() => import('@/pages/Product/addProduct'), 'products-add');
 const EditProduct = lazyWithRetry(() => import('@/pages/Product/editProduct'), 'products-edit');
 
+// cartoon
+const Cartoon =lazyWithRetry(()=>import('@/pages/Cartoon/cartoon'),'cartoon');
+const AddCartoon = lazyWithRetry(() => import('@/pages/Cartoon/addCartoon'), 'cartoon-add');
+const EditCartoon= lazyWithRetry(() => import('@/pages/Cartoon/editCartoon'), 'cartoon-edit');
+
 export default function App() {
     return (
         <AppProvider>
@@ -172,6 +177,11 @@ export default function App() {
                             <Route path="/products" element={<Product/>}/>
                             <Route path="/products/add" element={<AddProduct/>}/>
                             <Route path="/products/:id/edit" element={<EditProduct/>}/>
+
+                            {/* Cartoon */}
+                            <Route path="/cartoons" element={<Cartoon/>}/>
+                            <Route path="/cartoons/add" element={<AddCartoon/>}/>
+                            <Route path="/cartoons/:id/edit" element={<EditCartoon/>}/>
                         </Route>
                     </Routes>
                 </Suspense>
