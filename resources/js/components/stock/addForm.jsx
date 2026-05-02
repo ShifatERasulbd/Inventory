@@ -80,8 +80,9 @@ export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitti
                                 name="barcode"
                                 value={form.barcode}
                                 onChange={onChange}
-                                placeholder="Scan or type barcode"
+                                placeholder="Scan or type barcode (comma-separate multiple)"
                             />
+                            <p className="text-xs text-muted-foreground">Separate multiple barcodes with commas. Each barcode counts as 1 stock unit.</p>
                             {errors.barcode && <p className="text-xs text-destructive">{errors.barcode[0]}</p>}
                         </div>
                     </div>

@@ -20,6 +20,7 @@ class Stock extends Model
 
     protected $casts = [
         'stocks' => 'integer',
+        'barcode' => 'array',
     ];
 
     public function product(): BelongsTo

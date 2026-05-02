@@ -23,6 +23,7 @@ export default function AddPurchaseForm({
     errors = {},
     warehouses = [],
     products = [],
+    isSuperAdmin = false,
     purchaseToLabel,
 }) {
     return (
@@ -55,8 +56,26 @@ export default function AddPurchaseForm({
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Purchase To (Login Warehouse)</Label>
-                            <Input value={purchaseToLabel} disabled />
+                            <Label htmlFor="purchase_to">Purchase To {isSuperAdmin ? '' : '(Login Warehouse)'}</Label>
+                            {isSuperAdmin ? (
+                                <>
+                                    <Select value={form.purchase_to} onValueChange={(value) => onSelectChange('purchase_to', value)}>
+                                        <SelectTrigger id="purchase_to" className="w-full">
+                                            <SelectValue placeholder="Select warehouse" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {warehouses.map((warehouse) => (
+                                                <SelectItem key={warehouse.id} value={String(warehouse.id)}>
+                                                    {warehouse.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {errors.purchase_to && <p className="text-xs text-destructive">{errors.purchase_to[0]}</p>}
+                                </>
+                            ) : (
+                                <Input value={purchaseToLabel} disabled />
+                            )}
                         </div>
 
                         <div className="space-y-2">

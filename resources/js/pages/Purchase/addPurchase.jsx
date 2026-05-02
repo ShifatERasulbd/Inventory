@@ -9,6 +9,7 @@ import { createPurchase, fetchProducts, fetchWarehouses } from './api';
 
 const initialForm = {
     purchase_form: '',
+    purchase_to: '',
     product_id: '',
     quantity: '',
     po_number: '',
@@ -17,11 +18,15 @@ const initialForm = {
     status: 'pending',
 };
 
-function validateForm(form) {
+function validateForm(form, isSuperAdmin) {
     const validationErrors = {};
 
     if (!Number.isInteger(Number(form.purchase_form)) || Number(form.purchase_form) <= 0) {
         validationErrors.purchase_form = ['Purchase from warehouse is required.'];
+    }
+
+    if (isSuperAdmin && (!Number.isInteger(Number(form.purchase_to)) || Number(form.purchase_to) <= 0)) {
+        validationErrors.purchase_to = ['Purchase to warehouse is required.'];
     }
 
     if (!Number.isInteger(Number(form.product_id)) || Number(form.product_id) <= 0) {
@@ -78,6 +83,7 @@ export default function AddPurchase() {
     const [requestError, setRequestError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoadingOptions, setIsLoadingOptions] = useState(true);
+    const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
 
     useEffect(() => {
         setPageTitle('Add Purchase');
@@ -153,7 +159,7 @@ export default function AddPurchase() {
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        const validationErrors = validateForm(form);
+        const validationErrors = validateForm(form, isSuperAdmin);
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
             setRequestError('');
@@ -167,6 +173,7 @@ export default function AddPurchase() {
         try {
             await createPurchase({
                 purchase_form: Number(form.purchase_form),
+                ...(isSuperAdmin ? { purchase_to: Number(form.purchase_to) } : {}),
                 product_id: Number(form.product_id),
                 quantity: Number(form.quantity),
                 po_number: form.po_number.trim(),
@@ -211,6 +218,7 @@ export default function AddPurchase() {
                 errors={errors}
                 warehouses={warehouses}
                 products={products}
+                isSuperAdmin={isSuperAdmin}
                 purchaseToLabel={purchaseToLabel}
             />
         </div>

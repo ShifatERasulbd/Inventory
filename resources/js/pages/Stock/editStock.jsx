@@ -45,7 +45,7 @@ export default function EditStock() {
                         stocks: String(stock.stocks ?? stock.available_stock ?? 0),
                         warehouse_id: stock.warehouse_id == null ? '' : String(stock.warehouse_id),
                         cartoon_id: stock.cartoon_id == null ? '' : String(stock.cartoon_id),
-                        barcode: stock.barcode || '',
+                        barcode: Array.isArray(stock.barcode) ? stock.barcode.join(', ') : (stock.barcode || ''),
                     });
                 }
             } catch (error) {
@@ -86,7 +86,7 @@ export default function EditStock() {
                 stocks: Number(form.stocks),
                 warehouse_id: form.warehouse_id === '' ? null : Number(form.warehouse_id),
                 cartoon_id: form.cartoon_id === '' ? null : Number(form.cartoon_id),
-                barcode: form.barcode.trim() || null,
+                barcode: form.barcode.trim() ? form.barcode.split(',').map((b) => b.trim()).filter(Boolean) : null,
             });
 
             toast.success('Stock updated successfully.', {

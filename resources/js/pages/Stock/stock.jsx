@@ -31,7 +31,7 @@ export default function Stock() {
     const [adjustMode, setAdjustMode] = useState('add');
     const [adjustStockTarget, setAdjustStockTarget] = useState(null);
     const [barcodeInput, setBarcodeInput] = useState('');
-    const [scanCount, setScanCount] = useState(0);
+    const [scannedBarcodes, setScannedBarcodes] = useState([]);
     const [isAdjusting, setIsAdjusting] = useState(false);
 
     useEffect(() => {
@@ -100,21 +100,22 @@ export default function Stock() {
         setAdjustMode(mode);
         setAdjustStockTarget(stock);
         setBarcodeInput('');
-        setScanCount(0);
+        setScannedBarcodes([]);
         setErrorMessage('');
         setIsAdjustDialogOpen(true);
     };
 
     const handleBarcodeScan = () => {
-        if (!barcodeInput.trim()) return;
-        setScanCount((previous) => previous + 1);
+        const normalized = barcodeInput.trim();
+        if (!normalized) return;
+        setScannedBarcodes((previous) => [...previous, normalized]);
         setBarcodeInput('');
     };
 
     const handleConfirmAdjustStock = async () => {
-        const quantity = scanCount;
+        const quantity = scannedBarcodes.length;
 
-        if (!Number.isInteger(quantity) || quantity <= 0) {
+        if (quantity <= 0) {
             setErrorMessage(adjustMode === 'add' ? 'Scan at least one barcode before adding.' : 'Scan at least one barcode before deducting.');
             return;
         }
@@ -125,10 +126,7 @@ export default function Stock() {
             return;
         }
 
-        const current = Number(targetStock.available_stock ?? 0);
-        const nextValue = adjustMode === 'add' ? current + quantity : current - quantity;
-
-        if (nextValue < 0) {
+        if (adjustMode === 'deduct' && quantity > Number(targetStock.available_stock ?? 0)) {
             setErrorMessage('Deducted quantity cannot make stock negative.');
             return;
         }
@@ -138,8 +136,8 @@ export default function Stock() {
 
         try {
             const updated = await updateStock(targetStock.id, {
-                name: targetStock.name,
-                available_stock: nextValue,
+                barcode: scannedBarcodes,
+                adjust_mode: adjustMode,
             });
 
             setStocks((previous) =>
@@ -151,7 +149,7 @@ export default function Stock() {
             });
             setIsAdjustDialogOpen(false);
             setAdjustStockTarget(null);
-            setScanCount(0);
+            setScannedBarcodes([]);
             setBarcodeInput('');
         } catch (error) {
             const message = error.message || 'Failed to update stock.';
@@ -224,7 +222,7 @@ export default function Stock() {
                                 </button>
                             </div>
                             <p className="text-sm text-muted-foreground">
-                                Scanned: <span className="font-semibold text-foreground">{scanCount}</span>
+                                Scanned: <span className="font-semibold text-foreground">{scannedBarcodes.length}</span>
                             </p>
                         </div>
                     </div>
@@ -233,7 +231,7 @@ export default function Stock() {
                         <AlertDialogCancel disabled={isAdjusting}>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleConfirmAdjustStock}
-                            disabled={isAdjusting || !adjustStockTarget || scanCount === 0}
+                            disabled={isAdjusting || !adjustStockTarget || scannedBarcodes.length === 0}
                         >
                             {isAdjusting ? 'Saving...' : adjustMode === 'add' ? 'Add Stock' : 'Deduct Stock'}
                         </AlertDialogAction>

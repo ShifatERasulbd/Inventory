@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Purchase;
 use App\Models\Sell;
+use App\Models\Stock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,13 +15,13 @@ class PurchaseController extends Controller
         return in_array(strtolower($status), ['approve', 'approved'], true);
     }
 
-    private function syncApprovedPurchaseToSell(Purchase $purchase): void
+    private function syncApprovedPurchaseToSellAndStock(Purchase $purchase): void
     {
         if (! $this->isApprovedStatus((string) $purchase->status)) {
             return;
         }
 
-        Sell::query()->updateOrCreate(
+        $sell = Sell::query()->updateOrCreate(
             ['purchase_id' => $purchase->id],
             [
                 'selling_from' => $purchase->purchase_form,
@@ -33,6 +34,30 @@ class PurchaseController extends Controller
                 'status' => 'approved',
             ]
         );
+
+        if (! $sell->wasRecentlyCreated) {
+            return;
+        }
+
+        Stock::query()->firstOrCreate([
+            'product_id' => $purchase->product_id,
+            'warehouse_id' => $purchase->purchase_to,
+            'cartoon_id' => null,
+            'barcode' => null,
+        ]);
+    }
+
+    private function resolvePurchaseTo(Request $request, array $validated): ?int
+    {
+        if ($request->user()?->hasRole('super-admin')) {
+            $purchaseTo = $validated['purchase_to'] ?? null;
+
+            return is_int($purchaseTo) || ctype_digit((string) $purchaseTo)
+                ? (int) $purchaseTo
+                : null;
+        }
+
+        return $this->resolveLoginWarehouseId($request);
     }
 
     private function resolveLoginWarehouseId(Request $request): ?int
@@ -155,7 +180,7 @@ class PurchaseController extends Controller
             'status' => $validated['status'],
         ]);
 
-        $this->syncApprovedPurchaseToSell($purchase);
+        $this->syncApprovedPurchaseToSellAndStock($purchase);
 
         $purchase->load([
             'purchaseFromWarehouse:id,name',
@@ -168,14 +193,7 @@ class PurchaseController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $purchaseTo = $this->resolveLoginWarehouseId($request);
-        if (! $purchaseTo) {
-            return response()->json([
-                'message' => 'No warehouse is assigned to your user account.',
-            ], 422);
-        }
-
-        $validated = $request->validate([
+        $rules = [
             'purchase_form' => ['required', 'integer', 'exists:warehouses,id'],
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'quantity' => ['required', 'integer', 'min:1'],
@@ -183,7 +201,20 @@ class PurchaseController extends Controller
             'purchase_price' => ['required', 'numeric', 'min:0'],
             'selling_price' => ['required', 'numeric', 'min:0'],
             'status' => ['required', 'string', 'max:50'],
-        ]);
+        ];
+
+        if ($request->user()?->hasRole('super-admin')) {
+            $rules['purchase_to'] = ['required', 'integer', 'exists:warehouses,id'];
+        }
+
+        $validated = $request->validate($rules);
+
+        $purchaseTo = $this->resolvePurchaseTo($request, $validated);
+        if (! $purchaseTo) {
+            return response()->json([
+                'message' => 'No warehouse is assigned to your user account.',
+            ], 422);
+        }
 
         $purchase = Purchase::query()->create([
             ...$validated,
@@ -244,14 +275,7 @@ class PurchaseController extends Controller
             }
         }
 
-        $purchaseTo = $this->resolveLoginWarehouseId($request);
-        if (! $purchaseTo) {
-            return response()->json([
-                'message' => 'No warehouse is assigned to your user account.',
-            ], 422);
-        }
-
-        $validated = $request->validate([
+        $rules = [
             'purchase_form' => ['required', 'integer', 'exists:warehouses,id'],
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'quantity' => ['required', 'integer', 'min:1'],
@@ -259,14 +283,27 @@ class PurchaseController extends Controller
             'purchase_price' => ['required', 'numeric', 'min:0'],
             'selling_price' => ['required', 'numeric', 'min:0'],
             'status' => ['required', 'string', 'max:50'],
-        ]);
+        ];
+
+        if ($user?->hasRole('super-admin')) {
+            $rules['purchase_to'] = ['required', 'integer', 'exists:warehouses,id'];
+        }
+
+        $validated = $request->validate($rules);
+
+        $purchaseTo = $this->resolvePurchaseTo($request, $validated);
+        if (! $purchaseTo) {
+            return response()->json([
+                'message' => 'No warehouse is assigned to your user account.',
+            ], 422);
+        }
 
         $purchase->update([
             ...$validated,
             'purchase_to' => $purchaseTo,
         ]);
 
-        $this->syncApprovedPurchaseToSell($purchase);
+        $this->syncApprovedPurchaseToSellAndStock($purchase);
 
         $purchase->load([
             'purchaseFromWarehouse:id,name',

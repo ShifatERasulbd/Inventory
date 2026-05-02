@@ -96,7 +96,7 @@ export default function AddStock() {
                 stocks: Number(form.stocks),
                 warehouse_id: form.warehouse_id === '' ? null : Number(form.warehouse_id),
                 cartoon_id: form.cartoon_id === '' ? null : Number(form.cartoon_id),
-                barcode: form.barcode.trim() || null,
+                barcode: form.barcode.trim() ? form.barcode.split(',').map((b) => b.trim()).filter(Boolean) : null,
             });
 
             toast.success('Stock created successfully.', {

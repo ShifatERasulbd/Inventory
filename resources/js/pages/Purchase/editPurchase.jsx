@@ -9,6 +9,7 @@ import { fetchProducts, fetchPurchase, fetchWarehouses, updatePurchase } from '.
 
 const initialForm = {
     purchase_form: '',
+    purchase_to: '',
     product_id: '',
     quantity: '',
     po_number: '',
@@ -45,6 +46,7 @@ export default function EditPurchase() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
+    const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
 
     useEffect(() => {
         setPageTitle('Edit Purchase');
@@ -68,6 +70,7 @@ export default function EditPurchase() {
                 if (!ignore) {
                     setForm({
                         purchase_form: String(purchase.purchase_form ?? ''),
+                        purchase_to: String(purchase.purchase_to ?? ''),
                         product_id: String(purchase.product_id ?? ''),
                         quantity: String(purchase.quantity ?? ''),
                         po_number: purchase.po_number || '',
@@ -136,6 +139,7 @@ export default function EditPurchase() {
         try {
             await updatePurchase(id, {
                 purchase_form: Number(form.purchase_form),
+                ...(isSuperAdmin ? { purchase_to: Number(form.purchase_to) } : {}),
                 product_id: Number(form.product_id),
                 quantity: Number(form.quantity),
                 po_number: form.po_number.trim(),
@@ -180,6 +184,7 @@ export default function EditPurchase() {
                 errors={errors}
                 warehouses={warehouses}
                 products={products}
+                isSuperAdmin={isSuperAdmin}
                 purchaseToLabel={purchaseToLabel}
             />
         </div>
