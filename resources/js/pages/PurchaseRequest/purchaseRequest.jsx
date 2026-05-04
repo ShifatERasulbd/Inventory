@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Trash2 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+
 import { Input } from '@/components/ui/input';
 import {
     AlertDialog,
@@ -11,16 +10,14 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
+import PurchaseRequestTable from '@/components/purchaseRequest/table';
+
 import { toast } from 'sonner';
+
+function formatMoney(value) {
+    const numberValue = Number(value ?? 0);
+    return Number.isFinite(numberValue) ? numberValue.toFixed(2) : '0.00';
+}
 
 async function fetchPurchaseRequests() {
     const response = await fetch('/api/purchase-requests', {
@@ -74,84 +71,7 @@ async function deletePurchase(id) {
     return response.json();
 }
 
-function PurchaseRequestTable({
-    data,
-    searchTerm,
-    onDelete,
-    statusDrafts,
-    updatingId,
-    onDraftChange,
-    onUpdateStatus,
-}) {
-    const filtered = data.filter((item) =>
-        item.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.product_name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
 
-    return (
-        <Card className="rounded-lg border border-border bg-card">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>SL No.</TableHead>
-                        <TableHead>PO Number</TableHead>
-                        <TableHead>Product</TableHead>
-                        <TableHead>Purchase From</TableHead>
-                        <TableHead>Send To</TableHead>
-                        <TableHead>Quantity</TableHead>
-                        <TableHead>Purchase Price</TableHead>
-                        <TableHead>Selling Price</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Action</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {filtered.map((purchase, index) => (
-                        <TableRow key={purchase.id}>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell>{purchase.po_number}</TableCell>
-                            <TableCell>{purchase.product_name}</TableCell>
-                            <TableCell>{purchase.purchase_form_name}</TableCell>
-                            <TableCell>{purchase.purchase_to_name}</TableCell>
-                            <TableCell>{purchase.quantity}</TableCell>
-                            <TableCell>৳{purchase.purchase_price.toFixed(2)}</TableCell>
-                            <TableCell>৳{purchase.selling_price.toFixed(2)}</TableCell>
-                            <TableCell className="capitalize">{purchase.status}</TableCell>
-                            <TableCell>
-                                <div className="flex items-center gap-2">
-                                    <select
-                                        value={statusDrafts[purchase.id] ?? purchase.status}
-                                        onChange={(e) => onDraftChange(purchase.id, e.target.value)}
-                                        className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                                    >
-                                        <option value="pending">pending</option>
-                                        <option value="approved">approved</option>
-                                        <option value="rejected">rejected</option>
-                                        <option value="completed">completed</option>
-                                    </select>
-                                    <Button
-                                        size="sm"
-                                        onClick={() => onUpdateStatus(purchase.id, purchase.status)}
-                                        disabled={updatingId === purchase.id}
-                                    >
-                                        {updatingId === purchase.id ? 'Updating...' : 'Update'}
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => onDelete(purchase.id)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </Card>
-    );
-}
 
 export default function PurchaseRequest() {
     const [purchaseRequests, setPurchaseRequests] = useState([]);

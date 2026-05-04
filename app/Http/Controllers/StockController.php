@@ -44,11 +44,25 @@ class StockController extends Controller
         return [];
     }
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $stocks = Stock::query()
+        $query = Stock::query()
             ->with('product:id,name')
-            ->orderBy('id')
+            ->orderBy('id');
+
+        $user = $request->user();
+
+        if ($user && ! $user->hasRole('super-admin')) {
+            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+
+            if ($warehouseIds === []) {
+                return response()->json([]);
+            }
+
+            $query->whereIn('warehouse_id', $warehouseIds);
+        }
+
+        $stocks = $query
             ->get()
             ->map(fn (Stock $stock) => [
                 'id' => $stock->id,
