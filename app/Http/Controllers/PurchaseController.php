@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\Sell;
 use App\Models\Stock;
@@ -21,30 +22,43 @@ class PurchaseController extends Controller
             return;
         }
 
-        $sell = Sell::query()->updateOrCreate(
-            ['purchase_id' => $purchase->id],
-            [
-                'selling_from' => $purchase->purchase_form,
-                'sold_to' => $purchase->purchase_to,
-                'product_id' => $purchase->product_id,
-                'quantity' => $purchase->quantity,
-                'po_number' => $purchase->po_number,
-                'purchase_price' => $purchase->purchase_price,
-                'selling_price' => $purchase->selling_price,
-                'status' => 'approved',
-            ]
-        );
+        $products = is_array($purchase->products) ? $purchase->products : [];
 
-        if (! $sell->wasRecentlyCreated) {
-            return;
+        foreach ($products as $item) {
+            $productId    = (int) ($item['product_id'] ?? 0);
+            $quantity     = (int) ($item['quantity'] ?? 0);
+            $purchasePrice = (float) ($item['purchase_price'] ?? 0);
+            $sellingPrice  = (float) ($item['selling_price'] ?? 0);
+
+            if ($productId <= 0) {
+                continue;
+            }
+
+            $sell = Sell::query()->updateOrCreate(
+                ['purchase_id' => $purchase->id, 'product_id' => $productId],
+                [
+                    'selling_from'   => $purchase->purchase_form,
+                    'sold_to'        => $purchase->purchase_to,
+                    'product_id'     => $productId,
+                    'quantity'       => $quantity,
+                    'po_number'      => $purchase->po_number,
+                    'purchase_price' => $purchasePrice,
+                    'selling_price'  => $sellingPrice,
+                    'status'         => 'approved',
+                ]
+            );
+
+            if (! $sell->wasRecentlyCreated) {
+                continue;
+            }
+
+            Stock::query()->firstOrCreate([
+                'product_id'   => $productId,
+                'warehouse_id' => $purchase->purchase_to,
+                'cartoon_id'   => null,
+                'barcode'      => null,
+            ]);
         }
-
-        Stock::query()->firstOrCreate([
-            'product_id' => $purchase->product_id,
-            'warehouse_id' => $purchase->purchase_to,
-            'cartoon_id' => null,
-            'barcode' => null,
-        ]);
     }
 
     private function resolvePurchaseTo(Request $request, array $validated): ?int
@@ -75,21 +89,53 @@ class PurchaseController extends Controller
             : null;
     }
 
-    private function formatPurchase(Purchase $purchase): array
+    private function buildProductMap(array $purchases): array
     {
+        $productIds = [];
+        foreach ($purchases as $purchase) {
+            $items = is_array($purchase->products) ? $purchase->products : [];
+            foreach ($items as $item) {
+                $id = (int) ($item['product_id'] ?? 0);
+                if ($id > 0) {
+                    $productIds[] = $id;
+                }
+            }
+        }
+
+        if (empty($productIds)) {
+            return [];
+        }
+
+        return Product::query()
+            ->whereIn('id', array_unique($productIds))
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    private function formatPurchase(Purchase $purchase, array $productMap = []): array
+    {
+        $products = is_array($purchase->products) ? $purchase->products : [];
+
+        $formattedProducts = array_values(array_map(function ($item) use ($productMap) {
+            $productId = (int) ($item['product_id'] ?? 0);
+            return [
+                'product_id'     => $productId,
+                'quantity'       => (int) ($item['quantity'] ?? 0),
+                'purchase_price' => (float) ($item['purchase_price'] ?? 0),
+                'selling_price'  => (float) ($item['selling_price'] ?? 0),
+                'product_name'   => $productMap[$productId] ?? null,
+            ];
+        }, $products));
+
         return [
-            'id' => $purchase->id,
-            'purchase_form' => $purchase->purchase_form,
-            'purchase_to' => $purchase->purchase_to,
-            'product_id' => $purchase->product_id,
-            'quantity' => (int) $purchase->quantity,
-            'po_number' => $purchase->po_number,
-            'purchase_price' => (float) $purchase->purchase_price,
-            'selling_price' => (float) $purchase->selling_price,
-            'status' => $purchase->status,
+            'id'                 => $purchase->id,
+            'purchase_form'      => $purchase->purchase_form,
+            'purchase_to'        => $purchase->purchase_to,
+            'products'           => $formattedProducts,
+            'po_number'          => $purchase->po_number,
+            'status'             => $purchase->status,
             'purchase_form_name' => $purchase->purchaseFromWarehouse?->name,
-            'purchase_to_name' => $purchase->purchaseToWarehouse?->name,
-            'product_name' => $purchase->product?->name,
+            'purchase_to_name'   => $purchase->purchaseToWarehouse?->name,
         ];
     }
 
@@ -100,7 +146,6 @@ class PurchaseController extends Controller
             ->with([
                 'purchaseFromWarehouse:id,name',
                 'purchaseToWarehouse:id,name',
-                'product:id,name',
             ]);
 
         // Filter by permission: only super-admins see all purchases
@@ -120,10 +165,13 @@ class PurchaseController extends Controller
 
         $purchases = $query
             ->orderByDesc('id')
-            ->get()
-            ->map(fn (Purchase $purchase) => $this->formatPurchase($purchase));
+            ->get();
 
-        return response()->json($purchases);
+        $productMap = $this->buildProductMap($purchases->all());
+
+        return response()->json(
+            $purchases->map(fn (Purchase $purchase) => $this->formatPurchase($purchase, $productMap))
+        );
     }
 
     public function getPurchaseRequests(Request $request): JsonResponse
@@ -134,7 +182,6 @@ class PurchaseController extends Controller
             ->with([
                 'purchaseFromWarehouse:id,name',
                 'purchaseToWarehouse:id,name',
-                'product:id,name',
             ]);
 
         if (! $user->hasRole('super-admin')) {
@@ -149,10 +196,13 @@ class PurchaseController extends Controller
 
         $purchaseRequests = $query
             ->orderByDesc('id')
-            ->get()
-            ->map(fn (Purchase $purchase) => $this->formatPurchase($purchase));
+            ->get();
 
-        return response()->json($purchaseRequests);
+        $productMap = $this->buildProductMap($purchaseRequests->all());
+
+        return response()->json(
+            $purchaseRequests->map(fn (Purchase $purchase) => $this->formatPurchase($purchase, $productMap))
+        );
     }
 
     public function updateRequestStatus(Request $request, Purchase $purchase): JsonResponse
@@ -185,22 +235,24 @@ class PurchaseController extends Controller
         $purchase->load([
             'purchaseFromWarehouse:id,name',
             'purchaseToWarehouse:id,name',
-            'product:id,name',
         ]);
 
-        return response()->json($this->formatPurchase($purchase));
+        $productMap = $this->buildProductMap([$purchase]);
+
+        return response()->json($this->formatPurchase($purchase, $productMap));
     }
 
     public function store(Request $request): JsonResponse
     {
         $rules = [
-            'purchase_form' => ['required', 'integer', 'exists:warehouses,id'],
-            'product_id' => ['required', 'integer', 'exists:products,id'],
-            'quantity' => ['required', 'integer', 'min:1'],
-            'po_number' => ['required', 'string', 'max:100'],
-            'purchase_price' => ['required', 'numeric', 'min:0'],
-            'selling_price' => ['required', 'numeric', 'min:0'],
-            'status' => ['required', 'string', 'max:50'],
+            'purchase_form'                    => ['required', 'integer', 'exists:warehouses,id'],
+            'products'                         => ['required', 'array', 'min:1'],
+            'products.*.product_id'            => ['required', 'integer', 'exists:products,id'],
+            'products.*.quantity'              => ['required', 'integer', 'min:1'],
+            'products.*.purchase_price'        => ['required', 'numeric', 'min:0'],
+            'products.*.selling_price'         => ['required', 'numeric', 'min:0'],
+            'po_number'                        => ['required', 'string', 'max:100'],
+            'status'                           => ['required', 'string', 'max:50'],
         ];
 
         if ($request->user()?->hasRole('super-admin')) {
@@ -217,17 +269,21 @@ class PurchaseController extends Controller
         }
 
         $purchase = Purchase::query()->create([
-            ...$validated,
-            'purchase_to' => $purchaseTo,
+            'purchase_form' => $validated['purchase_form'],
+            'purchase_to'   => $purchaseTo,
+            'products'      => $validated['products'],
+            'po_number'     => $validated['po_number'],
+            'status'        => $validated['status'],
         ]);
 
         $purchase->load([
             'purchaseFromWarehouse:id,name',
             'purchaseToWarehouse:id,name',
-            'product:id,name',
         ]);
 
-        return response()->json($this->formatPurchase($purchase), 201);
+        $productMap = $this->buildProductMap([$purchase]);
+
+        return response()->json($this->formatPurchase($purchase, $productMap), 201);
     }
 
     public function show(Request $request, Purchase $purchase): JsonResponse
@@ -251,10 +307,11 @@ class PurchaseController extends Controller
         $purchase->load([
             'purchaseFromWarehouse:id,name',
             'purchaseToWarehouse:id,name',
-            'product:id,name',
         ]);
 
-        return response()->json($this->formatPurchase($purchase));
+        $productMap = $this->buildProductMap([$purchase]);
+
+        return response()->json($this->formatPurchase($purchase, $productMap));
     }
 
     public function update(Request $request, Purchase $purchase): JsonResponse
@@ -276,13 +333,14 @@ class PurchaseController extends Controller
         }
 
         $rules = [
-            'purchase_form' => ['required', 'integer', 'exists:warehouses,id'],
-            'product_id' => ['required', 'integer', 'exists:products,id'],
-            'quantity' => ['required', 'integer', 'min:1'],
-            'po_number' => ['required', 'string', 'max:100'],
-            'purchase_price' => ['required', 'numeric', 'min:0'],
-            'selling_price' => ['required', 'numeric', 'min:0'],
-            'status' => ['required', 'string', 'max:50'],
+            'purchase_form'             => ['required', 'integer', 'exists:warehouses,id'],
+            'products'                  => ['required', 'array', 'min:1'],
+            'products.*.product_id'     => ['required', 'integer', 'exists:products,id'],
+            'products.*.quantity'       => ['required', 'integer', 'min:1'],
+            'products.*.purchase_price' => ['required', 'numeric', 'min:0'],
+            'products.*.selling_price'  => ['required', 'numeric', 'min:0'],
+            'po_number'                 => ['required', 'string', 'max:100'],
+            'status'                    => ['required', 'string', 'max:50'],
         ];
 
         if ($user?->hasRole('super-admin')) {
@@ -299,8 +357,11 @@ class PurchaseController extends Controller
         }
 
         $purchase->update([
-            ...$validated,
-            'purchase_to' => $purchaseTo,
+            'purchase_form' => $validated['purchase_form'],
+            'purchase_to'   => $purchaseTo,
+            'products'      => $validated['products'],
+            'po_number'     => $validated['po_number'],
+            'status'        => $validated['status'],
         ]);
 
         $this->syncApprovedPurchaseToSellAndStock($purchase);
@@ -308,10 +369,11 @@ class PurchaseController extends Controller
         $purchase->load([
             'purchaseFromWarehouse:id,name',
             'purchaseToWarehouse:id,name',
-            'product:id,name',
         ]);
 
-        return response()->json($this->formatPurchase($purchase));
+        $productMap = $this->buildProductMap([$purchase]);
+
+        return response()->json($this->formatPurchase($purchase, $productMap));
     }
 
     public function destroy(Request $request, Purchase $purchase): JsonResponse

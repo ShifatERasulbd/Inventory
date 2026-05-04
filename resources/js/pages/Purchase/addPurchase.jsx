@@ -7,15 +7,14 @@ import { useAppContext } from '@/context/AppContext';
 
 import { createPurchase, fetchProducts, fetchWarehouses } from './api';
 
+const emptyProductRow = () => ({ product_id: '', quantity: '', purchase_price: '', selling_price: '' });
+
 const initialForm = {
     purchase_form: '',
     purchase_to: '',
-    product_id: '',
-    quantity: '',
     po_number: '',
-    purchase_price: '',
-    selling_price: '',
     status: 'pending',
+    products: [emptyProductRow()],
 };
 
 function validateForm(form, isSuperAdmin) {
@@ -29,28 +28,31 @@ function validateForm(form, isSuperAdmin) {
         validationErrors.purchase_to = ['Purchase to warehouse is required.'];
     }
 
-    if (!Number.isInteger(Number(form.product_id)) || Number(form.product_id) <= 0) {
-        validationErrors.product_id = ['Product is required.'];
-    }
-
-    if (!Number.isInteger(Number(form.quantity)) || Number(form.quantity) <= 0) {
-        validationErrors.quantity = ['Quantity must be a positive integer.'];
-    }
-
     if (!form.po_number.trim()) {
         validationErrors.po_number = ['PO number is required.'];
     }
 
-    if (Number.isNaN(Number(form.purchase_price)) || Number(form.purchase_price) < 0) {
-        validationErrors.purchase_price = ['Purchase price must be 0 or greater.'];
-    }
-
-    if (Number.isNaN(Number(form.selling_price)) || Number(form.selling_price) < 0) {
-        validationErrors.selling_price = ['Selling price must be 0 or greater.'];
-    }
-
     if (!form.status.trim()) {
         validationErrors.status = ['Status is required.'];
+    }
+
+    if (!Array.isArray(form.products) || form.products.length === 0) {
+        validationErrors.products = ['At least one product is required.'];
+    } else {
+        form.products.forEach((row, i) => {
+            if (!Number.isInteger(Number(row.product_id)) || Number(row.product_id) <= 0) {
+                validationErrors[`products.${i}.product_id`] = ['Product is required.'];
+            }
+            if (!Number.isInteger(Number(row.quantity)) || Number(row.quantity) <= 0) {
+                validationErrors[`products.${i}.quantity`] = ['Quantity must be a positive integer.'];
+            }
+            if (Number.isNaN(Number(row.purchase_price)) || Number(row.purchase_price) < 0) {
+                validationErrors[`products.${i}.purchase_price`] = ['Purchase price must be 0 or greater.'];
+            }
+            if (Number.isNaN(Number(row.selling_price)) || Number(row.selling_price) < 0) {
+                validationErrors[`products.${i}.selling_price`] = ['Selling price must be 0 or greater.'];
+            }
+        });
     }
 
     return validationErrors;
@@ -156,6 +158,33 @@ export default function AddPurchase() {
         }));
     };
 
+    const handleProductChange = (index, field, value) => {
+        setForm((previous) => {
+            const updated = previous.products.map((row, i) =>
+                i === index ? { ...row, [field]: value } : row
+            );
+            return { ...previous, products: updated };
+        });
+    };
+
+    const handleProductSelectChange = (index, value) => {
+        handleProductChange(index, 'product_id', value);
+    };
+
+    const addProductRow = () => {
+        setForm((previous) => ({
+            ...previous,
+            products: [...previous.products, emptyProductRow()],
+        }));
+    };
+
+    const removeProductRow = (index) => {
+        setForm((previous) => ({
+            ...previous,
+            products: previous.products.filter((_, i) => i !== index),
+        }));
+    };
+
     const handleSubmit = async (event) => {
         event.preventDefault();
 
@@ -174,11 +203,13 @@ export default function AddPurchase() {
             await createPurchase({
                 purchase_form: Number(form.purchase_form),
                 ...(isSuperAdmin ? { purchase_to: Number(form.purchase_to) } : {}),
-                product_id: Number(form.product_id),
-                quantity: Number(form.quantity),
+                products: form.products.map((row) => ({
+                    product_id:     Number(row.product_id),
+                    quantity:       Number(row.quantity),
+                    purchase_price: Number(row.purchase_price),
+                    selling_price:  Number(row.selling_price),
+                })),
                 po_number: form.po_number.trim(),
-                purchase_price: Number(form.purchase_price),
-                selling_price: Number(form.selling_price),
                 status: form.status.trim(),
             });
 
@@ -212,12 +243,16 @@ export default function AddPurchase() {
                 form={form}
                 onChange={handleChange}
                 onSelectChange={handleSelectChange}
+                onProductChange={handleProductChange}
+                onProductSelectChange={handleProductSelectChange}
+                onAddProduct={addProductRow}
+                onRemoveProduct={removeProductRow}
                 onSubmit={handleSubmit}
                 onCancel={() => navigate('/purchases')}
                 isSubmitting={isSubmitting}
                 errors={errors}
                 warehouses={warehouses}
-                products={products}
+                productOptions={products}
                 isSuperAdmin={isSuperAdmin}
                 purchaseToLabel={purchaseToLabel}
             />

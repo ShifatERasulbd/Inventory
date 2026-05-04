@@ -7,15 +7,14 @@ import { useAppContext } from '@/context/AppContext';
 
 import { fetchProducts, fetchPurchase, fetchWarehouses, updatePurchase } from './api';
 
+const emptyProductRow = () => ({ product_id: '', quantity: '', purchase_price: '', selling_price: '' });
+
 const initialForm = {
     purchase_form: '',
     purchase_to: '',
-    product_id: '',
-    quantity: '',
     po_number: '',
-    purchase_price: '',
-    selling_price: '',
     status: 'pending',
+    products: [emptyProductRow()],
 };
 
 async function fetchCurrentUser() {
@@ -68,15 +67,21 @@ export default function EditPurchase() {
                 ]);
 
                 if (!ignore) {
+                    const loadedProducts = Array.isArray(purchase.products) && purchase.products.length > 0
+                        ? purchase.products.map((item) => ({
+                            product_id:     String(item.product_id ?? ''),
+                            quantity:       String(item.quantity ?? ''),
+                            purchase_price: String(item.purchase_price ?? ''),
+                            selling_price:  String(item.selling_price ?? ''),
+                          }))
+                        : [emptyProductRow()];
+
                     setForm({
                         purchase_form: String(purchase.purchase_form ?? ''),
-                        purchase_to: String(purchase.purchase_to ?? ''),
-                        product_id: String(purchase.product_id ?? ''),
-                        quantity: String(purchase.quantity ?? ''),
-                        po_number: purchase.po_number || '',
-                        purchase_price: String(purchase.purchase_price ?? ''),
-                        selling_price: String(purchase.selling_price ?? ''),
-                        status: purchase.status || 'pending',
+                        purchase_to:   String(purchase.purchase_to ?? ''),
+                        po_number:     purchase.po_number || '',
+                        status:        purchase.status || 'pending',
+                        products:      loadedProducts,
                     });
                     setWarehouses(Array.isArray(warehouseData) ? warehouseData : []);
                     setProducts(Array.isArray(productData) ? productData : []);
@@ -130,6 +135,33 @@ export default function EditPurchase() {
         }));
     };
 
+    const handleProductChange = (index, field, value) => {
+        setForm((previous) => {
+            const updated = previous.products.map((row, i) =>
+                i === index ? { ...row, [field]: value } : row
+            );
+            return { ...previous, products: updated };
+        });
+    };
+
+    const handleProductSelectChange = (index, value) => {
+        handleProductChange(index, 'product_id', value);
+    };
+
+    const addProductRow = () => {
+        setForm((previous) => ({
+            ...previous,
+            products: [...previous.products, emptyProductRow()],
+        }));
+    };
+
+    const removeProductRow = (index) => {
+        setForm((previous) => ({
+            ...previous,
+            products: previous.products.filter((_, i) => i !== index),
+        }));
+    };
+
     const handleSubmit = async (event) => {
         event.preventDefault();
 
@@ -140,11 +172,13 @@ export default function EditPurchase() {
             await updatePurchase(id, {
                 purchase_form: Number(form.purchase_form),
                 ...(isSuperAdmin ? { purchase_to: Number(form.purchase_to) } : {}),
-                product_id: Number(form.product_id),
-                quantity: Number(form.quantity),
+                products: form.products.map((row) => ({
+                    product_id:     Number(row.product_id),
+                    quantity:       Number(row.quantity),
+                    purchase_price: Number(row.purchase_price),
+                    selling_price:  Number(row.selling_price),
+                })),
                 po_number: form.po_number.trim(),
-                purchase_price: Number(form.purchase_price),
-                selling_price: Number(form.selling_price),
                 status: form.status.trim(),
             });
 
@@ -178,12 +212,16 @@ export default function EditPurchase() {
                 form={form}
                 onChange={handleChange}
                 onSelectChange={handleSelectChange}
+                onProductChange={handleProductChange}
+                onProductSelectChange={handleProductSelectChange}
+                onAddProduct={addProductRow}
+                onRemoveProduct={removeProductRow}
                 onSubmit={handleSubmit}
                 onCancel={() => navigate('/purchases')}
                 isSubmitting={isSubmitting}
                 errors={errors}
                 warehouses={warehouses}
-                products={products}
+                productOptions={products}
                 isSuperAdmin={isSuperAdmin}
                 purchaseToLabel={purchaseToLabel}
             />

@@ -19,7 +19,9 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
     const filtered = purchases.filter((purchase) => {
         const query = search.toLowerCase();
         const poNumber = String(purchase.po_number || '').toLowerCase();
-        const productName = String(purchase.product_name || '').toLowerCase();
+        const productName = (purchase.products || [])
+            .map((item) => String(item.product_name || `Product #${item.product_id || ''}`).toLowerCase())
+            .join(' ');
         const status = String(purchase.status || '').toLowerCase();
 
         return poNumber.includes(query) || productName.includes(query) || status.includes(query);
@@ -47,12 +49,9 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                         <TableRow>
                             <TableHead className="w-[80px]">SL No.</TableHead>
                             <TableHead>PO Number</TableHead>
-                            <TableHead>Product</TableHead>
+                            <TableHead>Products</TableHead>
                             <TableHead>Purchase From</TableHead>
                             <TableHead>Purchase To</TableHead>
-                            <TableHead>Quantity</TableHead>
-                            <TableHead>Purchase Price</TableHead>
-                            <TableHead>Selling Price</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead className="w-[120px]">Action</TableHead>
                         </TableRow>
@@ -61,7 +60,7 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                     <TableBody>
                         {isLoading && (
                             <TableRow>
-                                <TableCell colSpan={10} className="text-center text-muted-foreground">
+                                <TableCell colSpan={7} className="text-center text-muted-foreground">
                                     Loading purchases...
                                 </TableCell>
                             </TableRow>
@@ -69,7 +68,7 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
 
                         {!isLoading && purchases.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={10} className="text-center text-muted-foreground">
+                                <TableCell colSpan={7} className="text-center text-muted-foreground">
                                     No purchases found.
                                 </TableCell>
                             </TableRow>
@@ -77,7 +76,7 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
 
                         {!isLoading && filtered.length === 0 && purchases.length > 0 && (
                             <TableRow>
-                                <TableCell colSpan={10} className="text-center text-muted-foreground">
+                                <TableCell colSpan={7} className="text-center text-muted-foreground">
                                     No purchases match your search.
                                 </TableCell>
                             </TableRow>
@@ -88,12 +87,22 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                                 <TableRow key={purchase.id}>
                                     <TableCell className="font-medium">{index + 1}</TableCell>
                                     <TableCell>{purchase.po_number}</TableCell>
-                                    <TableCell>{purchase.product_name || `Product #${purchase.product_id}`}</TableCell>
+                                    <TableCell>
+                                        <div className="space-y-2">
+                                            {(purchase.products || []).map((item, itemIndex) => (
+                                                <div key={`${purchase.id}-${itemIndex}`} className="rounded-md border border-border/60 px-3 py-2 text-sm">
+                                                    <div className="font-medium">
+                                                        {item.product_name || `Product #${item.product_id}`}
+                                                    </div>
+                                                    <div className="text-muted-foreground">
+                                                        Qty: {Number(item.quantity ?? 0)} | Purchase: {Number(item.purchase_price ?? 0).toFixed(2)} | Selling: {Number(item.selling_price ?? 0).toFixed(2)}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </TableCell>
                                     <TableCell>{purchase.purchase_form_name || `Warehouse #${purchase.purchase_form}`}</TableCell>
                                     <TableCell>{purchase.purchase_to_name || `Warehouse #${purchase.purchase_to}`}</TableCell>
-                                    <TableCell>{Number(purchase.quantity ?? 0)}</TableCell>
-                                    <TableCell>{Number(purchase.purchase_price ?? 0).toFixed(2)}</TableCell>
-                                    <TableCell>{Number(purchase.selling_price ?? 0).toFixed(2)}</TableCell>
                                     <TableCell className="capitalize">{purchase.status}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">

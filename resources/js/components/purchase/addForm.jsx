@@ -1,3 +1,5 @@
+import { Plus, Trash2 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,12 +19,16 @@ export default function AddPurchaseForm({
     form,
     onChange,
     onSelectChange,
+    onProductChange,
+    onProductSelectChange,
+    onAddProduct,
+    onRemoveProduct,
     onSubmit,
     onCancel,
     isSubmitting,
     errors = {},
     warehouses = [],
-    products = [],
+    productOptions = [],
     isSuperAdmin = false,
     purchaseToLabel,
 }) {
@@ -30,13 +36,14 @@ export default function AddPurchaseForm({
         <Card>
             <CardHeader>
                 <CardTitle>Create Purchase</CardTitle>
-                <CardDescription>Add purchase details for the selected warehouse and product.</CardDescription>
+                <CardDescription>Add purchase details for the selected warehouse and products.</CardDescription>
             </CardHeader>
 
             <Separator />
 
             <form onSubmit={onSubmit}>
                 <CardContent className="space-y-6 pt-6">
+                    {/* Warehouse selectors */}
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                         <div className="space-y-2">
                             <Label htmlFor="purchase_form">Purchase From</Label>
@@ -79,37 +86,6 @@ export default function AddPurchaseForm({
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="product_id">Product</Label>
-                            <Select value={form.product_id} onValueChange={(value) => onSelectChange('product_id', value)}>
-                                <SelectTrigger id="product_id" className="w-full">
-                                    <SelectValue placeholder="Select product" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {products.map((product) => (
-                                        <SelectItem key={product.id} value={String(product.id)}>
-                                            {product.name || `Product #${product.id}`}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {errors.product_id && <p className="text-xs text-destructive">{errors.product_id[0]}</p>}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="quantity">Quantity</Label>
-                            <Input
-                                id="quantity"
-                                name="quantity"
-                                type="number"
-                                min="1"
-                                value={form.quantity}
-                                onChange={onChange}
-                                placeholder="e.g. 100"
-                            />
-                            {errors.quantity && <p className="text-xs text-destructive">{errors.quantity[0]}</p>}
-                        </div>
-
-                        <div className="space-y-2">
                             <Label htmlFor="po_number">PO Number</Label>
                             <Input
                                 id="po_number"
@@ -137,35 +113,126 @@ export default function AddPurchaseForm({
                             </Select>
                             {errors.status && <p className="text-xs text-destructive">{errors.status[0]}</p>}
                         </div>
+                    </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="purchase_price">Purchase Price</Label>
-                            <Input
-                                id="purchase_price"
-                                name="purchase_price"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={form.purchase_price}
-                                onChange={onChange}
-                                placeholder="e.g. 350.00"
-                            />
-                            {errors.purchase_price && <p className="text-xs text-destructive">{errors.purchase_price[0]}</p>}
+                    {/* Products repeater */}
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-base font-semibold">Products</Label>
+                            <Button type="button" variant="outline" size="sm" onClick={onAddProduct}>
+                                <Plus className="mr-1 h-4 w-4" />
+                                Add Product
+                            </Button>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="selling_price">Selling Price</Label>
-                            <Input
-                                id="selling_price"
-                                name="selling_price"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={form.selling_price}
-                                onChange={onChange}
-                                placeholder="e.g. 420.00"
-                            />
-                            {errors.selling_price && <p className="text-xs text-destructive">{errors.selling_price[0]}</p>}
+                        {errors.products && typeof errors.products === 'string' && (
+                            <p className="text-xs text-destructive">{errors.products}</p>
+                        )}
+                        {Array.isArray(errors.products) && errors.products[0] && (
+                            <p className="text-xs text-destructive">{errors.products[0]}</p>
+                        )}
+
+                        <div className="space-y-3">
+                            {(form.products ?? []).map((row, index) => (
+                                <div
+                                    key={index}
+                                    className="relative rounded-lg border bg-muted/30 p-4"
+                                >
+                                    {/* Row header */}
+                                    <div className="mb-3 flex items-center justify-between">
+                                        <span className="text-sm font-medium text-muted-foreground">
+                                            Item {index + 1}
+                                        </span>
+                                        {(form.products ?? []).length > 1 && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                                onClick={() => onRemoveProduct(index)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                        <div className="space-y-2 sm:col-span-2 lg:col-span-1">
+                                            <Label>Product</Label>
+                                            <Select
+                                                value={row.product_id}
+                                                onValueChange={(value) => onProductSelectChange(index, value)}
+                                            >
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Select product" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {productOptions.map((product) => (
+                                                        <SelectItem key={product.id} value={String(product.id)}>
+                                                            {product.name || `Product #${product.id}`}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            {errors[`products.${index}.product_id`] && (
+                                                <p className="text-xs text-destructive">
+                                                    {errors[`products.${index}.product_id`][0]}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label>Quantity</Label>
+                                            <Input
+                                                type="number"
+                                                min="1"
+                                                value={row.quantity}
+                                                onChange={(e) => onProductChange(index, 'quantity', e.target.value)}
+                                                placeholder="e.g. 100"
+                                            />
+                                            {errors[`products.${index}.quantity`] && (
+                                                <p className="text-xs text-destructive">
+                                                    {errors[`products.${index}.quantity`][0]}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label>Purchase Price</Label>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={row.purchase_price}
+                                                onChange={(e) => onProductChange(index, 'purchase_price', e.target.value)}
+                                                placeholder="e.g. 350.00"
+                                            />
+                                            {errors[`products.${index}.purchase_price`] && (
+                                                <p className="text-xs text-destructive">
+                                                    {errors[`products.${index}.purchase_price`][0]}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label>Selling Price</Label>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={row.selling_price}
+                                                onChange={(e) => onProductChange(index, 'selling_price', e.target.value)}
+                                                placeholder="e.g. 420.00"
+                                            />
+                                            {errors[`products.${index}.selling_price`] && (
+                                                <p className="text-xs text-destructive">
+                                                    {errors[`products.${index}.selling_price`][0]}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </CardContent>

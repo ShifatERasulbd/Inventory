@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\WareHouse;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,18 +14,13 @@ class Purchase extends Model
     protected $fillable = [
         'purchase_form',
         'purchase_to',
-        'product_id',
-        'quantity',
+        'products',
         'po_number',
-        'purchase_price',
-        'selling_price',
         'status',
     ];
 
     protected $casts = [
-        'quantity' => 'integer',
-        'purchase_price' => 'decimal:2',
-        'selling_price' => 'decimal:2',
+        'products' => 'array',
     ];
 
     public function purchaseFromWarehouse(): BelongsTo
@@ -35,10 +31,5 @@ class Purchase extends Model
     public function purchaseToWarehouse(): BelongsTo
     {
         return $this->belongsTo(WareHouse::class, 'purchase_to');
-    }
-
-    public function product(): BelongsTo
-    {
-        return $this->belongsTo(Product::class);
     }
 }
