@@ -3,9 +3,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
-import { Separator } from '@/components/ui/separator';  
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 
-export default function AddForm({ form, onChange, onCompositionChange, onSubmit, onCancel, isSubmitting, errors = {} }) {
+export default function AddForm({ form, onChange, onCompositionChange, onSelectChange, onSubmit, onCancel, isSubmitting, errors = {}, suppliers = [] }) {
     return (
         <Card>
             <CardHeader>
@@ -89,6 +90,26 @@ export default function AddForm({ form, onChange, onCompositionChange, onSubmit,
                                 placeholder="e.g. 180"
                             />
                             {errors.gsm && <p className="text-xs text-destructive">{errors.gsm[0]}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="fabric-supplier">Supplier</Label>
+                            <Select
+                                value={form.supplier_id ? String(form.supplier_id) : ''}
+                                onValueChange={(value) => onSelectChange('supplier_id', value)}
+                            >
+                                <SelectTrigger id="fabric-supplier">
+                                    <SelectValue placeholder="Select supplier" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {suppliers.map((s) => (
+                                        <SelectItem key={s.id} value={String(s.id)}>
+                                            {s.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {errors.supplier_id && <p className="text-xs text-destructive">{errors.supplier_id[0]}</p>}
                         </div>
                     </div>
                 </CardContent>

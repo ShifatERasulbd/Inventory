@@ -54,6 +54,7 @@ export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, dele
                         <TableHead>Construction</TableHead>
                         <TableHead>Ref No.</TableHead>
                         <TableHead>GSM</TableHead>
+                        <TableHead>Supplier</TableHead>
                         <TableHead className="w-[160px]">Action</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -61,7 +62,7 @@ export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, dele
                 <TableBody>
                     {isLoading && (
                         <TableRow>
-                            <TableCell colSpan={8} className="text-center text-muted-foreground">
+                            <TableCell colSpan={9} className="text-center text-muted-foreground">
                                 Loading Fabric...
                             </TableCell>
                         </TableRow>
@@ -69,7 +70,7 @@ export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, dele
 
                     {!isLoading && fabrics.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={8} className="text-center text-muted-foreground">
+                            <TableCell colSpan={9} className="text-center text-muted-foreground">
                                 No Fabrics found.
                             </TableCell>
                         </TableRow>
@@ -77,7 +78,7 @@ export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, dele
 
                     {!isLoading && filtered.length === 0 && fabrics.length > 0 && (
                         <TableRow>
-                            <TableCell colSpan={8} className="text-center text-muted-foreground">
+                            <TableCell colSpan={9} className="text-center text-muted-foreground">
                                 No Fabrics match your search.
                             </TableCell>
                         </TableRow>
@@ -93,6 +94,7 @@ export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, dele
                                 <TableCell>{fabric.construction ?? '—'}</TableCell>
                                 <TableCell>{fabric.ref_number ?? '—'}</TableCell>
                                 <TableCell>{fabric.gsm != null ? fabric.gsm : '—'}</TableCell>
+                                <TableCell>{fabric.supplier?.name ?? '—'}</TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                         <Button

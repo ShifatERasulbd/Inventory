@@ -13,6 +13,7 @@ use App\Http\Controllers\RackRowController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\SeasonController;
 use App\Http\Controllers\ColorController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\FabricController;
 use App\Http\Controllers\SizeController;
 use App\Http\Controllers\ProductController;
@@ -65,6 +66,9 @@ Route::prefix('api')->group(function () {
 
         // Size Controller
         Route::apiResource('/sizes',SizeController::class);
+
+          // supplier Controller
+        Route::apiResource('/suppliers',SupplierController::class);
         
         // Product Controller
         Route::post('/products/bulk-delete', [ProductController::class, 'bulkDestroy']);

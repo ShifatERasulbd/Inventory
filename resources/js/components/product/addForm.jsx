@@ -129,10 +129,6 @@ export default function AddForm({
     currentGalleryImageUrls = [],
     onRemoveCurrentCover,
     onRemoveCurrentGallery,
-    title = 'Create Product',
-    description = 'Fill in the product details and save to create a new record.',
-    submitLabel = 'Create Product',
-    submittingLabel = 'Creating...',
 }) {
     const selectedCoverPreviewUrl = useMemo(() => {
         if (!form?.cover_image) {
@@ -163,8 +159,8 @@ export default function AddForm({
     return (
         <Card>
             <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
+                <CardTitle>Create Product</CardTitle>
+                <CardDescription>Fill in the product details and save to create a new record.</CardDescription>
             </CardHeader>
 
             <Separator />
@@ -263,7 +259,7 @@ export default function AddForm({
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
                       
 
                         <div className="space-y-2">
@@ -278,7 +274,17 @@ export default function AddForm({
                             {errors.style_number && <p className="text-xs text-destructive">{errors.style_number[0]}</p>}
                         </div>
 
-                        
+                        <div className="space-y-2">
+                            <Label htmlFor="product-ref-number">Ref Number</Label>
+                            <Input
+                                id="product-ref-number"
+                                name="ref_number"
+                                value={form.ref_number}
+                                onChange={onChange}
+                                placeholder="e.g. REF-0001"
+                            />
+                            {errors.ref_number && <p className="text-xs text-destructive">{errors.ref_number[0]}</p>}
+                        </div>
 
                         <div className="space-y-2">
                             <Label htmlFor="product-barcode">Barcode</Label>
@@ -411,7 +417,7 @@ export default function AddForm({
                         Cancel
                     </Button>
                     <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? submittingLabel : submitLabel}
+                        {isSubmitting ? 'Creating...' : 'Create Product'}
                     </Button>
                 </CardFooter>
             </form>

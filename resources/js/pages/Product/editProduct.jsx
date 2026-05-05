@@ -17,6 +17,7 @@ import { fetchProduct, updateProducts } from './api';
 const initialForm = {
     brand_id: '',
     style_number: '',
+    ref_number: '',
     name: '',
     description: '',
     color_id: '',
@@ -155,6 +156,7 @@ export default function EditProduct() {
                 setForm({
                     brand_id: product.brand_id ? String(product.brand_id) : '',
                     style_number: product.style_number || '',
+                    ref_number: product.ref_number || '',
                     name: product.name || '',
                     description: product.description || '',
                     color_id: initialColorIds.find(Boolean) || '',
@@ -330,6 +332,7 @@ export default function EditProduct() {
             await updateProducts(id, {
                 brand_id: Number(form.brand_id),
                 style_number: form.style_number.trim(),
+                ref_number: form.ref_number.trim() || null,
                 name: form.name.trim(),
                 description: form.description.trim(),
                 color_id: Number(selectedColorIds[0]),

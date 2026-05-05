@@ -6,6 +6,7 @@ import EditForm from '@/components/fabric/editForm';
 import { useAppContext } from '@/context/AppContext';
 
 import { fetchFabric, updateFabrics } from './api';
+import { fetchSuppliers } from '@/pages/Suppliers/api';
 
 const initialForm = {
     name: '',
@@ -14,6 +15,7 @@ const initialForm = {
     construction: '',
     ref_number: '',
     gsm: '',
+    supplier_id: '',
 };
 
 export default function EditFabric() {
@@ -26,9 +28,11 @@ export default function EditFabric() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
+    const [suppliers, setSuppliers] = useState([]);
 
     useEffect(() => {
         setPageTitle('Edit Fabric');
+        fetchSuppliers().then(setSuppliers).catch(() => {});
     }, [setPageTitle]);
 
     useEffect(() => {
@@ -48,6 +52,7 @@ export default function EditFabric() {
                         construction: color.construction || '',
                         ref_number: color.ref_number || '',
                         gsm: color.gsm != null ? String(color.gsm) : '',
+                        supplier_id: color.supplier_id != null ? String(color.supplier_id) : '',
                     });
                 }
             } catch (error) {
@@ -76,6 +81,10 @@ export default function EditFabric() {
         }));
     };
 
+    const handleSelectChange = (field, value) => {
+        setForm((previous) => ({ ...previous, [field]: value || '' }));
+    };
+
     const handleCompositionChange = (html) => {
         setForm((previous) => ({ ...previous, composition: html }));
     };
@@ -94,6 +103,7 @@ export default function EditFabric() {
                 construction: form.construction.trim() || null,
                 ref_number: form.ref_number.trim() || null,
                 gsm: form.gsm !== '' ? Number(form.gsm) : null,
+                supplier_id: form.supplier_id ? Number(form.supplier_id) : null,
             });
 
             toast.success('Fabric updated successfully.', {
@@ -126,10 +136,12 @@ export default function EditFabric() {
                 form={form}
                 onChange={handleChange}
                 onCompositionChange={handleCompositionChange}
+                onSelectChange={handleSelectChange}
                 onSubmit={handleSubmit}
                 onCancel={() => navigate('/fabrics')}
                 isSubmitting={isSubmitting}
                 errors={errors}
+                suppliers={suppliers}
             />
         </div>
     );

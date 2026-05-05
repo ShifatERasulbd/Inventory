@@ -116,6 +116,11 @@ const Season =lazyWithRetry(()=>import ('@/pages/Season/season'),'season');
 const AddSeason = lazyWithRetry(() => import('@/pages/Season/addSeason'), 'season-add');
 const EditSeason = lazyWithRetry(() => import('@/pages/Season/editSeasons'), 'season-edit');
 
+// Supplier
+const Suppliers = lazyWithRetry(() => import('@/pages/Suppliers/suppliers'), 'suppliers');
+const AddSupplier = lazyWithRetry(() => import('@/pages/Suppliers/addSuppliers'), 'suppliers-add');
+const EditSupplier = lazyWithRetry(() => import('@/pages/Suppliers/editSuppliers'), 'suppliers-edit');
+
 export default function App() {
     return (
         <AppProvider>
@@ -225,6 +230,11 @@ export default function App() {
                             <Route path="/seasons" element={<Season/>}/>
                             <Route path="/seasons/add" element={<AddSeason/>}/>
                             <Route path="/seasons/:id/edit" element={<EditSeason/>}/>
+
+                            {/* Suppliers */}
+                            <Route path="/suppliers" element={<Suppliers/>}/>
+                            <Route path="/suppliers/add" element={<AddSupplier/>}/>
+                            <Route path="/suppliers/:id/edit" element={<EditSupplier/>}/>
                         </Route>
                     </Routes>
                 </Suspense>

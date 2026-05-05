@@ -122,6 +122,7 @@ class ProductController extends Controller
         $validated = $request->validate([
             'brand_id' => ['required', 'integer', 'exists:brands,id'],
             'style_number' => ['required', 'string', 'max:50'],
+            'ref_number' => ['nullable', 'string', 'max:100', 'unique:products,ref_number'],
             'name' => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string', 'max:2000'],
             'color_ids' => ['required', 'array', 'min:1'],
@@ -171,6 +172,7 @@ class ProductController extends Controller
                         $products[] = Product::query()->create([
                             'brand_id' => $validated['brand_id'],
                             'style_number' => $validated['style_number'],
+                            'ref_number' => $validated['ref_number'] ?? null,
                             'name' => $validated['name'],
                             'description' => $validated['description'] ?? null,
                             'color_id' => $colorId,
@@ -214,6 +216,7 @@ class ProductController extends Controller
         $validated = $request->validate([
             'brand_id' => ['required', 'integer', 'exists:brands,id'],
             'style_number' => ['required', 'string', 'max:50'],
+            'ref_number' => ['nullable', 'string', 'max:100', \Illuminate\Validation\Rule::unique('products', 'ref_number')->ignore($product->id)],
             'name' => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string', 'max:2000'],
             'color_id' => ['required', 'integer', 'exists:colors,id'],

@@ -11,7 +11,7 @@ class FabricController extends Controller
     //
     public function index():JsonResponse
     {
-        return response()->json(Fabric::query()->orderBy('name')->get());
+        return response()->json(Fabric::query()->with('supplier:id,name')->orderBy('name')->get());
     }
 
     public function store(Request $request):JsonResponse
@@ -23,6 +23,7 @@ class FabricController extends Controller
             'construction' => ['nullable', 'string', 'max:200'],
             'ref_number'   => ['nullable', 'string', 'max:100', 'unique:fabrics,ref_number'],
             'gsm'          => ['nullable', 'numeric', 'min:0'],
+            'supplier_id'  => ['nullable', 'integer', 'exists:suppliers,id'],
         ]);
 
         $fabric=Fabric::query()->create($validated);
@@ -31,7 +32,7 @@ class FabricController extends Controller
 
     public function show(Fabric $fabric):JsonResponse
     {
-        return response()->json($fabric);
+        return response()->json($fabric->load('supplier:id,name'));
     }
 
     public function update (Request $request,Fabric $fabric):JsonResponse
@@ -43,6 +44,7 @@ class FabricController extends Controller
             'construction' => ['nullable', 'string', 'max:200'],
             'ref_number'   => ['nullable', 'string', 'max:100', Rule::unique('fabrics', 'ref_number')->ignore($fabric->id)],
             'gsm'          => ['nullable', 'numeric', 'min:0'],
+            'supplier_id'  => ['nullable', 'integer', 'exists:suppliers,id'],
         ]);
         $fabric->update($validated);
         return response()->json($fabric->fresh());
