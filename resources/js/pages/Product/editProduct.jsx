@@ -8,6 +8,7 @@ import { fetchBrands } from '@/pages/Brand/api';
 import { fetchColors } from '@/pages/Color/api';
 import { fetchFabrics } from '@/pages/Fabric/api';
 import { fetchProductsFor } from '@/pages/ProductsFor/api';
+import { fetchSeasons } from '@/pages/Season/api';
 import { fetchSizes } from '@/pages/Size/api';
 import { fetchWarehouses } from '@/pages/Warehouse/api';
 
@@ -26,6 +27,7 @@ const initialForm = {
     gender_id: '',
     barCode: '',
     warehouse_id: '',
+    season_id: '',
     cover_image: null,
     gallery_images: [],
 };
@@ -89,6 +91,7 @@ export default function EditProduct() {
     const [sizes, setSizes] = useState([]);
     const [productFors, setProductFors] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
+    const [seasons, setSeasons] = useState([]);
     const [currentCoverImageUrl, setCurrentCoverImageUrl] = useState('');
     const [currentGalleryImageUrls, setCurrentGalleryImageUrls] = useState([]);
     const [currentCoverImagePath, setCurrentCoverImagePath] = useState('');
@@ -108,7 +111,7 @@ export default function EditProduct() {
             setLoadError('');
 
             try {
-                const [product, brandData, colorData, fabricData, sizeData, productForData, warehouseData] = await Promise.all([
+                const [product, brandData, colorData, fabricData, sizeData, productForData, warehouseData, seasonData] = await Promise.all([
                     fetchProduct(id),
                     fetchBrands(),
                     fetchColors(),
@@ -116,6 +119,7 @@ export default function EditProduct() {
                     fetchSizes(),
                     fetchProductsFor(),
                     fetchWarehouses(),
+                    fetchSeasons(),
                 ]);
 
                 if (ignore) {
@@ -128,6 +132,7 @@ export default function EditProduct() {
                 setSizes(Array.isArray(sizeData) ? sizeData : []);
                 setProductFors(Array.isArray(productForData) ? productForData : []);
                 setWarehouses(Array.isArray(warehouseData) ? warehouseData : []);
+                setSeasons(Array.isArray(seasonData) ? seasonData : []);
                 const galleryPaths = Array.isArray(product.gallery_images) ? product.gallery_images : [];
                 const galleryUrls = Array.isArray(product.gallery_image_urls) ? product.gallery_image_urls : [];
                 const galleryPairs = galleryPaths.map((path, index) => ({
@@ -160,6 +165,7 @@ export default function EditProduct() {
                     gender_id: product.gender_id ? String(product.gender_id) : '',
                     barCode: product.barCode || '',
                     warehouse_id: product.warehouse_id ? String(product.warehouse_id) : '',
+                    season_id: product.season_id ? String(product.season_id) : '',
                     cover_image: null,
                     gallery_images: [],
                 });
@@ -334,6 +340,7 @@ export default function EditProduct() {
                 gender_id: Number(form.gender_id),
                 barCode: form.barCode.trim(),
                 warehouse_id: Number(form.warehouse_id),
+                season_id: form.season_id ? Number(form.season_id) : null,
                 cover_image: form.cover_image,
                 gallery_images: form.gallery_images,
                 remove_cover_image: removeCoverImage,
@@ -383,6 +390,7 @@ export default function EditProduct() {
                 sizes={sizes}
                 productFors={productFors}
                 warehouses={warehouses}
+                seasons={seasons}
                 currentCoverImageUrl={currentCoverImageUrl}
                 currentGalleryImageUrls={currentGalleryImageUrls}
                 onChange={handleChange}

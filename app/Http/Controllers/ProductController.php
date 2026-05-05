@@ -32,6 +32,7 @@ class ProductController extends Controller
             'size:id,size',
             'gender:id,name',
             'warehouse:id,name',
+            'season:id,name',
         ]);
     }
 
@@ -109,6 +110,7 @@ class ProductController extends Controller
                     'size:id,size',
                     'gender:id,name',
                     'warehouse:id,name',
+                    'season:id,name'
                 ])
                 ->orderBy('id')
                 ->get()
@@ -127,6 +129,7 @@ class ProductController extends Controller
             'fabric_id' => ['required', 'integer', 'exists:fabrics,id'],
             'size_ids' => ['required', 'array', 'min:1'],
             'size_ids.*' => ['required', 'integer', 'exists:sizes,id'],
+            'season_id' => ['nullable', 'integer', 'exists:seasons,id'],
             'gender_id' => ['required', 'integer', 'exists:products_for,id'],
             'barCode' => ['required', 'string', 'max:200'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
@@ -176,6 +179,7 @@ class ProductController extends Controller
                             'gender_id' => $validated['gender_id'],
                             'barCode' => $validated['barCode'],
                             'warehouse_id' => $validated['warehouse_id'],
+                            'season_id'=>$validated['season_id'],
                             'cover_image' => $storedCoverImage,
                             'gallery_images' => $storedGalleryImages,
                         ]);
@@ -214,6 +218,7 @@ class ProductController extends Controller
             'description' => ['nullable', 'string', 'max:2000'],
             'color_id' => ['required', 'integer', 'exists:colors,id'],
             'fabric_id' => ['required', 'integer', 'exists:fabrics,id'],
+             'season_id' => ['nullable', 'integer', 'exists:seasons,id'],
             'size_id' => ['required', 'integer', 'exists:sizes,id'],
             'gender_id' => ['required', 'integer', 'exists:products_for,id'],
             'barCode' => ['required', 'string', 'max:200'],

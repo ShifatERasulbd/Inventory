@@ -114,6 +114,7 @@ export default function AddForm({
     sizes = [],
     productFors = [],
     warehouses = [],
+    seasons = [],
     onChange,
     onSelectChange,
     onRepeaterSelectChange,
@@ -184,7 +185,7 @@ export default function AddForm({
                         </div>
                     </div>
 
-                     <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
+                     <div className="grid grid-cols-1 gap-5 md:grid-cols-5">
                           <ProductSelect
                             id="product-brand"
                             label="Brand"
@@ -222,6 +223,16 @@ export default function AddForm({
                             placeholder="Select a warehouse"
                             error={errors.warehouse_id}
                             onValueChange={(value) => onSelectChange('warehouse_id', value)}
+                        />
+
+                        <ProductSelect
+                            id="product-season"
+                            label="Season"
+                            value={form.season_id}
+                            options={seasons}
+                            placeholder="Select a season"
+                            error={errors.season_id}
+                            onValueChange={(value) => onSelectChange('season_id', value)}
                         />
                      </div>
 

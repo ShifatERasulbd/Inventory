@@ -11,6 +11,7 @@ use App\Models\Fabric;
 use App\Models\ProductFor;
 use App\Models\Size;
 use App\Models\WareHouse;
+use App\Models\Season;
 
 class Product extends Model
 {
@@ -30,6 +31,7 @@ class Product extends Model
         'warehouse_id',
         'cover_image',
         'gallery_images',
+        'season_id'
       ];
 
       protected $casts = [
@@ -70,6 +72,11 @@ class Product extends Model
       public function warehouse(): BelongsTo
       {
         return $this->belongsTo(WareHouse::class);
+      }
+
+      public function season():BelongsTo
+      {
+        return $this->belongsTo(Season::class);
       }
 
       public function getCoverImageUrlAttribute(): ?string

@@ -5,6 +5,9 @@ import {
     FolderKanban,
     Gauge,
     Boxes ,
+    CreditCard,
+    Banknote,
+    ClipboardPlus ,
     Globe,
     LifeBuoy,
     LogOut,
@@ -12,6 +15,7 @@ import {
     Tag ,
     MoreHorizontal,
     Airplay,
+    Shirt,
     Users,
     Shield,
     ChartBarDecreasing,
@@ -48,15 +52,16 @@ const StrorageItems=[
     
     {title: 'Rack', icon: ChartBarDecreasing, path:'/racks', permission:'manage-rack'},
     {title: 'Stock', icon: Boxes, path:'/stocks', permission:'manage-stock'},
-    {title: 'Purchase', icon: Boxes, path:'/purchases'},
-    {title: 'Purchase Request', icon: Boxes, path:'/purchase-requests'},
-    {title: 'Sell', icon: Boxes, path:'/sells'},
+    {title: 'Purchase', icon: CreditCard, path:'/purchases'},
+    {title: 'Purchase Request', icon:  ClipboardPlus , path:'/purchase-requests'},
+    {title: 'Sell', icon: Banknote, path:'/sells'},
 ]
 
 const ProductionItems=[
     {title:'Brand', icon:Tag, path:'/brands',permission:'manage-brand'},
     {title:'Color', icon: Palette, path:'/colors', permission:'manage-color'},
-    {title:'Fabric', icon: LifeBuoy, path:'/fabrics', permission:'manage-fabrics'},
+    {title:'Fabric', icon: Shirt, path:'/fabrics', permission:'manage-fabrics'},
+    {title:'Season', icon:LifeBuoy, path:'/seasons',permission:'manage-season'},
     {title:'Size', icon: FileBarChart2, path:'/sizes', permission:'manage-size'},
     {title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-products-for'},
     {title:'Product', icon: MoreHorizontal, path:'/products', permission:'manage-product'},

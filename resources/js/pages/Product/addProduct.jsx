@@ -9,6 +9,7 @@ import { fetchBrands } from '@/pages/Brand/api';
 import { fetchColors } from '@/pages/Color/api';
 import { fetchFabrics } from '@/pages/Fabric/api';
 import { fetchProductsFor } from '@/pages/ProductsFor/api';
+import { fetchSeasons } from '@/pages/Season/api';
 import { fetchSizes } from '@/pages/Size/api';
 import { fetchWarehouses } from '@/pages/Warehouse/api';
 
@@ -27,6 +28,7 @@ const initialForm = {
     gender_id: '',
     barCode: '',
     warehouse_id: '',
+    season_id: '',
     cover_image: null,
     gallery_images: [],
 };
@@ -113,6 +115,7 @@ export default function AddProduct() {
     const [sizes, setSizes] = useState([]);
     const [productFors, setProductFors] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
+    const [seasons, setSeasons] = useState([]);
 
     useEffect(() => {
         setPageTitle('Add Product');
@@ -123,13 +126,14 @@ export default function AddProduct() {
 
         async function loadOptions() {
             try {
-                const [brandData, colorData, fabricData, sizeData, productForData, warehouseData] = await Promise.all([
+                const [brandData, colorData, fabricData, sizeData, productForData, warehouseData, seasonData] = await Promise.all([
                     fetchBrands(),
                     fetchColors(),
                     fetchFabrics(),
                     fetchSizes(),
                     fetchProductsFor(),
                     fetchWarehouses(),
+                    fetchSeasons(),
                 ]);
 
                 if (ignore) {
@@ -142,6 +146,7 @@ export default function AddProduct() {
                 setSizes(Array.isArray(sizeData) ? sizeData : []);
                 setProductFors(Array.isArray(productForData) ? productForData : []);
                 setWarehouses(Array.isArray(warehouseData) ? warehouseData : []);
+                setSeasons(Array.isArray(seasonData) ? seasonData : []);
             } catch (error) {
                 if (!ignore) {
                     setRequestError(error.message || 'Failed to load product form options.');
@@ -302,6 +307,7 @@ export default function AddProduct() {
                 gender_id: Number(form.gender_id),
                 barCode: form.barCode.trim(),
                 warehouse_id: Number(form.warehouse_id),
+                season_id: form.season_id ? Number(form.season_id) : null,
                 cover_image: form.cover_image,
                 gallery_images: form.gallery_images,
             });
@@ -337,6 +343,7 @@ export default function AddProduct() {
                     sizes={sizes}
                     productFors={productFors}
                     warehouses={warehouses}
+                    seasons={seasons}
                     onChange={handleChange}
                     onSelectChange={handleSelectChange}
                     onRepeaterSelectChange={handleRepeaterSelectChange}

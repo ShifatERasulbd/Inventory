@@ -11,6 +11,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RackController;
 use App\Http\Controllers\RackRowController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\SeasonController;
 use App\Http\Controllers\ColorController;
 use App\Http\Controllers\FabricController;
 use App\Http\Controllers\SizeController;
@@ -82,6 +83,10 @@ Route::prefix('api')->group(function () {
 
         // Sell Controller
         Route::apiResource('/sells', SellController::class);
+
+        
+        // Season Controller
+        Route::apiResource('/seasons', SeasonController::class);
 
         Route::middleware('super-admin')->group(function () {
             Route::get('/permissions', [PermissionController::class, 'index']);
