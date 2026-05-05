@@ -17,8 +17,11 @@ export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, dele
     const filtered = fabrics.filter((f) => {
         const q = search.toLowerCase();
         return (
-            f.name?.toLowerCase().includes(q) 
-           
+            f.name?.toLowerCase().includes(q) ||
+            f.type?.toLowerCase().includes(q) ||
+            f.composition?.toLowerCase().includes(q) ||
+            f.construction?.toLowerCase().includes(q) ||
+            f.ref_number?.toLowerCase().includes(q)
         );
     });
 
@@ -44,9 +47,13 @@ export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, dele
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[100px]">SL No.</TableHead>
+                        <TableHead className="w-[80px]">SL No.</TableHead>
                         <TableHead>Fabric</TableHead>
-                       
+                        <TableHead>Type</TableHead>
+                        <TableHead>Composition</TableHead>
+                        <TableHead>Construction</TableHead>
+                        <TableHead>Ref No.</TableHead>
+                        <TableHead>GSM</TableHead>
                         <TableHead className="w-[160px]">Action</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -54,7 +61,7 @@ export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, dele
                 <TableBody>
                     {isLoading && (
                         <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground">
                                 Loading Fabric...
                             </TableCell>
                         </TableRow>
@@ -62,7 +69,7 @@ export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, dele
 
                     {!isLoading && fabrics.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground">
                                 No Fabrics found.
                             </TableCell>
                         </TableRow>
@@ -70,7 +77,7 @@ export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, dele
 
                     {!isLoading && filtered.length === 0 && fabrics.length > 0 && (
                         <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground">
                                 No Fabrics match your search.
                             </TableCell>
                         </TableRow>
@@ -81,7 +88,11 @@ export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, dele
                             <TableRow key={fabric.id}>
                                 <TableCell className="font-medium">{index + 1}</TableCell>
                                 <TableCell>{fabric.name}</TableCell>
-                                
+                                <TableCell>{fabric.type ?? '—'}</TableCell>
+                                <TableCell>{fabric.composition ?? '—'}</TableCell>
+                                <TableCell>{fabric.construction ?? '—'}</TableCell>
+                                <TableCell>{fabric.ref_number ?? '—'}</TableCell>
+                                <TableCell>{fabric.gsm != null ? fabric.gsm : '—'}</TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                         <Button

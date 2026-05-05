@@ -11,6 +11,10 @@ class Fabric extends Model
 
     protected $fillable = [
         'name',
-       
-    ]; 
+        'type',
+        'composition',
+        'construction',
+        'ref_number',
+        'gsm',
+    ];
 }

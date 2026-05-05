@@ -9,6 +9,11 @@ import { fetchFabric, updateFabrics } from './api';
 
 const initialForm = {
     name: '',
+    type: '',
+    composition: '',
+    construction: '',
+    ref_number: '',
+    gsm: '',
 };
 
 export default function EditFabric() {
@@ -38,7 +43,11 @@ export default function EditFabric() {
                 if (!ignore) {
                     setForm({
                         name: color.name || '',
-                        
+                        type: color.type || '',
+                        composition: color.composition || '',
+                        construction: color.construction || '',
+                        ref_number: color.ref_number || '',
+                        gsm: color.gsm != null ? String(color.gsm) : '',
                     });
                 }
             } catch (error) {
@@ -67,6 +76,10 @@ export default function EditFabric() {
         }));
     };
 
+    const handleCompositionChange = (html) => {
+        setForm((previous) => ({ ...previous, composition: html }));
+    };
+
     const handleSubmit = async (event) => {
         event.preventDefault();
 
@@ -76,7 +89,11 @@ export default function EditFabric() {
         try {
             await updateFabrics(id, {
                 name: form.name.trim(),
-               
+                type: form.type.trim() || null,
+                composition: form.composition.trim() || null,
+                construction: form.construction.trim() || null,
+                ref_number: form.ref_number.trim() || null,
+                gsm: form.gsm !== '' ? Number(form.gsm) : null,
             });
 
             toast.success('Fabric updated successfully.', {
@@ -108,6 +125,7 @@ export default function EditFabric() {
             <EditForm
                 form={form}
                 onChange={handleChange}
+                onCompositionChange={handleCompositionChange}
                 onSubmit={handleSubmit}
                 onCancel={() => navigate('/fabrics')}
                 isSubmitting={isSubmitting}

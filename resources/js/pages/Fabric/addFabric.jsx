@@ -10,15 +10,17 @@ import { createFabrics } from './api';
 
 const initialForm = {
     name: '',
-   
+    type: '',
+    composition: '',
+    construction: '',
+    ref_number: '',
+    gsm: '',
 };
 
 function validateForm(form) {
-    const trimmedName = form.name.trim();
-   
     const validationErrors = {};
 
-    if (!trimmedName) {
+    if (!form.name.trim()) {
         validationErrors.name = ['The name field is required.'];
     }
 
@@ -55,6 +57,16 @@ export default function AddFabric() {
         });
     };
 
+    const handleCompositionChange = (html) => {
+        setForm((previous) => ({ ...previous, composition: html }));
+        setErrors((previous) => {
+            if (!previous.composition) return previous;
+            const next = { ...previous };
+            delete next.composition;
+            return next;
+        });
+    };
+
     const handleSubmit = async (event) => {
         event.preventDefault();
 
@@ -72,6 +84,11 @@ export default function AddFabric() {
         try {
             await createFabrics({
                 name: form.name.trim(),
+                type: form.type.trim() || null,
+                composition: form.composition.trim() || null,
+                construction: form.construction.trim() || null,
+                ref_number: form.ref_number.trim() || null,
+                gsm: form.gsm !== '' ? Number(form.gsm) : null,
             });
 
             toast.success('Fabric created successfully.', {
@@ -100,6 +117,7 @@ export default function AddFabric() {
                 <AddForm
                     form={form}
                     onChange={handleChange}
+                    onCompositionChange={handleCompositionChange}
                     onSubmit={handleSubmit}
                     onCancel={() => navigate('/fabric')}
                     isSubmitting={isSubmitting}

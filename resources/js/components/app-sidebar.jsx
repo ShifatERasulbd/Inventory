@@ -43,29 +43,29 @@ const homeItems = [
 ];
 
 const locationItems=[
-    { title: 'Country', icon: Globe, path: '/countries', permission: 'manage-countries' },
-    { title: 'State', icon: Airplay, path: '/states', permission: 'manage-states' },
+    { title: 'Country', icon: Globe, path: '/countries', permission: 'manage-warehouses' },
+    { title: 'State', icon: Airplay, path: '/states', permission: 'manage-warehouses' },
     { title: 'WareHouse', icon: BarChart3, path: '/warehouses', permission: 'manage-warehouses' },
 ]
 
 const StrorageItems=[
     
-    {title: 'Rack', icon: ChartBarDecreasing, path:'/racks', permission:'manage-rack'},
-    {title: 'Stock', icon: Boxes, path:'/stocks', permission:'manage-stock'},
-    {title: 'Purchase', icon: CreditCard, path:'/purchases'},
-    {title: 'Purchase Request', icon:  ClipboardPlus , path:'/purchase-requests'},
-    {title: 'Sell', icon: Banknote, path:'/sells'},
+    {title: 'Rack', icon: ChartBarDecreasing, path:'/racks', permission:'manage-storage'},
+    {title: 'Stock', icon: Boxes, path:'/stocks', permission:'manage-storage'},
+    {title: 'Purchase', icon: CreditCard, path:'/purchases',permission:'manage-storage'},
+    {title: 'Purchase Request', icon:  ClipboardPlus , path:'/purchase-requests',permission:'manage-storage'},
+    {title: 'Sell', icon: Banknote, path:'/sells',permission:'manage-storage'},
 ]
 
 const ProductionItems=[
-    {title:'Brand', icon:Tag, path:'/brands',permission:'manage-brand'},
-    {title:'Color', icon: Palette, path:'/colors', permission:'manage-color'},
-    {title:'Fabric', icon: Shirt, path:'/fabrics', permission:'manage-fabrics'},
-    {title:'Season', icon:LifeBuoy, path:'/seasons',permission:'manage-season'},
-    {title:'Size', icon: FileBarChart2, path:'/sizes', permission:'manage-size'},
-    {title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-products-for'},
-    {title:'Product', icon: MoreHorizontal, path:'/products', permission:'manage-product'},
-    {title:'Cartoon', icon: Circle, path:'/cartoons', permission:'manage-cartoon'},
+    {title:'Brand', icon:Tag, path:'/brands',permission:'manage-Production'},
+    {title:'Color', icon: Palette, path:'/colors', permission:'manage-Production'},
+    {title:'Fabric', icon: Shirt, path:'/fabrics', permission:'manage-Production'},
+    {title:'Season', icon:LifeBuoy, path:'/seasons',permission:'manage-Production'},
+    {title:'Size', icon: FileBarChart2, path:'/sizes', permission:'manage-Production'},
+    {title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-Production'},
+    {title:'Product', icon: MoreHorizontal, path:'/products', permission:'manage-Production'},
+    {title:'Cartoon', icon: Circle, path:'/cartoons', permission:'manage-Production'},
 ]
 
 const userAccessItems=[

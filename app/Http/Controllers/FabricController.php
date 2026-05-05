@@ -17,7 +17,12 @@ class FabricController extends Controller
     public function store(Request $request):JsonResponse
     {
         $validated=$request->validate([
-            'name'=>['required','string','max:100'],
+            'name'         => ['required', 'string', 'max:100'],
+            'type'         => ['nullable', 'string', 'max:100'],
+            'composition'  => ['nullable', 'string', 'max:200'],
+            'construction' => ['nullable', 'string', 'max:200'],
+            'ref_number'   => ['nullable', 'string', 'max:100', 'unique:fabrics,ref_number'],
+            'gsm'          => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $fabric=Fabric::query()->create($validated);
@@ -32,7 +37,12 @@ class FabricController extends Controller
     public function update (Request $request,Fabric $fabric):JsonResponse
     {
         $validated=$request->validate([
-            'name'=>['required','string','max:100'],
+            'name'         => ['required', 'string', 'max:100'],
+            'type'         => ['nullable', 'string', 'max:100'],
+            'composition'  => ['nullable', 'string', 'max:200'],
+            'construction' => ['nullable', 'string', 'max:200'],
+            'ref_number'   => ['nullable', 'string', 'max:100', Rule::unique('fabrics', 'ref_number')->ignore($fabric->id)],
+            'gsm'          => ['nullable', 'numeric', 'min:0'],
         ]);
         $fabric->update($validated);
         return response()->json($fabric->fresh());
