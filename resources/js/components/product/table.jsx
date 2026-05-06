@@ -27,6 +27,8 @@ export function ProductTable({
     isBulkDeleting,
     isLoading,
 }) {
+    const multiSelectCheckboxClass = 'border-gray-400 bg-gray-200 data-[state=checked]:border-black data-[state=checked]:bg-black data-[state=checked]:text-white data-[state=indeterminate]:border-black data-[state=indeterminate]:bg-black data-[state=indeterminate]:text-white';
+
     const [search, setSearch] = useState('');
     const filtered = products.filter((product) => {
         const q = search.toLowerCase();
@@ -86,6 +88,7 @@ export function ProductTable({
                         <TableRow>
                             <TableHead className="w-[60px]">
                                 <Checkbox
+                                    className={multiSelectCheckboxClass}
                                     checked={allVisibleSelected ? true : (someVisibleSelected ? 'indeterminate' : false)}
                                     onCheckedChange={(checked) => onToggleSelectAll?.(filteredIds, Boolean(checked))}
                                     aria-label="Select all products"
@@ -132,6 +135,7 @@ export function ProductTable({
                                 <TableRow key={product.id}>
                                     <TableCell>
                                         <Checkbox
+                                            className={multiSelectCheckboxClass}
                                             checked={selectedSet.has(product.id)}
                                             onCheckedChange={(checked) => onToggleSelectRow?.(product.id, Boolean(checked))}
                                             aria-label={`Select ${product.name}`}
