@@ -69,6 +69,7 @@ export default function Product() {
   const { setPageTitle } = useAppContext();
   const barcodePrintRef = useRef(null);
   const barcodePrintSourceRef = useRef(null);
+  const bulkBarcodePrintSourceRef = useRef(null);
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -78,6 +79,7 @@ export default function Product() {
   const [barcodeProduct, setBarcodeProduct] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const [isBulkBarcodeDialogOpen, setIsBulkBarcodeDialogOpen] = useState(false);
 
     useEffect(() => {
     setPageTitle('Products');
@@ -311,6 +313,126 @@ export default function Product() {
     };
   };
 
+  const selectedProducts = products.filter((product) => selectedIds.includes(product.id));
+  const selectedProductsWithBarcode = selectedProducts.filter((product) => Boolean(product?.barCode));
+
+  const handlePrintBulkBarcodes = () => {
+    if (selectedProducts.length === 0 || !bulkBarcodePrintSourceRef.current) {
+      return;
+    }
+
+    const barcodeMarkup = bulkBarcodePrintSourceRef.current.innerHTML;
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+
+    if (!printWindow) {
+      toast.error('Unable to open print window. Please allow popups and try again.', {
+        style: { color: '#dc2626' },
+      });
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Print Product Barcodes</title>
+          <style>
+            body {
+              margin: 0;
+              font-family: Arial, sans-serif;
+              background: #ffffff;
+            }
+
+            .print-sheet {
+              min-height: 100vh;
+              padding: 24px;
+              box-sizing: border-box;
+            }
+
+            .print-sheet h1 {
+              margin: 0 0 6px;
+              text-align: center;
+            }
+
+            .print-sheet .subtitle {
+              margin: 0 0 16px;
+              text-align: center;
+              color: #52525b;
+              font-size: 14px;
+            }
+
+            .barcode-list {
+              display: flex;
+              flex-direction: column;
+              gap: 16px;
+            }
+
+            .barcode-item {
+              border: 1px solid #d4d4d8;
+              border-radius: 10px;
+              padding: 12px;
+              text-align: center;
+            }
+
+            .barcode-item h2 {
+              margin: 0 0 8px;
+              font-size: 16px;
+            }
+
+            .barcode-item .barcode-wrap {
+              display: flex;
+              justify-content: center;
+            }
+
+            .barcode-item .barcode-wrap svg {
+              display: block;
+              max-width: 100%;
+              height: auto;
+            }
+
+            .barcode-item .barcode-value {
+              margin-top: 8px;
+              font-size: 12px;
+              color: #71717a;
+              word-break: break-all;
+            }
+
+            .barcode-item .missing {
+              color: #71717a;
+              font-size: 13px;
+            }
+
+            @media print {
+              body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+
+              .print-sheet {
+                padding: 0;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-sheet">
+            <h1>Selected Product Barcodes</h1>
+            <p class="subtitle">${selectedProducts.length} product(s)</p>
+            <div class="barcode-list">${barcodeMarkup}</div>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.close();
+    };
+  };
+
     return (
     <div className="space-y-5">
       {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
@@ -321,6 +443,7 @@ export default function Product() {
                 selectedIds={selectedIds}
                 onToggleSelectAll={handleToggleSelectAll}
                 onToggleSelectRow={handleToggleSelectRow}
+                onRequestBulkBarcode={() => setIsBulkBarcodeDialogOpen(true)}
                 onRequestBulkDelete={() => setIsBulkDeleteDialogOpen(true)}
                 onAdd={() => navigate('/products/add')}
                 onEdit={(id) => navigate(`/products/${id}/edit`)}
@@ -371,6 +494,66 @@ export default function Product() {
                 {isBulkDeleting ? 'Deleting...' : 'Delete Selected'}
                 </AlertDialogAction>
               </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog
+              open={isBulkBarcodeDialogOpen}
+              onOpenChange={(open) => {
+                setIsBulkBarcodeDialogOpen(open);
+              }}
+            >
+              <AlertDialogContent className="max-w-[95vw] sm:max-w-4xl">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Selected Product Barcodes</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {selectedProducts.length} selected product(s), {selectedProductsWithBarcode.length} with barcode.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+
+                <div className="max-h-[65vh] space-y-3 overflow-y-auto rounded-md border p-3">
+                  {selectedProducts.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No selected products found.</p>
+                  ) : (
+                    selectedProducts.map((product) => (
+                      <div key={product.id} className="rounded-md border bg-white p-3 text-center">
+                        <p className="text-sm font-medium">{product.name || 'Product'}</p>
+
+                        {product?.barCode ? (
+                          <div className="mt-2 space-y-2">
+                            <div className="flex justify-center overflow-hidden">
+                              <Barcode
+                                value={product.barCode}
+                                format="CODE128"
+                                width={getBarcodeWidth(product.barCode)}
+                                height={72}
+                                fontSize={14}
+                                margin={0}
+                                displayValue
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground break-all">{product.barCode}</p>
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-xs text-muted-foreground">No barcode is available for this product.</p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <AlertDialogFooter>
+                  <Button
+                    type="button"
+                    variant="default"
+                    onClick={handlePrintBulkBarcodes}
+                    disabled={selectedProducts.length === 0}
+                    className="sm:mr-auto"
+                  >
+                    Print All
+                  </Button>
+                  <AlertDialogCancel>Close</AlertDialogCancel>
+                </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
 
@@ -434,6 +617,34 @@ export default function Product() {
                     displayValue
                   />
                 ) : null}
+              </div>
+            </div>
+
+            <div className="pointer-events-none fixed -left-[9999px] top-0 opacity-0" aria-hidden="true">
+              <div ref={bulkBarcodePrintSourceRef} className="bg-white p-2">
+                {selectedProducts.map((product) => (
+                  <div key={product.id} className="barcode-item" style={{ marginBottom: '12px' }}>
+                    <h2>{escapeHtml(product.name || 'Product')}</h2>
+                    {product?.barCode ? (
+                      <>
+                        <div className="barcode-wrap" style={{ display: 'flex', justifyContent: 'center' }}>
+                          <Barcode
+                            value={product.barCode}
+                            format="CODE128"
+                            width={getPrintBarcodeWidth(product.barCode)}
+                            height={96}
+                            fontSize={16}
+                            margin={0}
+                            displayValue
+                          />
+                        </div>
+                        <div className="barcode-value">{escapeHtml(product.barCode)}</div>
+                      </>
+                    ) : (
+                      <div className="missing">No barcode is available for this product.</div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 

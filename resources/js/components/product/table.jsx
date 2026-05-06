@@ -6,7 +6,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Barcode, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -18,6 +18,7 @@ export function ProductTable({
     selectedIds = [],
     onToggleSelectAll,
     onToggleSelectRow,
+    onRequestBulkBarcode,
     onRequestBulkDelete,
     onAdd,
     onEdit,
@@ -72,14 +73,26 @@ export function ProductTable({
                 <p className="text-sm text-muted-foreground">
                     {selectedIds.length} selected
                 </p>
-                <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={onRequestBulkDelete}
-                    disabled={selectedIds.length === 0 || isBulkDeleting || isLoading}
-                >
-                    {isBulkDeleting ? 'Deleting...' : 'Delete Selected'}
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="gap-2"
+                        onClick={onRequestBulkBarcode}
+                        disabled={selectedIds.length === 0 || isBulkDeleting || isLoading}
+                    >
+                        <Barcode className="h-4 w-4" />
+                        Barcode
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={onRequestBulkDelete}
+                        disabled={selectedIds.length === 0 || isBulkDeleting || isLoading}
+                    >
+                        {isBulkDeleting ? 'Deleting...' : 'Delete Selected'}
+                    </Button>
+                </div>
             </div>
 
             <Card>
