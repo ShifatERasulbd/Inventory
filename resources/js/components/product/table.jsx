@@ -6,7 +6,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -21,6 +21,7 @@ export function ProductTable({
     onRequestBulkDelete,
     onAdd,
     onEdit,
+    onViewBarcode,
     onRequestDelete,
     deletingId,
     isBulkDeleting,
@@ -163,6 +164,14 @@ export function ProductTable({
                                     <TableCell>{product.warehouse?.name || 'N/A'}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                aria-label={`View barcode for ${product.name}`}
+                                                onClick={() => onViewBarcode?.(product)}
+                                            >
+                                                <Eye />
+                                            </Button>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"

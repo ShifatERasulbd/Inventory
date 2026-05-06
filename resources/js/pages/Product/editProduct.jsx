@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import EditForm from '@/components/product/editForm';
+import { generateBarcodeValue } from '@/components/product/BarcodePreview';
 import { useAppContext } from '@/context/AppContext';
 import { fetchBrands } from '@/pages/Brand/api';
 import { fetchColors } from '@/pages/Color/api';
@@ -37,6 +38,11 @@ const MAX_SINGLE_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_TOTAL_IMAGE_BYTES = 7 * 1024 * 1024;
 const MAX_GALLERY_IMAGES = 8;
 
+function findOptionLabel(options, value, labelKey, fallbackPrefix) {
+    const match = (options || []).find((option) => String(option.id) === String(value));
+    return match?.[labelKey] || `${fallbackPrefix}${value}`;
+}
+
 function validateForm(form) {
     const validationErrors = {};
     const selectedColorIds = Array.isArray(form.color_ids) ? form.color_ids.filter(Boolean) : [];
@@ -49,7 +55,6 @@ function validateForm(form) {
     if (!form.fabric_id) validationErrors.fabric_id = ['Please select a fabric.'];
     if (selectedSizeIds.length === 0) validationErrors.size_ids = ['Please add at least one size.'];
     if (!form.gender_id) validationErrors.gender_id = ['Please select product for.'];
-    if (!form.barCode.trim()) validationErrors.barCode = ['Please enter the barcode.'];
     if (!form.warehouse_id) validationErrors.warehouse_id = ['Please select a warehouse.'];
 
     if (form.cover_image && form.cover_image.size > MAX_SINGLE_IMAGE_BYTES) {
@@ -329,6 +334,10 @@ export default function EditProduct() {
         setErrors({});
 
         try {
+            const colorName = findOptionLabel(colors, selectedColorIds[0], 'name', 'COLOR');
+            const fabricName = findOptionLabel(fabrics, form.fabric_id, 'name', 'FABRIC');
+            const sizeName = findOptionLabel(sizes, selectedSizeIds[0], 'size', 'SIZE');
+
             await updateProducts(id, {
                 brand_id: Number(form.brand_id),
                 style_number: form.style_number.trim(),
@@ -341,7 +350,13 @@ export default function EditProduct() {
                 size_id: Number(selectedSizeIds[0]),
                 size_ids: selectedSizeIds.map((value) => Number(value)),
                 gender_id: Number(form.gender_id),
-                barCode: form.barCode.trim(),
+                barCode: generateBarcodeValue({
+                    styleNumber: form.style_number,
+                    colorName,
+                    fabricName,
+                    refNumber: form.ref_number,
+                    sizeName,
+                }),
                 warehouse_id: Number(form.warehouse_id),
                 season_id: form.season_id ? Number(form.season_id) : null,
                 cover_image: form.cover_image,

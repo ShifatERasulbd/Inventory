@@ -132,7 +132,7 @@ class ProductController extends Controller
             'size_ids.*' => ['required', 'integer', 'exists:sizes,id'],
             'season_id' => ['nullable', 'integer', 'exists:seasons,id'],
             'gender_id' => ['required', 'integer', 'exists:products_for,id'],
-            'barCode' => ['required', 'string', 'max:200'],
+            'barcodes' => ['required', 'string'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'cover_image' => ['nullable', 'image', 'max:3072'],
             'gallery_images' => ['nullable', 'array', 'max:8'],
@@ -141,6 +141,10 @@ class ProductController extends Controller
 
         $colorIds = collect($validated['color_ids'] ?? [])->filter()->unique()->values()->all();
         $sizeIds = collect($validated['size_ids'] ?? [])->filter()->unique()->values()->all();
+
+        // Decode the barcodes map sent as JSON string from FormData
+        $decodedBarcodes = json_decode($validated['barcodes'], true);
+        $barcodesMap = is_array($decodedBarcodes) ? $decodedBarcodes : [];
 
         if ($colorIds === [] || $sizeIds === []) {
             return response()->json([
@@ -164,7 +168,7 @@ class ProductController extends Controller
         }
 
         try {
-            $products = DB::transaction(function () use ($validated, $colorIds, $sizeIds, $storedCoverImage, $storedGalleryImages) {
+            $products = DB::transaction(function () use ($validated, $colorIds, $sizeIds, $storedCoverImage, $storedGalleryImages, $barcodesMap) {
                 $products = [];
 
                 foreach ($colorIds as $colorId) {
@@ -179,11 +183,11 @@ class ProductController extends Controller
                             'fabric_id' => $validated['fabric_id'],
                             'size_id' => $sizeId,
                             'gender_id' => $validated['gender_id'],
-                            'barCode' => $validated['barCode'],
                             'warehouse_id' => $validated['warehouse_id'],
                             'season_id'=>$validated['season_id'],
                             'cover_image' => $storedCoverImage,
                             'gallery_images' => $storedGalleryImages,
+                            'barCode' => $barcodesMap["{$colorId}_{$sizeId}"] ?? null,
                         ]);
                     }
                 }

@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 
 import AddForm from '@/components/product/addForm';
 import { useAppContext } from '@/context/AppContext';
+import { generateBarcodesMap } from '@/components/product/BarcodePreview';
 
 import { fetchBrands } from '@/pages/Brand/api';
 import { fetchColors } from '@/pages/Color/api';
@@ -27,7 +28,6 @@ const initialForm = {
     size_id: '',
     size_ids: [''],
     gender_id: '',
-    barCode: '',
     warehouse_id: '',
     season_id: '',
     cover_image: null,
@@ -69,10 +69,6 @@ function validateForm(form) {
 
     if (!form.gender_id) {
         validationErrors.gender_id = ['Please select product for.'];
-    }
-
-    if (!form.barCode.trim()) {
-        validationErrors.barCode = ['Please enter the barcode.'];
     }
 
     if (!form.warehouse_id) {
@@ -307,11 +303,20 @@ export default function AddProduct() {
                 size_id: Number(selectedSizeIds[0]),
                 size_ids: selectedSizeIds.map((value) => Number(value)),
                 gender_id: Number(form.gender_id),
-                barCode: form.barCode.trim(),
                 warehouse_id: Number(form.warehouse_id),
                 season_id: form.season_id ? Number(form.season_id) : null,
                 cover_image: form.cover_image,
                 gallery_images: form.gallery_images,
+                barcodes: generateBarcodesMap({
+                    styleNumber: form.style_number,
+                    colorIds: selectedColorIds,
+                    fabricId: form.fabric_id,
+                    refNumber: form.ref_number,
+                    sizeIds: selectedSizeIds,
+                    colors,
+                    fabrics,
+                    sizes,
+                }),
             });
 
             toast.success('Product created successfully.', {

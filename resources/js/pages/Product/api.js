@@ -64,6 +64,11 @@ export async function createProducts(data) {
             return;
         }
 
+        if (key === 'barcodes' && typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            formData.append('barcodes', JSON.stringify(value));
+            return;
+        }
+
         if (key === 'remove_gallery_images' && Array.isArray(value)) {
             value.forEach((path) => {
                 if (path) {

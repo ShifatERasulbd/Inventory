@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
+import BarcodePreview from './BarcodePreview';
 
 function ProductSelect({ id, label, value, options = [], placeholder, error, onValueChange, valueKey = 'id', labelKey = 'name' }) {
     return (
@@ -129,6 +130,7 @@ export default function AddForm({
     currentGalleryImageUrls = [],
     onRemoveCurrentCover,
     onRemoveCurrentGallery,
+    barcodes = {},
 }) {
     const selectedCoverPreviewUrl = useMemo(() => {
         if (!form?.cover_image) {
@@ -285,21 +287,28 @@ export default function AddForm({
                             />
                             {errors.ref_number && <p className="text-xs text-destructive">{errors.ref_number[0]}</p>}
                         </div>
+                    </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="product-barcode">Barcode</Label>
-                            <Input
-                                id="product-barcode"
-                                name="barCode"
-                                value={form.barCode}
-                                onChange={onChange}
-                                placeholder="e.g. 1234567890123"
-                            />
-                            {errors.barCode && <p className="text-xs text-destructive">{errors.barCode[0]}</p>}
-                        </div>
+                    {/* Barcode Preview */}
+                    <div className="space-y-3">
+                        <Label>Generated Barcodes</Label>
+                        <BarcodePreview
+                            styleNumber={form.style_number}
+                            colorIds={form.color_ids}
+                            fabricId={form.fabric_id}
+                            refNumber={form.ref_number}
+                            sizeIds={form.size_ids}
+                            colors={colors}
+                            fabrics={fabrics}
+                            sizes={sizes}
+                        />
+                        {errors.barcodes && <p className="text-xs text-destructive">{errors.barcodes[0]}</p>}
+                    </div>
 
                        
 
+
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
 
                         <div className="space-y-2">
                             <Label htmlFor="product-cover-image">Cover Image</Label>
@@ -410,6 +419,7 @@ export default function AddForm({
                             {errors.description && <p className="text-xs text-destructive">{errors.description[0]}</p>}
                         </div>
                     </div>
+
                 </CardContent>
 
                 <CardFooter className="justify-end gap-2 border-t pt-6">
