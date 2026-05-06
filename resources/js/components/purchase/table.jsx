@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 
-export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDelete, deletingId, onAddNew }) {
+export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDelete, deletingId, onAddNew, onInvoice }) {
     const [search, setSearch] = useState('');
 
     const filtered = purchases.filter((purchase) => {
@@ -117,8 +117,8 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
-                                                        aria-label={`Edit purchase ${purchase.po_number}`}
-                                                        onClick={() => onEdit(purchase.id)}
+                                                        aria-label={`Invoice for purchase ${purchase.po_number}`}
+                                                        onClick={() => onInvoice?.(purchase)}
                                                     >
                                                         <FileText />
                                                     </Button>

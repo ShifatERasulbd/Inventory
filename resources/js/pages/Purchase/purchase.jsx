@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import PurchaseInvoiceModal from '@/components/purchase/invoiceModal';
 import { PurchaseTable } from '@/components/purchase/table';
 import {
     AlertDialog,
@@ -26,6 +27,7 @@ export default function Purchase() {
     const [errorMessage, setErrorMessage] = useState('');
     const [purchaseToDelete, setPurchaseToDelete] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
+    const [invoicePurchase, setInvoicePurchase] = useState(null);
 
     useEffect(() => {
         setPageTitle('Purchases');
@@ -95,9 +97,16 @@ export default function Purchase() {
                 purchases={purchases}
                 isLoading={isLoading}
                 onAddNew={() => navigate('/purchases/add')}
+                onInvoice={setInvoicePurchase}
                 onEdit={(id) => navigate(`/purchases/${id}/edit`)}
                 onRequestDelete={setPurchaseToDelete}
                 deletingId={deletingId}
+            />
+
+            <PurchaseInvoiceModal
+                purchase={invoicePurchase}
+                open={Boolean(invoicePurchase)}
+                onClose={() => setInvoicePurchase(null)}
             />
 
             <AlertDialog open={Boolean(purchaseToDelete)} onOpenChange={(open) => !open && setPurchaseToDelete(null)}>
