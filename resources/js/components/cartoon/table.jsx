@@ -6,6 +6,12 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -84,23 +90,43 @@ export function CartoonTable({ cartoons = [], onAdd, onEdit, onRequestDelete, de
                                 
                                 <TableCell>
                                     <div className="flex items-center gap-2">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            aria-label={`Edit ${cartoon.cartoon_number}`}
-                                            onClick={() => onEdit(cartoon.id)}
-                                        >
-                                            <Pencil />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            aria-label={`Delete ${cartoon.name}`}
-                                            onClick={() => onRequestDelete(cartoon)}
-                                            disabled={deletingId === cartoon.id}
-                                        >
-                                            <Trash2 className="text-destructive" />
-                                        </Button>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        aria-label={`Edit ${cartoon.cartoon_number}`}
+                                                        onClick={() => onEdit(cartoon.id)}
+                                                    >
+                                                        <Pencil />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="bottom">
+                                                    <p>Edit</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                       
+                                         <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                       <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`Delete ${cartoon.name}`}
+                                                            onClick={() => onRequestDelete(cartoon)}
+                                                            disabled={deletingId === cartoon.id}
+                                                        >
+                                                            <Trash2 className="text-destructive" />
+                                                        </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="bottom">
+                                                    <p>Delete</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                      
                                     </div>
                                 </TableCell>
                             </TableRow>

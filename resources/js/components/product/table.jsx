@@ -6,6 +6,12 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Barcode, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -181,31 +187,60 @@ export function ProductTable({
                                     <TableCell>{product.warehouse?.name || 'N/A'}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                aria-label={`View barcode for ${product.name}`}
-                                                onClick={() => onViewBarcode?.(product)}
-                                            >
-                                                <Eye />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                aria-label={`Edit ${product.name}`}
-                                                onClick={() => onEdit(product.id)}
-                                            >
-                                                <Pencil />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                aria-label={`Delete ${product.name}`}
-                                                onClick={() => onRequestDelete(product)}
-                                                disabled={deletingId === product.id || isBulkDeleting}
-                                            >
-                                                <Trash2 className="text-destructive" />
-                                            </Button>
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`View barcode for ${product.name}`}
+                                                            onClick={() => onViewBarcode?.(product)}
+                                                        >
+                                                            <Eye />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                <TooltipContent side="bottom">
+                                                    <p>View Barcode</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                         <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        aria-label={`Edit ${product.name}`}
+                                                        onClick={() => onEdit(product.id)}
+                                                    >
+                                                        <Pencil />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="bottom">
+                                                    <p>Edit</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                            
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        aria-label={`Delete ${product.name}`}
+                                                        onClick={() => onRequestDelete(product)}
+                                                        disabled={deletingId === product.id || isBulkDeleting}
+                                                    >
+                                                        <Trash2 className="text-destructive" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="bottom">
+                                                    <p>Delete</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>   
+                                           
                                         </div>
                                     </TableCell>
                                 </TableRow>

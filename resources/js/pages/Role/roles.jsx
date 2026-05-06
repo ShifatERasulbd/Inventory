@@ -98,7 +98,7 @@ export default function Roles() {
           onAdd={() => navigate('/roles/add')}
           onEdit={(id) => navigate(`/roles/${id}/edit`)}
           onRequestDelete={setRoleToDelete}
-          isDeleting={deletingId !== null}
+          deletingId={deletingId}
         />
       </div>
 

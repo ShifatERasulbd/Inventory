@@ -6,7 +6,13 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Pencil, Plus, Search, Trash2, Minus } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Plus, Search, Minus } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -77,22 +83,43 @@ export function StockTable({ stocks = [], onAddStock, onDeductStock, onEdit, onR
                                     <TableCell>{Number(stock.available_stock ?? 0)}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                aria-label={`Add stock for ${stock.name}`}
-                                                onClick={() => onAddStock(stock)}
-                                            >
-                                                <Plus />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                aria-label={`Deduct stock for ${stock.name}`}
-                                                onClick={() => onDeductStock(stock)}
-                                            >
-                                                <Minus />
-                                            </Button>
+                                          <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`Add stock for ${stock.name}`}
+                                                            onClick={() => onAddStock(stock)}
+                                                        >
+                                                            <Plus />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                        <p>Add Stock</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                            
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`Deduct stock for ${stock.name}`}
+                                                            onClick={() => onDeductStock(stock)}
+                                                        >
+                                                            <Minus />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                        <p>Deduct Stock</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                        </TooltipProvider>
+                                            
+                                            
                                             
                                            
                                         </div>

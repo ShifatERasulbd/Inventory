@@ -8,11 +8,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Edit, Plus, Search, Trash2 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Edit, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 
-export function RoleTable({ roles = [], onAdd, onEdit, onRequestDelete, isDeleting = false }) {
+export function RoleTable({ roles = [], onAdd, onEdit, onRequestDelete, deletingId = null }) {
   const [search, setSearch] = useState('');
   const filtered = roles.filter((r) => {
     const q = search.toLowerCase();
@@ -79,21 +85,44 @@ export function RoleTable({ roles = [], onAdd, onEdit, onRequestDelete, isDeleti
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onEdit(role.id)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onRequestDelete(role)}
-                        disabled={isDeleting}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+
+                       <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-label={`Edit ${role.name}`}
+                                        onClick={() => onEdit?.(role.id)}
+                                    >
+                                        <Pencil />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                    <p>Edit</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            aria-label={`Delete ${role.name}`}
+                                            onClick={() => onRequestDelete?.(role)}
+                                            disabled={deletingId === role.id}
+                                        >
+                                            <Trash2 className="text-destructive" />
+                                        </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                    <p>Delete</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                     
                     </div>
                   </TableCell>
                 </TableRow>

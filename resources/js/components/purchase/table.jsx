@@ -1,6 +1,11 @@
-import { Pencil, Search, Trash2 } from 'lucide-react';
+import { Pencil, Search, FileText, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -106,23 +111,63 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                                     <TableCell className="capitalize">{purchase.status}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                aria-label={`Edit purchase ${purchase.po_number}`}
-                                                onClick={() => onEdit(purchase.id)}
-                                            >
-                                                <Pencil />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                aria-label={`Delete purchase ${purchase.po_number}`}
-                                                onClick={() => onRequestDelete(purchase)}
-                                                disabled={deletingId === purchase.id}
-                                            >
-                                                <Trash2 />
-                                            </Button>
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        aria-label={`Edit purchase ${purchase.po_number}`}
+                                                        onClick={() => onEdit(purchase.id)}
+                                                    >
+                                                        <FileText />
+                                                    </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                    <p>Invoice</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+
+                                             <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                   <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        aria-label={`Edit purchase ${purchase.po_number}`}
+                                                        onClick={() => onEdit(purchase.id)}
+                                                    >
+                                                        <Pencil />
+                                                    </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                    <p>Edit</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`Delete purchase ${purchase.po_number}`}
+                                                            onClick={() => onRequestDelete(purchase)}
+                                                            disabled={deletingId === purchase.id}
+                                                        >
+                                                            <Trash2 />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                    <p>Delete</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                            
+                                            
+                                            
                                         </div>
                                     </TableCell>
                                 </TableRow>

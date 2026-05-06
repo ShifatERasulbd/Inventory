@@ -6,6 +6,12 @@
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -116,23 +122,44 @@ export default function UserTable({
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            aria-label={`Edit ${user.name}`}
-                                            onClick={() => onEdit?.(user.id)}
-                                        >
-                                            <Pencil />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            aria-label={`Delete ${user.name}`}
-                                            onClick={() => onRequestDelete?.(user)}
-                                            disabled={deletingId === user.id}
-                                        >
-                                            <Trash2 className="text-destructive" />
-                                        </Button>
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                     <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        aria-label={`Edit ${user.name}`}
+                                                        onClick={() => onEdit?.(user.id)}
+                                                    >
+                                                        <Pencil />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="bottom">
+                                                    <p>Edit</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+
+                                         <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`Delete ${user.name}`}
+                                                            onClick={() => onRequestDelete?.(user)}
+                                                            disabled={deletingId === user.id}
+                                                        >
+                                                            <Trash2 className="text-destructive" />
+                                                        </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="bottom">
+                                                    <p>Delete</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                      
+                                      
                                     </div>
                                 </TableCell>
                             </TableRow>
