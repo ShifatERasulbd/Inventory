@@ -1,41 +1,47 @@
 "use client"
 
-import { Bar, BarChart } from "recharts"
+import { Bar, BarChart, CartesianGrid, Cell, Tooltip, XAxis, YAxis } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 import { ChartContainer } from "@/components/ui/chart"
 
-const chartData = [
-  { month: "Jan", inStock: 186, lowStock: 80 },
-  { month: "Feb", inStock: 305, lowStock: 200 },
-  { month: "Mar", inStock: 237, lowStock: 120 },
-  { month: "Apr", inStock: 173, lowStock: 90 },
-  { month: "May", inStock: 209, lowStock: 130 },
-  { month: "Jun", inStock: 214, lowStock: 140 },
-]
-
 const chartConfig = {
-  inStock: {
-    label: "In Stock",
+  orders: {
+    label: "Orders",
     color: "#2563eb",
-  },
-  lowStock: {
-    label: "Low Stock",
-    color: "#60a5fa",
   },
 }
 
-export function StockOverviewChart() {
+export function StockOverviewChart({
+  totalPurchases = 0,
+  approvedPurchases = 0,
+  pendingPurchases = 0,
+  cancelledPurchases = 0,
+}) {
+  const chartData = [
+    { status: "Total", orders: Number(totalPurchases) || 0, fill: "#2563eb" },
+    { status: "Approved", orders: Number(approvedPurchases) || 0, fill: "#16a34a" },
+    { status: "Pending", orders: Number(pendingPurchases) || 0, fill: "#f59e0b" },
+    { status: "Cancelled", orders: Number(cancelledPurchases) || 0, fill: "#dc2626" },
+  ]
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Stock Overview</CardTitle>
+        <CardTitle>Purchase Order Overview</CardTitle>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="min-h-[260px] w-full">
           <BarChart accessibilityLayer data={chartData}>
-            <Bar dataKey="inStock" fill="var(--color-inStock)" radius={4} />
-            <Bar dataKey="lowStock" fill="var(--color-lowStock)" radius={4} />
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="status" tickLine={false} axisLine={false} />
+            <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+            <Tooltip cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+            <Bar dataKey="orders" radius={4}>
+              {chartData.map((entry) => (
+                <Cell key={entry.status} fill={entry.fill} />
+              ))}
+            </Bar>
           </BarChart>
         </ChartContainer>
       </CardContent>

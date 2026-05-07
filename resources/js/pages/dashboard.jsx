@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { HeaderCard } from '@/components/dashboard/Header-Card';
 import { StockOverviewChart } from '@/components/dashboard/chart';
 import { LowStockAlertTable } from '@/components/dashboard/low-stock-alertTable';
+import { WarehouseLowStockAlertTable } from '@/components/dashboard/warehouse-low-stock-alert-table';
 import { useAppContext } from '@/context/AppContext';
 import { fetchProducts } from '@/pages/Product/api';
 import { fetchWarehouses } from '@/pages/Warehouse/api';
@@ -18,6 +19,7 @@ export default function Dashboard() {
     const [totalPurchases, setTotalPurchases] = useState(0);
     const [pendingPurchases, setPendingPurchases] = useState(0);
     const [approvedPurchases, setApprovedPurchases] = useState(0);
+    const [cancelledPurchases, setCancelledPurchases] = useState(0);
     const [totalSells, setTotalSells] = useState(0);
 
     useEffect(() => {
@@ -102,12 +104,14 @@ export default function Dashboard() {
                     setTotalPurchases(list.length);
                     setPendingPurchases(list.filter((p) => String(p.status).toLowerCase() === 'pending').length);
                     setApprovedPurchases(list.filter((p) => ['approve', 'approved'].includes(String(p.status).toLowerCase())).length);
+                    setCancelledPurchases(list.filter((p) => ['cancel', 'cancelled'].includes(String(p.status).toLowerCase())).length);
                 }
             } catch {
                 if (!ignore) {
                     setTotalPurchases(0);
                     setPendingPurchases(0);
                     setApprovedPurchases(0);
+                    setCancelledPurchases(0);
                 }
             }
         }
@@ -155,8 +159,15 @@ export default function Dashboard() {
             </div>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <LowStockAlertTable />
-                <StockOverviewChart />
+                <WarehouseLowStockAlertTable />
+                <StockOverviewChart
+                    totalPurchases={totalPurchases}
+                    approvedPurchases={approvedPurchases}
+                    pendingPurchases={pendingPurchases}
+                    cancelledPurchases={cancelledPurchases}
+                />
             </div>
+            
         </div>
     );
 }
