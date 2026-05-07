@@ -16,6 +16,8 @@ export default function Dashboard() {
     const [availableWarehouses, setAvailableWarehouses] = useState(0);
     const [totalUsers, setTotalUsers] = useState(0);
     const [totalPurchases, setTotalPurchases] = useState(0);
+    const [pendingPurchases, setPendingPurchases] = useState(0);
+    const [approvedPurchases, setApprovedPurchases] = useState(0);
     const [totalSells, setTotalSells] = useState(0);
 
     useEffect(() => {
@@ -92,21 +94,26 @@ export default function Dashboard() {
 
     useEffect(()=>{
         let ignore =false;
-        async function loadPurchases(){
-            try{
-                const purchases =await fetchPurchases();
-                if(!ignore){
-                    setTotalPurchases(Array.isArray(purchases)? purchases.length :0);
+        async function loadPurchases() {
+            try {
+                const purchases = await fetchPurchases();
+                if (!ignore) {
+                    const list = Array.isArray(purchases) ? purchases : [];
+                    setTotalPurchases(list.length);
+                    setPendingPurchases(list.filter((p) => String(p.status).toLowerCase() === 'pending').length);
+                    setApprovedPurchases(list.filter((p) => ['approve', 'approved'].includes(String(p.status).toLowerCase())).length);
                 }
-            }catch{
-                if(!ignore){
+            } catch {
+                if (!ignore) {
                     setTotalPurchases(0);
+                    setPendingPurchases(0);
+                    setApprovedPurchases(0);
                 }
             }
         }
         loadPurchases();
-        return()=>{
-            ignore =true;
+        return () => {
+            ignore = true;
         };
     }, []);
 
@@ -135,12 +142,14 @@ export default function Dashboard() {
 
     return (
         <div className="space-y-5">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid grid-cols-1">
                 <HeaderCard
                  totalProducts={totalProducts} 
                  availableWarehouses={availableWarehouses} 
                  totalUsers={totalUsers}
                  totalPurchases={totalPurchases}
+                 pendingPurchases={pendingPurchases}
+                 approvedPurchases={approvedPurchases}
                  totalSells={totalSells}
                  />
             </div>

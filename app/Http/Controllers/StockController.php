@@ -47,7 +47,7 @@ class StockController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Stock::query()
-            ->with('product:id,name')
+            ->with(['product:id,name', 'warehouse:id,name'])
             ->orderBy('id');
 
         $user = $request->user();
@@ -68,6 +68,7 @@ class StockController extends Controller
                 'id' => $stock->id,
                 'product_id' => $stock->product_id,
                 'warehouse_id' => $stock->warehouse_id,
+                'warehouse_name' => $stock->warehouse?->name,
                 'cartoon_id' => $stock->cartoon_id,
                 'barcode' => $stock->barcode,
                 'stocks' => (int) ($stock->stocks ?? 0),
