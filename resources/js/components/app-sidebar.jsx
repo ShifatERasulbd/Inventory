@@ -52,7 +52,7 @@ const StrorageItems=[
     
     {title: 'Rack', icon: ChartBarDecreasing, path:'/racks', permission:'manage-storage'},
     {title: 'Stock', icon: Boxes, path:'/stocks', permission:'manage-storage'},
-    {title: 'Purchase', icon: CreditCard, path:'/purchases',permission:'manage-storage'},
+    {title: 'Purchase Order', icon: CreditCard, path:'/purchases',permission:'manage-storage'},
     {title: 'Purchase Request', icon:  ClipboardPlus , path:'/purchase-requests',permission:'manage-storage'},
     {title: 'Sell', icon: Banknote, path:'/sells',permission:'manage-storage'},
 ]
