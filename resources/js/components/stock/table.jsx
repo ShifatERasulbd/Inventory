@@ -17,13 +17,18 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { useAppContext } from '@/context/AppContext';
 
 export function StockTable({ stocks = [], onAddStock, onDeductStock, onEdit, onRequestDelete, deletingId, isLoading }) {
     const [search, setSearch] = useState('');
+    const { user } = useAppContext();
+    const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
     const filtered = stocks.filter((stock) => {
         const query = search.toLowerCase();
         return stock.name?.toLowerCase().includes(query);
     });
+
+    const columnCount = isSuperAdmin ? 5 : 4;
 
     return (
         <>
@@ -45,6 +50,7 @@ export function StockTable({ stocks = [], onAddStock, onDeductStock, onEdit, onR
                         <TableRow>
                             <TableHead className="w-[100px]">SL No.</TableHead>
                             <TableHead>Product Name</TableHead>
+                            {isSuperAdmin && <TableHead>Warehouse Name</TableHead>}
                             <TableHead>Available Stock</TableHead>
                             <TableHead className="w-[160px]">Action</TableHead>
                         </TableRow>
@@ -53,7 +59,7 @@ export function StockTable({ stocks = [], onAddStock, onDeductStock, onEdit, onR
                     <TableBody>
                         {isLoading && (
                             <TableRow>
-                                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                                <TableCell colSpan={columnCount} className="text-center text-muted-foreground">
                                     Loading Stocks...
                                 </TableCell>
                             </TableRow>
@@ -61,7 +67,7 @@ export function StockTable({ stocks = [], onAddStock, onDeductStock, onEdit, onR
 
                         {!isLoading && stocks.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                                <TableCell colSpan={columnCount} className="text-center text-muted-foreground">
                                     No stocks found.
                                 </TableCell>
                             </TableRow>
@@ -69,7 +75,7 @@ export function StockTable({ stocks = [], onAddStock, onDeductStock, onEdit, onR
 
                         {!isLoading && filtered.length === 0 && stocks.length > 0 && (
                             <TableRow>
-                                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                                <TableCell colSpan={columnCount} className="text-center text-muted-foreground">
                                     No products match your search.
                                 </TableCell>
                             </TableRow>
@@ -80,6 +86,7 @@ export function StockTable({ stocks = [], onAddStock, onDeductStock, onEdit, onR
                                 <TableRow key={stock.id}>
                                     <TableCell className="font-medium">{index + 1}</TableCell>
                                     <TableCell>{stock.name}</TableCell>
+                                    {isSuperAdmin && <TableCell>{stock.warehouse_name || `Warehouse #${stock.warehouse_id ?? 'N/A'}`}</TableCell>}
                                     <TableCell>{Number(stock.available_stock ?? 0)}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">

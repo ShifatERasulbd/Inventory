@@ -13,7 +13,7 @@ class PurchaseController extends Controller
 {
     private function isApprovedStatus(string $status): bool
     {
-        return in_array(strtolower($status), ['approve', 'approved'], true);
+        return in_array(strtolower($status), ['approve', 'approved', 'active'], true);
     }
 
     private function syncApprovedPurchaseToSellAndStock(Purchase $purchase): void
@@ -52,9 +52,22 @@ class PurchaseController extends Controller
                 continue;
             }
 
-            Stock::query()->firstOrCreate([
+            $stock = Stock::query()->where([
                 'product_id'   => $productId,
                 'warehouse_id' => $purchase->purchase_to,
+            ])->first();
+
+            if ($stock) {
+                $stock->update([
+                    'stocks' => (int) ($stock->stocks ?? 0) + max($quantity, 0),
+                ]);
+                continue;
+            }
+
+            Stock::query()->create([
+                'product_id'   => $productId,
+                'warehouse_id' => $purchase->purchase_to,
+                'stocks'       => 0,
                 'cartoon_id'   => null,
                 'barcode'      => null,
             ]);

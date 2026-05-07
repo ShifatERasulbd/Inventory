@@ -76,6 +76,20 @@ export function UserMenu({ user, warehouseName }) {
         });
     };
 
+    const clearNotifications = () => {
+        if (typeof window !== 'undefined') {
+            if (historyStorageKey) {
+                window.localStorage.removeItem(historyStorageKey);
+            }
+
+            if (seenStorageKey) {
+                window.localStorage.removeItem(seenStorageKey);
+            }
+        }
+
+        setNotifications([]);
+    };
+
     useEffect(() => {
         function handleClickOutside(event) {
             if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
@@ -323,7 +337,16 @@ export function UserMenu({ user, warehouseName }) {
                 <div className="absolute right-0 top-11 z-50 w-80 rounded-md border border-gray-200 bg-white p-3 shadow-lg">
                     <div className="mb-2 flex items-center justify-between">
                         <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Notifications</p>
-                        <span className="text-xs text-gray-500">{isSuperAdmin ? 'All Warehouses' : 'My Warehouses'}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">{isSuperAdmin ? 'All Warehouses' : 'My Warehouses'}</span>
+                            <button
+                                type="button"
+                                onClick={clearNotifications}
+                                className="rounded border border-gray-300 px-2 py-0.5 text-[11px] font-medium text-gray-600 hover:bg-gray-100"
+                            >
+                                Clear
+                            </button>
+                        </div>
                     </div>
 
                     {isLoadingNotifications && (
