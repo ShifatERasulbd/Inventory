@@ -18,6 +18,7 @@ export default function AddForm({
     errors = {},
     submitLabel = 'Create User',
     submittingLabel = 'Saving...',
+    showRoles = true,
 }) {
     return (
         <Card>
@@ -107,29 +108,30 @@ export default function AddForm({
                         {errors.warehouse_ids && <p className="text-xs text-destructive">{errors.warehouse_ids[0]}</p>}
                     </div>
 
-                    {/* Roles */}
-                    <div className="space-y-3">
-                        <Label>Assign Roles</Label>
-                        {roles.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">No roles available.</p>
-                        ) : (
-                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                {roles.map((role) => (
-                                    <div key={role.id} className="flex items-center space-x-2">
-                                        <Checkbox
-                                            id={`role-${role.id}`}
-                                            checked={(form.role_ids || []).includes(role.id)}
-                                            onCheckedChange={() => onRoleToggle(role.id)}
-                                        />
-                                        <Label htmlFor={`role-${role.id}`} className="font-normal cursor-pointer">
-                                            {role.name}
-                                        </Label>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        {errors.role_ids && <p className="text-xs text-destructive">{errors.role_ids[0]}</p>}
-                    </div>
+                    {showRoles && (
+                        <div className="space-y-3">
+                            <Label>Assign Roles</Label>
+                            {roles.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">No roles available.</p>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                    {roles.map((role) => (
+                                        <div key={role.id} className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id={`role-${role.id}`}
+                                                checked={(form.role_ids || []).includes(role.id)}
+                                                onCheckedChange={() => onRoleToggle(role.id)}
+                                            />
+                                            <Label htmlFor={`role-${role.id}`} className="font-normal cursor-pointer">
+                                                {role.name}
+                                            </Label>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {errors.role_ids && <p className="text-xs text-destructive">{errors.role_ids[0]}</p>}
+                        </div>
+                    )}
                 </CardContent>
 
                 <Separator />

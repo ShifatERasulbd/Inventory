@@ -109,6 +109,14 @@ class UserController extends Controller
 
     public function update(Request $request, User $user): JsonResponse
     {
+        $actor = $request->user()->loadMissing('roles:id,slug');
+        $isSelfUpdate = (int) $actor->id === (int) $user->id;
+        $isSuperAdminActor = $actor->hasRole('super-admin');
+
+        if (! $isSelfUpdate && ! $isSuperAdminActor) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $validated = $request->validate([
             'warehouse_ids'   => ['nullable', 'array'],
             'warehouse_ids.*' => ['integer', 'exists:warehouses,id'],
@@ -123,7 +131,11 @@ class UserController extends Controller
             'c_password' => ['nullable', 'string', 'min:6'],
         ]);
 
-        $roleIds = $validated['role_ids'] ?? null;
+        if (! $isSuperAdminActor) {
+            unset($validated['role_ids']);
+        }
+
+        $roleIds = array_key_exists('role_ids', $validated) ? $validated['role_ids'] : null;
         $warehouseIds = $validated['warehouse_ids'] ?? [];
         $resultingRoleIds = $roleIds ?? $user->roles()->pluck('roles.id')->all();
         $isSuperAdmin = Role::query()
@@ -151,7 +163,9 @@ class UserController extends Controller
         }
 
         $user->update($validated);
-        $user->roles()->sync($roleIds ?? []);
+        if ($roleIds !== null) {
+            $user->roles()->sync($roleIds);
+        }
 
         $fresh = $user->fresh()->load('roles:id,name,slug');
         $warehouses = WareHouse::whereIn('id', $fresh->warehouse_ids ?? [])->get(['id', 'name']);

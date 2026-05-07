@@ -10,22 +10,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-
-async function fetchSells() {
-    const response = await fetch('/api/sells', {
-        credentials: 'include',
-        headers: {
-            Accept: 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-    });
-
-    if (!response.ok) {
-        throw new Error('Failed to fetch sells');
-    }
-
-    return response.json();
-}
+import { fetchSells } from './api';
 
 function SellTable({ data, searchTerm }) {
     const filtered = data.filter((item) => {

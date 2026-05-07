@@ -121,13 +121,14 @@ export function ProductTable({
                             <TableHead>Color</TableHead>
                             <TableHead>Size</TableHead>
                             <TableHead>Warehouse</TableHead>
+                            <TableHead>Stock</TableHead>
                             <TableHead className="w-[160px]">Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {isLoading && (
                             <TableRow>
-                                <TableCell colSpan={10} className="text-center text-muted-foreground">
+                                <TableCell colSpan={11} className="text-center text-muted-foreground">
                                     Loading Products...
                                 </TableCell>
                             </TableRow>
@@ -135,7 +136,7 @@ export function ProductTable({
 
                         {!isLoading && products.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={10} className="text-center text-muted-foreground">
+                                <TableCell colSpan={11} className="text-center text-muted-foreground">
                                     No Products found.
                                 </TableCell>
                             </TableRow>
@@ -143,7 +144,7 @@ export function ProductTable({
 
                         {!isLoading && filtered.length === 0 && products.length > 0 && (
                             <TableRow>
-                                <TableCell colSpan={10} className="text-center text-muted-foreground">
+                                <TableCell colSpan={11} className="text-center text-muted-foreground">
                                     No Products match your search.
                                 </TableCell>
                             </TableRow>
@@ -185,6 +186,7 @@ export function ProductTable({
                                     <TableCell>{product.color?.name || 'N/A'}</TableCell>
                                     <TableCell>{product.size?.size || 'N/A'}</TableCell>
                                     <TableCell>{product.warehouse?.name || 'N/A'}</TableCell>
+                                    <TableCell>{product.available_stock ?? product.stocks ?? product.quantity ?? 0}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
                                             <TooltipProvider>

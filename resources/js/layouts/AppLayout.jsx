@@ -1,11 +1,7 @@
 import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
-import {
- 
-  CircleUser,
-  BellRing,
-} from "lucide-react";
 import { AppSidebar } from '@/components/app-sidebar';
+import { UserMenu } from '@/components/user-menu';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { useAppContext } from '@/context/AppContext';
 
@@ -60,11 +56,7 @@ export default function AppLayout() {
                         <h1 className="text-sm font-semibold md:text-base">{pageTitle}</h1>
                     </div>
 
-                    <div className="inline-flex items-center rounded-lg  px-3 py-1.5 text-xs font-semibold text-background md:text-sm">
-                        <BellRing className="text-gray-500" />
-                        <CircleUser className="text-gray-500" />
-                        {/* {warehouseName} */}
-                    </div>
+                    <UserMenu user={user} warehouseName={warehouseName} />
                 </header>
 
                 <div className="p-4 md:p-6">

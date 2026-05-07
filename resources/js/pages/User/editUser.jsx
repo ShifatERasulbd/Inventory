@@ -21,7 +21,7 @@ const initialForm = {
 export default function EditUser() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { setPageTitle } = useAppContext();
+    const { setPageTitle, user: authUser } = useAppContext();
 
     const [form, setForm] = useState(initialForm);
     const [errors, setErrors] = useState({});
@@ -30,6 +30,9 @@ export default function EditUser() {
     const [loadError, setLoadError] = useState('');
     const [warehouses, setWarehouses] = useState([]);
     const [roles, setRoles] = useState([]);
+
+    const isSelfEdit = Number(id) === Number(authUser?.id);
+    const canManageRoles = authUser?.role_slugs?.includes('super-admin');
 
     useEffect(() => {
         setPageTitle('Edit User');
@@ -43,11 +46,21 @@ export default function EditUser() {
             setLoadError('');
 
             try {
-                const [user, warehousesPayload, rolesPayload] = await Promise.all([
+                const [user, warehousesPayload] = await Promise.all([
                     fetchUser(id),
                     fetchWarehouses(),
-                    fetchRoles(),
                 ]);
+
+                let rolesPayload = [];
+                if (canManageRoles) {
+                    try {
+                        rolesPayload = await fetchRoles();
+                    } catch (error) {
+                        if (error?.status !== 403) {
+                            throw error;
+                        }
+                    }
+                }
 
                 if (!ignore) {
                     setForm({
@@ -77,7 +90,7 @@ export default function EditUser() {
         return () => {
             ignore = true;
         };
-    }, [id]);
+    }, [id, canManageRoles]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -132,14 +145,19 @@ export default function EditUser() {
         setLoadError('');
 
         try {
-            await updateUser(id, {
+            const payload = {
                 warehouse_ids: form.warehouse_ids,
-                role_ids: form.role_ids,
                 name: form.name.trim(),
                 email: form.email.trim(),
                 password: form.password,
                 c_password: form.c_password,
-            });
+            };
+
+            if (canManageRoles && !isSelfEdit) {
+                payload.role_ids = form.role_ids;
+            }
+
+            await updateUser(id, payload);
 
             toast.success('User updated successfully.', {
                 style: { color: '#16a34a' },
@@ -175,6 +193,7 @@ export default function EditUser() {
                 isSubmitting={isSubmitting}
                 warehouses={warehouses}
                 roles={roles}
+                showRoles={canManageRoles && !isSelfEdit}
                 errors={errors}
                 submitLabel="Update User"
                 submittingLabel="Updating..."
