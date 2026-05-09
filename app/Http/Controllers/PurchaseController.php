@@ -18,6 +18,7 @@ class PurchaseController extends Controller
 
     private function syncApprovedPurchaseToSellAndStock(Purchase $purchase): void
     {
+        
         if (! $this->isApprovedStatus((string) $purchase->status)) {
             return;
         }
@@ -26,7 +27,7 @@ class PurchaseController extends Controller
 
         foreach ($products as $item) {
             $productId    = (int) ($item['product_id'] ?? 0);
-            $quantity     = (int) ($item['quantity'] ?? 0);
+            $quantity     = (int) ($item['quantity'] ?? $item['stocks'] ?? 0);
             $purchasePrice = (float) ($item['purchase_price'] ?? 0);
             $sellingPrice  = (float) ($item['selling_price'] ?? 0);
 
@@ -67,7 +68,7 @@ class PurchaseController extends Controller
             Stock::query()->create([
                 'product_id'   => $productId,
                 'warehouse_id' => $purchase->purchase_to,
-                'stocks'       => 0,
+                'stocks'       => max(0, 0),
                 'cartoon_id'   => null,
                 'barcode'      => null,
             ]);
