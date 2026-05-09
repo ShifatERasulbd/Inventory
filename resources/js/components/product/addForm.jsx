@@ -131,6 +131,10 @@ export default function AddForm({
     onRemoveCurrentCover,
     onRemoveCurrentGallery,
     barcodes = {},
+    title = 'Create Product',
+    description = 'Fill in the product details and save to create a new record.',
+    submitLabel = 'Create Product',
+    submittingLabel = 'Creating...',
 }) {
     const selectedCoverPreviewUrl = useMemo(() => {
         if (!form?.cover_image) {
@@ -161,8 +165,8 @@ export default function AddForm({
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Create Product</CardTitle>
-                <CardDescription>Fill in the product details and save to create a new record.</CardDescription>
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>{description}</CardDescription>
             </CardHeader>
 
             <Separator />
@@ -427,7 +431,7 @@ export default function AddForm({
                         Cancel
                     </Button>
                     <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? 'Creating...' : 'Create Product'}
+                        {isSubmitting ? submittingLabel : submitLabel}
                     </Button>
                 </CardFooter>
             </form>
