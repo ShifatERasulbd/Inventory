@@ -35,6 +35,8 @@ Route::prefix('api')->group(function () {
 
         Route::post('/logout', [AuthController::class, 'logout']);
         // Country Controller
+        Route::get('/countries/trashed', [CountryController::class, 'trashed']);
+        Route::post('/countries/{id}/restore', [CountryController::class, 'restore']);
         Route::apiResource('/countries', CountryController::class);
 
         // State Controller

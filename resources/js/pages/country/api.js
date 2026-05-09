@@ -66,4 +66,19 @@ export async function deleteCountry(id) {
     return requestJson(`/api/countries/${id}`, {
         method: 'DELETE',
     });
+
+}
+
+export async function fetchTrashedCountries() {
+    const payload = await requestJson('/api/countries/trashed');
+
+    // Keep UI stable even if the backend/auth layer returns an unexpected payload.
+    return Array.isArray(payload) ? payload : [];
+}
+
+export async function restoreCountry(id) {
+    await ensureCsrfCookie();
+    return requestJson(`/api/countries/${id}/restore`, {
+        method: 'POST',
+    });
 }

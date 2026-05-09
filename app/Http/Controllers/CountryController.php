@@ -67,4 +67,26 @@ class CountryController extends Controller
 
         return response()->json(['message' => 'Country deleted']);
     }
+
+    public function trashed(): JsonResponse
+    {
+        $trashedCountries = Country::onlyTrashed()->orderBy('name')->get();
+
+        return response()->json($trashedCountries);
+    }
+
+    public function restore(int $id): JsonResponse
+    {
+        $country = Country::onlyTrashed()->find($id);
+
+        if (! $country) {
+            return response()->json(['message' => 'Country not found.'], 404);
+        }
+
+        if ($country) {
+            $country->restore();
+        }
+
+        return response()->json($country->fresh());
+    }
 }

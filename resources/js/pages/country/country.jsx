@@ -15,16 +15,20 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAppContext } from '@/context/AppContext';
 
-import { deleteCountry, fetchCountries } from './api';
+import { deleteCountry, fetchCountries, fetchTrashedCountries, restoreCountry } from './api';
 
 export default function Countries() {
   const navigate = useNavigate();
-  const { setPageTitle } = useAppContext();
+  const { setPageTitle, user } = useAppContext();
   const [countries, setCountries] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [deletingId, setDeletingId] = useState(null);
   const [countryToDelete, setCountryToDelete] = useState(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [restoringId, setRestoringId] = useState(null);
+
+  const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
 
     useEffect(() => {
     setPageTitle('Countries');
@@ -38,13 +42,13 @@ export default function Countries() {
       setErrorMessage('');
 
       try {
-        const data = await fetchCountries();
+        const data = showDeleted ? await fetchTrashedCountries() : await fetchCountries();
         if (!ignore) {
           setCountries(Array.isArray(data) ? data : []);
         }
       } catch (error) {
         if (!ignore) {
-          setErrorMessage(error.message || 'Failed to load countries.');
+          setErrorMessage(error.message || `Failed to load ${showDeleted ? 'deleted countries' : 'countries'}.`);
         }
       } finally {
         if (!ignore) {
@@ -58,7 +62,7 @@ export default function Countries() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [showDeleted]);
 
   const handleConfirmDelete = async () => {
     if (!countryToDelete) {
@@ -88,42 +92,68 @@ export default function Countries() {
     }
   };
 
-    return (
+  const handleRestore = async (id) => {
+    setRestoringId(id);
+    setErrorMessage('');
+
+    try {
+      const restored = await restoreCountry(id);
+      setCountries((previous) => previous.filter((country) => country.id !== id));
+      toast.success(`${restored?.name || 'Country'} restored successfully.`, {
+        style: { color: '#16a34a' },
+      });
+    } catch (error) {
+      const message = error.message || 'Failed to restore country.';
+      setErrorMessage(message);
+      toast.error(message, {
+        style: { color: '#dc2626' },
+      });
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
+  return (
     <div className="space-y-5">
       {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-1">
-                <CountryTable
-                countries={countries}
-                onAdd={() => navigate('/countries/add')}
-                onEdit={(id) => navigate(`/countries/${id}/edit`)}
-                onRequestDelete={setCountryToDelete}
-                deletingId={deletingId}
-                isLoading={isLoading}
-                />
-                    </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-1">
+        <CountryTable
+          countries={countries}
+          onAdd={() => navigate('/countries/add')}
+          onEdit={(id) => navigate(`/countries/${id}/edit`)}
+          onRequestDelete={setCountryToDelete}
+          onToggleDeleted={() => setShowDeleted((previous) => !previous)}
+          onRestore={handleRestore}
+          deletingId={deletingId}
+          restoringId={restoringId}
+          isLoading={isLoading}
+          isShowingDeleted={showDeleted}
+          isSuperAdmin={isSuperAdmin}
+        />
+      </div>
 
-            <AlertDialog open={Boolean(countryToDelete)} onOpenChange={(open) => !open && setCountryToDelete(null)}>
-                <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Country</AlertDialogTitle>
-                    <AlertDialogDescription>
-                    Are you sure you want to delete {countryToDelete?.name}? This action cannot be undone.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel disabled={deletingId !== null}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                    variant="destructive"
-                    disabled={deletingId !== null}
-                    onClick={handleConfirmDelete}
-                    >
-                    {deletingId !== null ? 'Deleting...' : 'Delete'}
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+      <AlertDialog open={Boolean(countryToDelete)} onOpenChange={(open) => !open && setCountryToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Country</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {countryToDelete?.name}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingId !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={deletingId !== null}
+              onClick={handleConfirmDelete}
+            >
+              {deletingId !== null ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
-    );
+  );
 }

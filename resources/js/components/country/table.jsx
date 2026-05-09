@@ -12,13 +12,25 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Pencil, Plus, RotateCcw, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
-export function CountryTable({ countries = [], onAdd, onEdit, onRequestDelete, deletingId, isLoading }) {
+export function CountryTable({
+    countries = [],
+    onAdd,
+    onEdit,
+    onRequestDelete,
+    onToggleDeleted,
+    onRestore,
+    deletingId,
+    restoringId,
+    isLoading,
+    isShowingDeleted = false,
+    isSuperAdmin = false,
+}) {
     const [search, setSearch] = useState('');
     const filtered = countries.filter((c) => {
         const q = search.toLowerCase();
@@ -45,6 +57,12 @@ export function CountryTable({ countries = [], onAdd, onEdit, onRequestDelete, d
                 <Plus />
                 Add Country
             </Button>
+            {isSuperAdmin && (
+                <Button type="button" variant="outline" className="shrink-0 gap-2" onClick={onToggleDeleted}>
+                    <RotateCcw />
+                    {isShowingDeleted ? 'Back To Countries' : 'Deleted Countries'}
+                </Button>
+            )}
         </div>
 
         <Card>
@@ -63,7 +81,7 @@ export function CountryTable({ countries = [], onAdd, onEdit, onRequestDelete, d
                     {isLoading && (
                         <TableRow>
                             <TableCell colSpan={5} className="text-center text-muted-foreground">
-                                Loading countries...
+                                Loading {isShowingDeleted ? 'deleted countries' : 'countries'}...
                             </TableCell>
                         </TableRow>
                     )}
@@ -71,7 +89,7 @@ export function CountryTable({ countries = [], onAdd, onEdit, onRequestDelete, d
                     {!isLoading && countries.length === 0 && (
                         <TableRow>
                             <TableCell colSpan={5} className="text-center text-muted-foreground">
-                                No countries found.
+                                No {isShowingDeleted ? 'deleted countries' : 'countries'} found.
                             </TableCell>
                         </TableRow>
                     )}
@@ -79,7 +97,7 @@ export function CountryTable({ countries = [], onAdd, onEdit, onRequestDelete, d
                     {!isLoading && filtered.length === 0 && countries.length > 0 && (
                         <TableRow>
                             <TableCell colSpan={5} className="text-center text-muted-foreground">
-                                No countries match your search.
+                                No {isShowingDeleted ? 'deleted countries' : 'countries'} match your search.
                             </TableCell>
                         </TableRow>
                     )}
@@ -93,42 +111,65 @@ export function CountryTable({ countries = [], onAdd, onEdit, onRequestDelete, d
                                 <TableCell>{country.currency_code}</TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        aria-label={`Edit ${country.name}`}
-                                                        onClick={() => onEdit(country.id)}
-                                                    >
-                                                        <Pencil />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="bottom">
-                                                    <p>Edit</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                                        {isShowingDeleted ? (
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`Restore ${country.name}`}
+                                                            onClick={() => onRestore?.(country.id)}
+                                                            disabled={restoringId === country.id}
+                                                        >
+                                                            <RotateCcw className="text-emerald-600" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                        <p>{restoringId === country.id ? 'Restoring...' : 'Restore'}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        ) : (
+                                            <>
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                aria-label={`Edit ${country.name}`}
+                                                                onClick={() => onEdit(country.id)}
+                                                            >
+                                                                <Pencil />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="bottom">
+                                                            <p>Edit</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
 
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        aria-label={`Delete ${country.name}`}
-                                                        onClick={() => onRequestDelete(country)}
-                                                        disabled={deletingId === country.id}
-                                                    >
-                                                        <Trash2 className="text-destructive" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="bottom">
-                                                    <p>Delete</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                aria-label={`Delete ${country.name}`}
+                                                                onClick={() => onRequestDelete(country)}
+                                                                disabled={deletingId === country.id}
+                                                            >
+                                                                <Trash2 className="text-destructive" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="bottom">
+                                                            <p>Delete</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            </>
+                                        )}
                                     </div>
                                 </TableCell>
                             </TableRow>
