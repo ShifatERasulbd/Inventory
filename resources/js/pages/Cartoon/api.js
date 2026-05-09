@@ -70,3 +70,11 @@ export async function deleteCartoon(id) {
         method: 'DELETE',
     });
 }
+
+export async function adjustCartoonQuantity(id, data) {
+    await ensureCsrfCookie();
+    return requestJson(`/api/cartoons/${id}/adjust-quantity`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}

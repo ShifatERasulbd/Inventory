@@ -76,6 +76,7 @@ Route::prefix('api')->group(function () {
 
         // Cartoon Controller
         Route::apiResource('/cartoons', CartoonController::class);
+        Route::post('/cartoons/{cartoon}/adjust-quantity', [CartoonController::class, 'adjustQuantity']);
 
         // Stock Controller
         Route::apiResource('/stocks', StockController::class);

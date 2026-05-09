@@ -12,13 +12,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Search, Trash2,Minus } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
-export function CartoonTable({ cartoons = [], onAdd, onEdit, onRequestDelete, deletingId, isLoading }) {
+export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuantity, onEdit, onRequestDelete, deletingId, isLoading }) {
     const [search, setSearch] = useState('');
     const filtered = cartoons.filter((c) => {
         const q = search.toLowerCase();
@@ -50,10 +50,11 @@ export function CartoonTable({ cartoons = [], onAdd, onEdit, onRequestDelete, de
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[100px]">SL No.</TableHead>
-                        <TableHead>Cartoon</TableHead>
-                       <TableHead>Purchase Order</TableHead>
-                        <TableHead className="w-[160px]">Action</TableHead>
+                        <TableHead className="text-right">SL No.</TableHead>
+                        <TableHead className="text-center">Cartoon</TableHead>
+                       <TableHead className="text-center">Purchase Order</TableHead>
+                       <TableHead className="text-center">Quantity Of Products</TableHead>
+                        <TableHead>Action</TableHead>
                     </TableRow>
                 </TableHeader>
 
@@ -85,10 +86,11 @@ export function CartoonTable({ cartoons = [], onAdd, onEdit, onRequestDelete, de
                     {!isLoading &&
                         filtered.map((cartoon, index) => (
                             <TableRow key={cartoon.id}>
-                                <TableCell className="font-medium">{index + 1}</TableCell>
-                                <TableCell>{cartoon.cartoon_number}</TableCell>
-                                <TableCell>{cartoon.purchase?.po_number ?? cartoon.purchase?.id ?? cartoon.p_o_number ?? ''}</TableCell>
-                                <TableCell>
+                                <TableCell className="font-medium text-right">{index + 1}</TableCell>
+                                <TableCell className="text-center">{cartoon.cartoon_number}</TableCell>
+                                <TableCell className="text-center">{cartoon.purchase?.po_number ?? cartoon.purchase?.id ?? cartoon.p_o_number ?? ''}</TableCell>
+                                <TableCell className="text-center">{cartoon.quantity}</TableCell>
+                                <TableCell className="text-center">
                                     <div className="flex items-center gap-2">
                                         <TooltipProvider>
                                             <Tooltip>
@@ -125,6 +127,42 @@ export function CartoonTable({ cartoons = [], onAdd, onEdit, onRequestDelete, de
                                                     <p>Delete</p>
                                                 </TooltipContent>
                                             </Tooltip>
+                                        </TooltipProvider>
+
+                                        <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`Add quantity for ${cartoon.cartoon_number}`}
+                                                            onClick={() => onAddQuantity?.(cartoon)}
+                                                        >
+                                                            <Plus />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                        <p>Add Stock</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                        </TooltipProvider>
+
+                                        <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`Deduct quantity for ${cartoon.cartoon_number}`}
+                                                            onClick={() => onDeductQuantity?.(cartoon)}
+                                                        >
+                                                            <Minus />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                        <p>Deduct Stock</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
                                         </TooltipProvider>
                                       
                                     </div>

@@ -13,9 +13,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useAppContext } from '@/context/AppContext';
 
-import { deleteCartoon, fetchCartoons } from './api';
+import { adjustCartoonQuantity, deleteCartoon, fetchCartoons } from './api';
 
 export default function Cartoon() {
   const navigate = useNavigate();
@@ -25,6 +27,12 @@ export default function Cartoon() {
   const [errorMessage, setErrorMessage] = useState('');
   const [deletingId, setDeletingId] = useState(null);
   const [cartoonToDelete, setCartoonToDelete] = useState(null);
+  const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
+  const [adjustMode, setAdjustMode] = useState('add');
+  const [adjustCartoonTarget, setAdjustCartoonTarget] = useState(null);
+  const [codeInput, setCodeInput] = useState('');
+  const [scannedCodes, setScannedCodes] = useState([]);
+  const [isAdjusting, setIsAdjusting] = useState(false);
 
     useEffect(() => {
     setPageTitle('Cartoons');
@@ -88,6 +96,69 @@ export default function Cartoon() {
     }
   };
 
+  const openAdjustDialog = (mode, cartoon) => {
+    setAdjustMode(mode);
+    setAdjustCartoonTarget(cartoon);
+    setCodeInput('');
+    setScannedCodes([]);
+    setErrorMessage('');
+    setIsAdjustDialogOpen(true);
+  };
+
+  const handleCodeScan = () => {
+    const normalized = codeInput.trim();
+    if (!normalized) return;
+    setScannedCodes((previous) => [...previous, normalized]);
+    setCodeInput('');
+  };
+
+  const handleConfirmAdjustQuantity = async () => {
+    if (scannedCodes.length === 0) {
+      setErrorMessage(adjustMode === 'add' ? 'Scan at least one code before adding.' : 'Scan at least one code before deducting.');
+      return;
+    }
+
+    const targetCartoon = cartoons.find((c) => c.id === adjustCartoonTarget?.id);
+    if (!targetCartoon) {
+      setErrorMessage('Cartoon not found. Please try again.');
+      return;
+    }
+
+    if (adjustMode === 'deduct' && scannedCodes.length > Number(targetCartoon.quantity ?? 0)) {
+      setErrorMessage('Deducted quantity cannot exceed current quantity.');
+      return;
+    }
+
+    setIsAdjusting(true);
+    setErrorMessage('');
+
+    try {
+      const updated = await adjustCartoonQuantity(targetCartoon.id, {
+        product_code: scannedCodes,
+        adjust_mode: adjustMode,
+      });
+
+      setCartoons((previous) =>
+        previous.map((cartoon) => (cartoon.id === updated.id ? updated : cartoon))
+      );
+
+      toast.success(adjustMode === 'add' ? 'Quantity added successfully.' : 'Quantity deducted successfully.', {
+        style: { color: '#16a34a' },
+      });
+
+      setIsAdjustDialogOpen(false);
+      setAdjustCartoonTarget(null);
+      setScannedCodes([]);
+      setCodeInput('');
+    } catch (error) {
+      const message = error.message || 'Failed to update quantity.';
+      setErrorMessage(message);
+      toast.error(message, { style: { color: '#dc2626' } });
+    } finally {
+      setIsAdjusting(false);
+    }
+  };
+
     return (
     <div className="space-y-5">
       {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
@@ -96,12 +167,75 @@ export default function Cartoon() {
                 <CartoonTable
                 cartoons={cartoons}
                 onAdd={() => navigate('/cartoons/add')}
+                onAddQuantity={(cartoon) => openAdjustDialog('add', cartoon)}
+                onDeductQuantity={(cartoon) => openAdjustDialog('deduct', cartoon)}
                 onEdit={(id) => navigate(`/cartoons/${id}/edit`)}
                 onRequestDelete={setCartoonToDelete}
                 deletingId={deletingId}
                 isLoading={isLoading}
                 />
                     </div>
+
+            <AlertDialog open={isAdjustDialogOpen} onOpenChange={setIsAdjustDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{adjustMode === 'add' ? 'Add Quantity' : 'Deduct Quantity'}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {adjustMode === 'add'
+                                ? `Increase quantity for ${adjustCartoonTarget?.cartoon_number || ''}.`
+                                : `Deduct quantity for ${adjustCartoonTarget?.cartoon_number || ''}.`}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label>Cartoon</Label>
+                            <p className="rounded-md border bg-muted px-3 py-2 text-sm">
+                                {adjustCartoonTarget?.cartoon_number || 'N/A'}
+                            </p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="code_input">Scan Code</Label>
+                            <div className="flex gap-2">
+                                <Input
+                                    id="code_input"
+                                    value={codeInput}
+                                    onChange={(event) => setCodeInput(event.target.value)}
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter') {
+                                            event.preventDefault();
+                                            handleCodeScan();
+                                        }
+                                    }}
+                                    placeholder="Scan or type code"
+                                    autoFocus
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleCodeScan}
+                                    className="shrink-0 rounded-md border bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                Scanned: <span className="font-semibold text-foreground">{scannedCodes.length}</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isAdjusting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleConfirmAdjustQuantity}
+                            disabled={isAdjusting || !adjustCartoonTarget || scannedCodes.length === 0}
+                        >
+                            {isAdjusting ? 'Saving...' : adjustMode === 'add' ? 'Add Quantity' : 'Deduct Quantity'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <AlertDialog open={Boolean(cartoonToDelete)} onOpenChange={(open) => !open && setCartoonToDelete(null)}>
                 <AlertDialogContent>

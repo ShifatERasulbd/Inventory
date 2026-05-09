@@ -10,6 +10,12 @@ class Cartoon extends Model
     protected $fillable = [
         'cartoon_number',
         'p_o_number',
+        'quantity',
+        'product_code',
+    ];
+
+    protected $casts = [
+        'product_code' => 'array',
     ];
 
     public function purchase(){
