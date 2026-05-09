@@ -69,4 +69,28 @@ class StateController extends Controller
         return response()->json(['message' => 'State deleted']);
     }
 
+    public function trashed():JsonResponse
+    {
+        return response()->json(
+            State::query()
+            ->onlyTrashed()
+            ->with('country:id,name')
+            ->orderBy('name')
+            ->get()
+        );
+    }
+
+    public function restore(int $id): JsonResponse
+    {
+        $state = State::query()->onlyTrashed()->find($id);
+
+        if (! $state) {
+            return response()->json(['message' => 'State not found.'], 404);
+        }
+
+        $state->restore();
+
+        return response()->json($state->fresh()->load('country:id,name'));
+    }
+
 }

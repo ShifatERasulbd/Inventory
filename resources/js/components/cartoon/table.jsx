@@ -12,13 +12,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Pencil, Plus, Search, Trash2,Minus } from 'lucide-react';
+import { Barcode, Pencil, Plus, Search, Trash2,Minus } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
-export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuantity, onEdit, onRequestDelete, deletingId, isLoading }) {
+export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuantity, onViewBarcode, onEdit, onRequestDelete, deletingId, isLoading }) {
     const [search, setSearch] = useState('');
     const filtered = cartoons.filter((c) => {
         const q = search.toLowerCase();
@@ -92,6 +92,24 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                                 <TableCell className="text-center">{cartoon.quantity}</TableCell>
                                 <TableCell className="text-center">
                                     <div className="flex items-center gap-2">
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        aria-label={`View barcode for ${cartoon.cartoon_number}`}
+                                                        onClick={() => onViewBarcode?.(cartoon)}
+                                                    >
+                                                        <Barcode />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="bottom">
+                                                    <p>Barcode</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+
                                         <TooltipProvider>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>

@@ -13,17 +13,20 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { deleteState, fetchStates } from './api';
+import { deleteState, fetchStates, fetchTrashedStates, restoreState } from './api';
 
 export default function States() {
     const navigate = useNavigate();
-    const { setPageTitle } = useAppContext();
+    const { setPageTitle, user } = useAppContext();
     const [states, setStates] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
     const [deletingId, setDeletingId] = useState(null);
     const [stateToDelete, setStateToDelete] = useState(null);
+    const [showDeleted, setShowDeleted] = useState(false);
+    const [restoringId, setRestoringId] = useState(null);
 
+    const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
     useEffect(() => {
         setPageTitle('States');
     }, [setPageTitle]);
@@ -36,13 +39,13 @@ export default function States() {
             setErrorMessage('');
 
             try {
-                const data = await fetchStates();
+                const data = showDeleted ? await fetchTrashedStates() : await fetchStates();
                 if (!ignore) {
                     setStates(Array.isArray(data) ? data : []);
                 }
             } catch (error) {
                 if (!ignore) {
-                    setErrorMessage(error.message || 'Failed to load states.');
+                    setErrorMessage(error.message || `Failed to load ${showDeleted ? 'deleted states' : 'states'}.`);
                 }
             } finally {
                 if (!ignore) {
@@ -56,7 +59,7 @@ export default function States() {
         return () => {
             ignore = true;
         };
-    }, []);
+    }, [showDeleted]);
 
     const handleConfirmDelete = async () => {
         if (!stateToDelete) {
@@ -85,6 +88,27 @@ export default function States() {
         }
     };
 
+    const handleRestore = async (id) => {
+        setRestoringId(id);
+        setErrorMessage('');
+
+        try {
+            const restored = await restoreState(id);
+            setStates((previous) => previous.filter((state) => state.id !== id));
+            toast.success(`${restored?.name || 'State'} restored successfully.`, {
+                style: { color: '#16a34a' },
+            });
+        } catch (error) {
+            const message = error.message || 'Failed to restore state.';
+            setErrorMessage(message);
+            toast.error(message, {
+                style: { color: '#dc2626' },
+            });
+        } finally {
+            setRestoringId(null);   
+        }
+    };
+
     return (
         <div className="space-y-5">
             {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
@@ -96,6 +120,11 @@ export default function States() {
                     onAdd={() => navigate('/states/add')}
                     onEdit={(id) => navigate(`/states/${id}/edit`)}
                     onRequestDelete={setStateToDelete}
+                        isShowingDeleted={showDeleted}
+                        onToggleDeleted={() => setShowDeleted((previous) => !previous)}
+                    onRestore={handleRestore}
+                    restoringId={restoringId}
+                    isSuperAdmin={isSuperAdmin}
                 />
             </div>
 

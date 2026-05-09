@@ -67,3 +67,15 @@ export async function deleteState(id){
     });
 }
 
+export async function fetchTrashedStates(){
+    const payload =await requestJson('/api/states/trashed');
+    return Array.isArray(payload) ? payload : [];
+}
+
+export async function restoreState(id){
+    await ensureCsrfCookie();
+    return requestJson(`/api/states/${id}/restore`,{
+        method:'POST',
+    });
+}
+

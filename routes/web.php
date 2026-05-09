@@ -40,7 +40,9 @@ Route::prefix('api')->group(function () {
         Route::apiResource('/countries', CountryController::class);
 
         // State Controller
-        Route::apiResource('/states',StateController::class);
+        Route::get('/states/trashed', [StateController::class, 'trashed']);
+        Route::post('/states/{id}/restore', [StateController::class, 'restore']);
+        Route::apiResource('/states', StateController::class);
 
         // Warehouse Controller
         Route::apiResource('/warehouses',WarehouseController::class);
