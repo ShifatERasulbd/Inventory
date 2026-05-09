@@ -99,7 +99,9 @@ export default function AddPurchaseForm({
 
                         <div className="space-y-2">
                             <Label htmlFor="status">Status</Label>
-                            <Select value={form.status} onValueChange={(value) => onSelectChange('status', value)}>
+                            <Select value={form.status} onValueChange={(value) => onSelectChange('status', value)}
+                                disabled
+                                >
                                 <SelectTrigger id="status" className="w-full">
                                     <SelectValue placeholder="Select status" />
                                 </SelectTrigger>

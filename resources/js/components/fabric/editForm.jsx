@@ -20,6 +20,8 @@ export default function EditForm({ form, onChange, onCompositionChange, onSelect
                 <CardContent className="space-y-6 pt-6">
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                         <div className="space-y-2">
+
+                            
                             <Label htmlFor="fabric-name">Fabric Name</Label>
                             <Input
                                 id="fabric-name"
