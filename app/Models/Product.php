@@ -4,6 +4,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 use App\Models\Brand;
 use App\Models\Color;
@@ -15,7 +16,7 @@ use App\Models\Season;
 
 class Product extends Model
 {
-      use HasFactory;
+      use HasFactory, SoftDeletes;
 
       protected $fillable=[
         'brand_id',
