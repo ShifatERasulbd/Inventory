@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\Stock;
+use App\Models\WareHouse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -122,7 +124,7 @@ class ProductController extends Controller
         $validated = $request->validate([
             'brand_id' => ['required', 'integer', 'exists:brands,id'],
             'style_number' => ['required', 'string', 'max:50'],
-            'ref_number' => ['nullable', 'string', 'max:100', 'unique:products,ref_number'],
+            'ref_number' => ['nullable', 'string', 'max:100'],
             'name' => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string', 'max:2000'],
             'color_ids' => ['required', 'array', 'min:1'],
@@ -170,10 +172,13 @@ class ProductController extends Controller
         try {
             $products = DB::transaction(function () use ($validated, $colorIds, $sizeIds, $storedCoverImage, $storedGalleryImages, $barcodesMap) {
                 $products = [];
+                $stockRows = [];
+                $warehouseIds = WareHouse::query()->pluck('id')->all();
+                $now = now();
 
                 foreach ($colorIds as $colorId) {
                     foreach ($sizeIds as $sizeId) {
-                        $products[] = Product::query()->create([
+                        $product = Product::query()->create([
                             'brand_id' => $validated['brand_id'],
                             'style_number' => $validated['style_number'],
                             'ref_number' => $validated['ref_number'] ?? null,
@@ -189,7 +194,25 @@ class ProductController extends Controller
                             'gallery_images' => $storedGalleryImages,
                             'barCode' => $barcodesMap["{$colorId}_{$sizeId}"] ?? null,
                         ]);
+
+                        $products[] = $product;
+
+                        foreach ($warehouseIds as $warehouseId) {
+                            $stockRows[] = [
+                                'product_id' => $product->id,
+                                'stocks' => 0,
+                                'warehouse_id' => (int) $warehouseId,
+                                'cartoon_id' => null,
+                                'barcode' => null,
+                                'created_at' => $now,
+                                'updated_at' => $now,
+                            ];
+                        }
                     }
+                }
+
+                if ($stockRows !== []) {
+                    Stock::query()->insert($stockRows);
                 }
 
                 return $products;
@@ -220,7 +243,7 @@ class ProductController extends Controller
         $validated = $request->validate([
             'brand_id' => ['required', 'integer', 'exists:brands,id'],
             'style_number' => ['required', 'string', 'max:50'],
-            'ref_number' => ['nullable', 'string', 'max:100', \Illuminate\Validation\Rule::unique('products', 'ref_number')->ignore($product->id)],
+            'ref_number' => ['nullable', 'string', 'max:100'],
             'name' => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string', 'max:2000'],
             'color_id' => ['required', 'integer', 'exists:colors,id'],

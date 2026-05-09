@@ -17,7 +17,7 @@ const initialForm = {
     products: [emptyProductRow()],
 };
 
-const ALL_STATUS_OPTIONS = ['pending', 'approved', 'received', 'cancelled'];
+const ALL_STATUS_OPTIONS = ['pending', 'approved', 'shipped', 'received', 'cancelled'];
 
 function getAvailableStatuses(isSuperAdmin, userWarehouseId, selectedPurchaseToWarehouseId) {
     // Super admins can use all statuses

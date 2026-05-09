@@ -67,6 +67,7 @@ const ProductionItems=[
     {title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-Production'},
     {title:'Product', icon: MoreHorizontal, path:'/products', permission:'manage-Production'},
     {title:'Cartoon', icon: Circle, path:'/cartoons', permission:'manage-Production'},
+    {title:'Cartoon Tracking', icon: Circle, path:'/cartoon-tracking', permission:'manage-Production'},
 ]
 
 const userAccessItems=[

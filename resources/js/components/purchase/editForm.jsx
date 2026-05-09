@@ -29,7 +29,7 @@ export default function EditPurchaseForm({
     productOptions = [],
     isSuperAdmin = false,
     purchaseToLabel,
-    availableStatuses = ['pending', 'approved', 'received', 'cancelled'],
+    availableStatuses = ['pending', 'approved', 'shipped', 'received', 'cancelled'],
 }) {
     return (
         <Card>

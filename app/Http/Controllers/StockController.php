@@ -47,7 +47,7 @@ class StockController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Stock::query()
-            ->with(['product:id,name', 'warehouse:id,name'])
+            ->with(['product:id,name,size_id', 'product.size:id,size', 'warehouse:id,name'])
             ->orderBy('id');
 
         $user = $request->user();
@@ -74,6 +74,7 @@ class StockController extends Controller
                 'stocks' => (int) ($stock->stocks ?? 0),
                 'available_stock' => (int) ($stock->stocks ?? 0),
                 'name' => $stock->product?->name,
+                'size' => $stock->product?->size?->size,
             ]);
 
         return response()->json($stocks);
@@ -102,7 +103,7 @@ class StockController extends Controller
             'cartoon_id' => $validated['cartoon_id'] ?? null,
             'barcode' => count($barcodes) > 0 ? $barcodes : null,
         ]);
-        $stock->load('product:id,name');
+        $stock->load(['product:id,name,size_id', 'product.size:id,size']);
 
         return response()->json([
             'id' => $stock->id,
@@ -113,12 +114,13 @@ class StockController extends Controller
             'stocks' => (int) ($stock->stocks ?? 0),
             'available_stock' => (int) ($stock->stocks ?? 0),
             'name' => $stock->product?->name,
+            'size' => $stock->product?->size?->size,
         ], 201);
     }
 
     public function show(Stock $stock): JsonResponse
     {
-        $stock->load('product:id,name');
+        $stock->load(['product:id,name,size_id', 'product.size:id,size']);
 
         return response()->json([
             'id' => $stock->id,
@@ -129,6 +131,7 @@ class StockController extends Controller
             'stocks' => (int) ($stock->stocks ?? 0),
             'available_stock' => (int) ($stock->stocks ?? 0),
             'name' => $stock->product?->name,
+            'size' => $stock->product?->size?->size,
         ]);
     }
 
@@ -189,7 +192,7 @@ class StockController extends Controller
             'cartoon_id' => array_key_exists('cartoon_id', $validated) ? $validated['cartoon_id'] : $stock->cartoon_id,
             'barcode' => $barcodeValue,
         ]);
-        $stock->load('product:id,name');
+        $stock->load(['product:id,name,size_id', 'product.size:id,size']);
 
         return response()->json([
             'id' => $stock->id,
@@ -200,6 +203,7 @@ class StockController extends Controller
             'stocks' => (int) ($stock->stocks ?? 0),
             'available_stock' => (int) ($stock->stocks ?? 0),
             'name' => $stock->product?->name,
+            'size' => $stock->product?->size?->size,
         ]);
     }
 

@@ -3,11 +3,85 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cartoon;
+use App\Models\Stock;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CartoonController extends Controller
 {
+    private function extractPurchaseProductIds(Cartoon $cartoon): array
+    {
+        $purchase = $cartoon->purchase;
+        $items = is_array($purchase?->products) ? $purchase->products : [];
+
+        $ids = [];
+        foreach ($items as $item) {
+            $productId = (int) ($item['product_id'] ?? 0);
+            if ($productId > 0) {
+                $ids[] = $productId;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    private function deductBarcodesFromSourceStock(int $sourceWarehouseId, array $purchaseProductIds, array $incomingCodes): array
+    {
+        $stocks = Stock::query()
+            ->where('warehouse_id', $sourceWarehouseId)
+            ->whereIn('product_id', $purchaseProductIds)
+            ->lockForUpdate()
+            ->get();
+
+        $codesNotFound = [];
+        $touchedStocks = [];
+
+        foreach ($incomingCodes as $incomingCode) {
+            $matchedStock = null;
+
+            foreach ($stocks as $stock) {
+                $barcodes = is_array($stock->barcode) ? $stock->barcode : [];
+                $index = array_search($incomingCode, $barcodes, true);
+
+                if ($index === false) {
+                    continue;
+                }
+
+                unset($barcodes[$index]);
+                $stock->barcode = array_values($barcodes);
+                $stock->stocks = max(0, ((int) $stock->stocks) - 1);
+                $matchedStock = $stock;
+                $touchedStocks[$stock->id] = true;
+                break;
+            }
+
+            if (! $matchedStock) {
+                $codesNotFound[] = $incomingCode;
+            }
+        }
+
+        if ($codesNotFound !== []) {
+            return [
+                'ok' => false,
+                'missing_codes' => $codesNotFound,
+            ];
+        }
+
+        foreach ($stocks as $stock) {
+            if (! isset($touchedStocks[$stock->id])) {
+                continue;
+            }
+
+            $barcodes = is_array($stock->barcode) ? $stock->barcode : [];
+            $stock->barcode = $barcodes !== [] ? $barcodes : null;
+            $stock->save();
+        }
+
+        return ['ok' => true];
+    }
+
     private function getUserWarehouseIds(Request $request): array
     {
         $warehouseIds = $request->user()?->warehouse_ids;
@@ -115,6 +189,42 @@ class CartoonController extends Controller
         return response()->json(
             $query->orderBy('id')->get()
         );
+    }
+
+    public function tracking(Request $request): JsonResponse
+    {
+        $query = Cartoon::query()->with([
+            'purchase:id,po_number,status,purchase_form,purchase_to',
+            'warehouse:id,name',
+        ]);
+
+        if (! $request->user()?->hasRole('super-admin')) {
+            $warehouseIds = $this->getUserWarehouseIds($request);
+
+            if ($warehouseIds === []) {
+                return response()->json([]);
+            }
+
+            $query->whereIn('warehouse_id', $warehouseIds);
+        }
+
+        $rows = $query->orderByDesc('id')->get()->map(function (Cartoon $cartoon) {
+            return [
+                'id' => $cartoon->id,
+                'cartoon_number' => $cartoon->cartoon_number,
+                'quantity' => (int) ($cartoon->quantity ?? 0),
+                'warehouse_id' => $cartoon->warehouse_id,
+                'warehouse_name' => $cartoon->warehouse?->name,
+                'po_number' => $cartoon->purchase?->po_number,
+                'po_status' => $cartoon->purchase?->status,
+                'purchase_form' => $cartoon->purchase?->purchase_form,
+                'purchase_to' => $cartoon->purchase?->purchase_to,
+                'created_at' => $cartoon->created_at,
+                'updated_at' => $cartoon->updated_at,
+            ];
+        });
+
+        return response()->json($rows);
     }
 
     public function store(Request $request): JsonResponse
@@ -228,25 +338,65 @@ class CartoonController extends Controller
         $adjustMode     = $request->input('adjust_mode');
         $existingCodes  = is_array($cartoon->product_code) ? $cartoon->product_code : [];
 
-        if ($adjustMode === 'deduct') {
-            $pool = $existingCodes;
-            foreach ($incomingCodes as $code) {
-                $index = array_search($code, $pool, true);
-                if ($index !== false) {
-                    unset($pool[$index]);
-                } elseif ($pool !== []) {
-                    array_pop($pool);
-                }
+        if ($adjustMode === 'add') {
+            $purchase = $cartoon->purchase;
+            $sourceWarehouseId = (int) ($purchase?->purchase_form ?? 0);
+            $purchaseProductIds = $this->extractPurchaseProductIds($cartoon);
+
+            if ($sourceWarehouseId <= 0) {
+                return response()->json([
+                    'message' => 'Purchase source warehouse is missing for this cartoon.',
+                ], 422);
             }
-            $newCodes = array_values($pool);
-        } else {
-            $newCodes = array_merge($existingCodes, $incomingCodes);
+
+            if ($purchaseProductIds === []) {
+                return response()->json([
+                    'message' => 'No products found in related purchase for this cartoon.',
+                ], 422);
+            }
         }
 
-        $cartoon->update([
-            'product_code' => count($newCodes) > 0 ? $newCodes : null,
-            'quantity'     => count($newCodes),
-        ]);
+        DB::transaction(function () use ($adjustMode, $incomingCodes, $existingCodes, $cartoon) {
+            if ($adjustMode === 'deduct') {
+                $pool = $existingCodes;
+                foreach ($incomingCodes as $code) {
+                    $index = array_search($code, $pool, true);
+                    if ($index !== false) {
+                        unset($pool[$index]);
+                    } elseif ($pool !== []) {
+                        array_pop($pool);
+                    }
+                }
+                $newCodes = array_values($pool);
+            } else {
+                $purchase = $cartoon->purchase;
+                $sourceWarehouseId = (int) ($purchase?->purchase_form ?? 0);
+                $purchaseProductIds = $this->extractPurchaseProductIds($cartoon);
+
+                $deduction = $this->deductBarcodesFromSourceStock($sourceWarehouseId, $purchaseProductIds, $incomingCodes);
+
+                if (! ($deduction['ok'] ?? false)) {
+                    $missingCodes = $deduction['missing_codes'] ?? [];
+                    throw new HttpResponseException(
+                        response()->json([
+                            'message' => 'Some scanned barcodes are not available in the purchase from warehouse stock.',
+                            'errors' => [
+                                'product_code' => [
+                                    'Scanned barcode(s) not found in source stock: ' . implode(', ', $missingCodes),
+                                ],
+                            ],
+                        ], 422)
+                    );
+                }
+
+                $newCodes = array_merge($existingCodes, $incomingCodes);
+            }
+
+            $cartoon->update([
+                'product_code' => count($newCodes) > 0 ? $newCodes : null,
+                'quantity'     => count($newCodes),
+            ]);
+        });
 
         return response()->json($cartoon->fresh()->load(['purchase', 'warehouse']));
     }
