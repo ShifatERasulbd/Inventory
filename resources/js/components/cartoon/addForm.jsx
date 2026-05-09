@@ -3,8 +3,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';  
-
-export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitting, errors = {} }) {
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+export default function AddForm({ form, onPurchaseChange, purchases = [], onChange, onSubmit, onCancel, isSubmitting, errors = {} }) {
     return (
         <Card>
             <CardHeader>
@@ -29,6 +29,24 @@ export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitti
                             {errors.cartoon_number && <p className="text-xs text-destructive">{errors.cartoon_number[0]}</p>}
                         </div>
 
+                        <div className="space-y-2">
+                            <Label htmlFor="P_O_number">Purchase Order Number</Label>
+                            <Select value={form.p_o_number ?? form.P_O_number ?? ''} onValueChange={onPurchaseChange}>
+                                <SelectTrigger id="P_O_number" className="w-full">
+                                    <SelectValue placeholder="Select a Purchase Order" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {purchases.map((purchase) => (
+                                        <SelectItem key={purchase.id} value={String(purchase.id)}>
+                                            {purchase.po_number}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {(errors.p_o_number || errors.P_O_number) && (
+                                <p className="text-xs text-destructive">{(errors.p_o_number || errors.P_O_number)[0]}</p>
+                            )}
+                        </div>
                     </div>
                 </CardContent>
 

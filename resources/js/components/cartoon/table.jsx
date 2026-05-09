@@ -52,7 +52,7 @@ export function CartoonTable({ cartoons = [], onAdd, onEdit, onRequestDelete, de
                     <TableRow>
                         <TableHead className="w-[100px]">SL No.</TableHead>
                         <TableHead>Cartoon</TableHead>
-                       
+                       <TableHead>Purchase Order</TableHead>
                         <TableHead className="w-[160px]">Action</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -87,7 +87,7 @@ export function CartoonTable({ cartoons = [], onAdd, onEdit, onRequestDelete, de
                             <TableRow key={cartoon.id}>
                                 <TableCell className="font-medium">{index + 1}</TableCell>
                                 <TableCell>{cartoon.cartoon_number}</TableCell>
-                                
+                                <TableCell>{cartoon.purchase?.po_number ?? cartoon.purchase?.id ?? cartoon.p_o_number ?? ''}</TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                         <TooltipProvider>

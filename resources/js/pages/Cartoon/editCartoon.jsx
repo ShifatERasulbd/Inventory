@@ -4,11 +4,13 @@ import { toast } from 'sonner';
 
 import EditForm from '@/components/cartoon/editForm';
 import { useAppContext } from '@/context/AppContext';
+import { fetchPurchases } from '@/pages/Purchase/api';
 
 import { fetchCartoon, updateCartoon } from './api';
 
 const initialForm = {
     cartoon_number: '',
+    p_o_number: '',
 };
 
 export default function EditCartoon() {
@@ -21,6 +23,17 @@ export default function EditCartoon() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
+    const [purchases, setPurchases] = useState([]);
+
+    useEffect(() => {
+        fetchPurchases().then((data) => {
+            const approvedOnly = (Array.isArray(data) ? data : []).filter((purchase) => {
+                const status = String(purchase?.status ?? '').toLowerCase();
+                return ['approve', 'approved', 'active'].includes(status);
+            });
+            setPurchases(approvedOnly);
+        });
+    }, []);
 
     useEffect(() => {
         setPageTitle('Edit Cartoon');
@@ -38,7 +51,7 @@ export default function EditCartoon() {
                 if (!ignore) {
                     setForm({
                         cartoon_number: cartoon.cartoon_number || '',
-                        
+                        p_o_number: cartoon.p_o_number ? String(cartoon.p_o_number) : '',
                     });
                 }
             } catch (error) {
@@ -67,6 +80,16 @@ export default function EditCartoon() {
         }));
     };
 
+    const handlePurchaseChange = (value) => {
+        setForm((previous) => ({ ...previous, p_o_number: value }));
+        setErrors((previous) => {
+            if (!previous.p_o_number) return previous;
+            const next = { ...previous };
+            delete next.p_o_number;
+            return next;
+        });
+    };
+
     const handleSubmit = async (event) => {
         event.preventDefault();
 
@@ -76,7 +99,7 @@ export default function EditCartoon() {
         try {
             await updateCartoon(id, {
                 cartoon_number: form.cartoon_number.trim(),
-               
+                ...(form.p_o_number ? { p_o_number: Number(form.p_o_number) } : {}),
             });
 
             toast.success('Cartoon updated successfully.', {
@@ -108,6 +131,8 @@ export default function EditCartoon() {
             <EditForm
                 form={form}
                 onChange={handleChange}
+                onPurchaseChange={handlePurchaseChange}
+                purchases={purchases}
                 onSubmit={handleSubmit}
                 onCancel={() => navigate('/cartoons')}
                 isSubmitting={isSubmitting}

@@ -12,29 +12,39 @@ class CartoonController extends Controller
     //
     public function index():JsonResponse
     {
-        return response()->json(Cartoon::query()->orderBy('id')->get()
+        return response()->json(Cartoon::query()
+        ->with('purchase')
+        ->orderBy('id')
+        ->get()
         );
     }
 
-    public function store(Request $request):JsonResponse{
-        $validated=$request->validate([
-            'cartoon_number'=>['required','string','max:120'],
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'cartoon_number' => ['required', 'string', 'max:120'],
+            'p_o_number' => ['required', 'integer', 'exists:purchases,id'],
         ]);
-        $cartoon=Cartoon::query()->create($validated);
-        return response()->json($cartoon,201);
+
+        $cartoon = Cartoon::query()->create($validated);
+
+        return response()->json($cartoon, 201);
     }
 
     public function show(Cartoon $cartoon):JsonResponse
     {
         return response()->json($cartoon);
     }
-
-    public function update(Request $request,Cartoon $cartoon):JsonResponse
+ 
+    public function update(Request $request, Cartoon $cartoon): JsonResponse
     {
-        $validated=$request->validate([
-            'cartoon_number'=>['required','string','max:120'],
+        $validated = $request->validate([
+            'cartoon_number' => ['required', 'string', 'max:120'],
+            'p_o_number' => ['sometimes', 'integer', 'exists:purchases,id'],
         ]);
+
         $cartoon->update($validated);
+
         return response()->json($cartoon->fresh());
     }
 
