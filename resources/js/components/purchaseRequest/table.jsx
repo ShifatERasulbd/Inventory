@@ -9,6 +9,7 @@ import {
 import { Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 function formatMoney(value) {
     const numberValue = Number(value ?? 0);
     return Number.isFinite(numberValue) ? numberValue.toFixed(2) : '0.00';
@@ -19,8 +20,10 @@ export default function PurchaseRequestTable({
     searchTerm = '',
     onDelete,
     statusDrafts = {},
+    noteDrafts = {},
     updatingId,
     onDraftChange,
+    onNoteDraftChange,
     onUpdateStatus,
 }) {
     const safeData = Array.isArray(data) ? data : [];
@@ -28,11 +31,12 @@ export default function PurchaseRequestTable({
     const filtered = safeData.filter((item) => {
         const query = searchTerm.toLowerCase();
         const poMatch = String(item.po_number ?? '').toLowerCase().includes(query);
+        const noteMatch = String(item.note ?? '').toLowerCase().includes(query);
         const productsText = (item.products || [])
             .map((product) => String(product.product_name || `Product #${product.product_id || ''}`).toLowerCase())
             .join(' ');
 
-        return poMatch || productsText.includes(query);
+        return poMatch || productsText.includes(query) || noteMatch;
         });
     return (
         <>
@@ -46,6 +50,7 @@ export default function PurchaseRequestTable({
                                 <TableHead>Purchase From</TableHead>
                                 <TableHead>Send To</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead>Note</TableHead>
                                 <TableHead>Action</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -71,6 +76,23 @@ export default function PurchaseRequestTable({
                                     <TableCell>{purchase.purchase_form_name}</TableCell>
                                     <TableCell>{purchase.purchase_to_name}</TableCell>
                                     <TableCell className="capitalize">{purchase.status}</TableCell>
+                                    <TableCell>
+                                        <div className="space-y-2">
+                                            {purchase.note ? (
+                                                <p className="text-xs text-muted-foreground rounded-md border px-2 py-1">
+                                                    {purchase.note}
+                                                </p>
+                                            ) : (
+                                                <p className="text-xs text-muted-foreground">No note</p>
+                                            )}
+                                            <Input
+                                                value={noteDrafts[purchase.id] ?? ''}
+                                                onChange={(e) => onNoteDraftChange?.(purchase.id, e.target.value)}
+                                                placeholder="Add note for this PO"
+                                                className="h-9"
+                                            />
+                                        </div>
+                                    </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
                                             <select

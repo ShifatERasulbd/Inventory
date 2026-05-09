@@ -58,6 +58,7 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                             <TableHead>Purchase From</TableHead>
                             <TableHead>Purchase To</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead>Note</TableHead>
                             <TableHead className="w-[120px]">Action</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -65,7 +66,7 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                     <TableBody>
                         {isLoading && (
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                                <TableCell colSpan={8} className="text-center text-muted-foreground">
                                     Loading purchases...
                                 </TableCell>
                             </TableRow>
@@ -73,7 +74,7 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
 
                         {!isLoading && purchases.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                                <TableCell colSpan={8} className="text-center text-muted-foreground">
                                     No purchases found.
                                 </TableCell>
                             </TableRow>
@@ -81,7 +82,7 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
 
                         {!isLoading && filtered.length === 0 && purchases.length > 0 && (
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                                <TableCell colSpan={8} className="text-center text-muted-foreground">
                                     No purchases match your search.
                                 </TableCell>
                             </TableRow>
@@ -109,6 +110,7 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                                     <TableCell>{purchase.purchase_form_name || `Warehouse #${purchase.purchase_form}`}</TableCell>
                                     <TableCell>{purchase.purchase_to_name || `Warehouse #${purchase.purchase_to}`}</TableCell>
                                     <TableCell className="capitalize">{purchase.status}</TableCell>
+                                    <TableCell>{purchase.note || 'No note'}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
                                             <TooltipProvider>

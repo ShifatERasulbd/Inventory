@@ -35,7 +35,7 @@ async function fetchPurchaseRequests() {
     return response.json();
 }
 
-async function updatePurchaseRequestStatus(id, status) {
+async function updatePurchaseRequestStatus(id, status, note = '') {
     const response = await fetch(`/api/purchases/${id}/status`, {
         method: 'PATCH',
         credentials: 'include',
@@ -44,7 +44,7 @@ async function updatePurchaseRequestStatus(id, status) {
             'Content-Type': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, note }),
     });
 
     if (!response.ok) {
@@ -80,6 +80,7 @@ export default function PurchaseRequest() {
     const [deleteId, setDeleteId] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [statusDrafts, setStatusDrafts] = useState({});
+    const [noteDrafts, setNoteDrafts] = useState({});
     const [updatingId, setUpdatingId] = useState(null);
 
     useEffect(() => {
@@ -123,17 +124,25 @@ export default function PurchaseRequest() {
         }));
     };
 
+    const handleNoteDraftChange = (id, value) => {
+        setNoteDrafts((prev) => ({
+            ...prev,
+            [id]: value,
+        }));
+    };
+
     const handleUpdateStatus = async (id, currentStatus) => {
         const nextStatus = statusDrafts[id] ?? currentStatus;
+        const nextNote = noteDrafts[id] ?? '';
 
-        if (nextStatus === currentStatus) {
-            toast.info('Status is already selected.');
+        if (nextStatus === currentStatus && nextNote.trim() === '') {
+            toast.info('Status is already selected and no note was added.');
             return;
         }
 
         try {
             setUpdatingId(id);
-            const updated = await updatePurchaseRequestStatus(id, nextStatus);
+            const updated = await updatePurchaseRequestStatus(id, nextStatus, nextNote);
 
             setPurchaseRequests((prev) => {
                 if (updated.status !== 'pending') {
@@ -144,6 +153,12 @@ export default function PurchaseRequest() {
             });
 
             setStatusDrafts((prev) => {
+                const next = { ...prev };
+                delete next[id];
+                return next;
+            });
+
+            setNoteDrafts((prev) => {
                 const next = { ...prev };
                 delete next[id];
                 return next;
@@ -182,8 +197,10 @@ export default function PurchaseRequest() {
                 searchTerm={searchTerm}
                 onDelete={setDeleteId}
                 statusDrafts={statusDrafts}
+                noteDrafts={noteDrafts}
                 updatingId={updatingId}
                 onDraftChange={handleDraftChange}
+                onNoteDraftChange={handleNoteDraftChange}
                 onUpdateStatus={handleUpdateStatus}
             />
 

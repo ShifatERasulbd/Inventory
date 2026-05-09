@@ -18,6 +18,7 @@ class Purchase extends Model
         'products',
         'po_number',
         'status',
+        'note',
     ];
 
     protected $casts = [

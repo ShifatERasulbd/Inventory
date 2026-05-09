@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import {
     Select,
     SelectContent,
@@ -113,6 +114,16 @@ export default function EditPurchaseForm({
                                 <p className="text-xs text-amber-600">Warehouse access required to approve</p>
                             )}
                             {errors.status && <p className="text-xs text-destructive">{errors.status[0]}</p>}
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                            <Label htmlFor="note">Note</Label>
+                            <RichTextEditor
+                                value={form.note || ''}
+                                onChange={(value) => onSelectChange('note', value)}
+                                placeholder="Add note for this purchase order"
+                            />
+                            {errors.note && <p className="text-xs text-destructive">{errors.note[0]}</p>}
                         </div>
                     </div>
 

@@ -14,6 +14,7 @@ const initialForm = {
     purchase_to: '',
     po_number: '',
     status: 'pending',
+    note: '',
     products: [emptyProductRow()],
 };
 
@@ -101,6 +102,7 @@ export default function EditPurchase() {
                         purchase_to:   String(purchase.purchase_to ?? ''),
                         po_number:     purchase.po_number || '',
                         status:        purchase.status || 'pending',
+                        note:          purchase.note || '',
                         products:      loadedProducts,
                     });
                     setWarehouses(Array.isArray(warehouseData) ? warehouseData : []);
@@ -214,6 +216,7 @@ export default function EditPurchase() {
                 })),
                 po_number: form.po_number.trim(),
                 status: form.status.trim(),
+                note: form.note || '',
             });
 
             toast.success('Purchase updated successfully.', {

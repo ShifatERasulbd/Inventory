@@ -148,6 +148,7 @@ class PurchaseController extends Controller
             'products'           => $formattedProducts,
             'po_number'          => $purchase->po_number,
             'status'             => $purchase->status,
+            'note'               => $purchase->note,
             'purchase_form_name' => $purchase->purchaseFromWarehouse?->name,
             'purchase_to_name'   => $purchase->purchaseToWarehouse?->name,
         ];
@@ -238,11 +239,18 @@ class PurchaseController extends Controller
 
         $validated = $request->validate([
             'status' => ['required', 'string', 'max:50'],
+            'note' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ]);
 
-        $purchase->update([
+        $updatePayload = [
             'status' => $validated['status'],
-        ]);
+        ];
+
+        if (array_key_exists('note', $validated)) {
+            $updatePayload['note'] = $validated['note'];
+        }
+
+        $purchase->update($updatePayload);
 
         $this->syncApprovedPurchaseToSellAndStock($purchase);
 
@@ -355,6 +363,7 @@ class PurchaseController extends Controller
             'products.*.selling_price'  => ['required', 'numeric', 'min:0'],
             'po_number'                 => ['required', 'string', 'max:100'],
             'status'                    => ['required', 'string', 'max:50'],
+            'note'                      => ['nullable', 'string', 'max:2000'],
         ];
 
         if ($user?->hasRole('super-admin')) {
@@ -376,6 +385,7 @@ class PurchaseController extends Controller
             'products'      => $validated['products'],
             'po_number'     => $validated['po_number'],
             'status'        => $validated['status'],
+            'note'          => $validated['note'] ?? null,
         ]);
 
         $this->syncApprovedPurchaseToSellAndStock($purchase);
