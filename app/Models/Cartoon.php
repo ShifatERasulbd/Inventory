@@ -13,6 +13,9 @@ class Cartoon extends Model
         'p_o_number',
         'quantity',
         'product_code',
+        'rack_id',
+        'rack_row_id',
+        'warehouse_id',
     ];
 
     protected $casts = [
@@ -21,6 +24,18 @@ class Cartoon extends Model
 
     public function purchase(){
         return $this->belongsTo(Purchase::class,'p_o_number','id');
+    }
+
+    public function rack(){
+        return $this->belongsTo(Rack::class);
+    }
+
+    public function rackRow(){
+        return $this->belongsTo(RackRow::class);
+    }
+
+    public function warehouse(){
+        return $this->belongsTo(WareHouse::class);
     }
 }
   

@@ -13,8 +13,6 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 
-const STATUS_OPTIONS = ['pending', 'approved', 'received', 'cancelled'];
-
 export default function EditPurchaseForm({
     form,
     onChange,
@@ -31,6 +29,7 @@ export default function EditPurchaseForm({
     productOptions = [],
     isSuperAdmin = false,
     purchaseToLabel,
+    availableStatuses = ['pending', 'approved', 'received', 'cancelled'],
 }) {
     return (
         <Card>
@@ -98,20 +97,21 @@ export default function EditPurchaseForm({
 
                         <div className="space-y-2">
                             <Label htmlFor="status">Status</Label>
-                            <Select value={form.status} onValueChange={(value) => onSelectChange('status', value)}
-                                disabled
-                                >
+                            <Select value={form.status} onValueChange={(value) => onSelectChange('status', value)}>
                                 <SelectTrigger id="status" className="w-full">
                                     <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {STATUS_OPTIONS.map((status) => (
+                                    {availableStatuses.map((status) => (
                                         <SelectItem key={status} value={status}>
                                             {status.charAt(0).toUpperCase() + status.slice(1)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
+                            {!availableStatuses.includes('approved') && (
+                                <p className="text-xs text-amber-600">Warehouse access required to approve</p>
+                            )}
                             {errors.status && <p className="text-xs text-destructive">{errors.status[0]}</p>}
                         </div>
                     </div>

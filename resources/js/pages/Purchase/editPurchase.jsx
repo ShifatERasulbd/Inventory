@@ -17,6 +17,26 @@ const initialForm = {
     products: [emptyProductRow()],
 };
 
+const ALL_STATUS_OPTIONS = ['pending', 'approved', 'received', 'cancelled'];
+
+function getAvailableStatuses(isSuperAdmin, userWarehouseId, selectedPurchaseToWarehouseId) {
+    // Super admins can use all statuses
+    if (isSuperAdmin) {
+        return ALL_STATUS_OPTIONS;
+    }
+
+    // Non-super-admins can only approve if warehouse matches their warehouse
+    const userWarehouse = Number(userWarehouseId) || null;
+    const purchaseToWarehouse = Number(selectedPurchaseToWarehouseId) || null;
+
+    if (userWarehouse && purchaseToWarehouse && userWarehouse === purchaseToWarehouse) {
+        return ALL_STATUS_OPTIONS;
+    }
+
+    // If warehouse doesn't match, exclude 'approved'
+    return ALL_STATUS_OPTIONS.filter((status) => status !== 'approved');
+}
+
 async function fetchCurrentUser() {
     const response = await fetch('/api/user', {
         credentials: 'include',
@@ -119,6 +139,20 @@ export default function EditPurchase() {
 
         return 'Auto from login user warehouse';
     }, [user]);
+
+    const getUserWarehouseId = useMemo(() => {
+        if (user?.warehouse?.id) {
+            return user.warehouse.id;
+        }
+        if (Array.isArray(user?.warehouses) && user.warehouses.length > 0) {
+            return user.warehouses[0].id;
+        }
+        return null;
+    }, [user]);
+
+    const availableStatuses = useMemo(() => {
+        return getAvailableStatuses(isSuperAdmin, getUserWarehouseId, form.purchase_to);
+    }, [isSuperAdmin, getUserWarehouseId, form.purchase_to]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -224,6 +258,7 @@ export default function EditPurchase() {
                 productOptions={products}
                 isSuperAdmin={isSuperAdmin}
                 purchaseToLabel={purchaseToLabel}
+                availableStatuses={availableStatuses}
             />
         </div>
     );
