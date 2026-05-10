@@ -31,6 +31,13 @@ export default function AddPurchaseForm({
     purchaseToLabel,
     availableStatuses = ['pending', 'approved', 'shipped', 'received', 'cancelled'],
 }) {
+    const getProductOptionLabel = (product) => {
+        const name = product?.name || `Product #${product?.id}`;
+        const size = product?.size?.size || product?.size || product?.size_name;
+
+        return size ? `${name} (${size})` : name;
+    };
+
     return (
         <Card>
             <CardHeader>
@@ -171,7 +178,7 @@ export default function AddPurchaseForm({
                                                 <SelectContent>
                                                     {productOptions.map((product) => (
                                                         <SelectItem key={product.id} value={String(product.id)}>
-                                                            {product.name || `Product #${product.id}`}
+                                                            {getProductOptionLabel(product)}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>

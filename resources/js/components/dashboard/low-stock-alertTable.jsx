@@ -44,6 +44,7 @@ export function LowStockAlertTable() {
                     <TableRow>
                         <TableHead className="w-[50px] text-right">SL</TableHead>
                         <TableHead className="text-center"> Product</TableHead>
+                        <TableHead className="text-center">Size</TableHead>
                         <TableHead className="text-center">Warehouse</TableHead>
                         <TableHead className="text-center">Stock</TableHead>
                     </TableRow>
@@ -51,18 +52,19 @@ export function LowStockAlertTable() {
                 <TableBody>
                     {isLoading && (
                         <TableRow>
-                            <TableCell colSpan={4} className="text-center text-muted-foreground">Loading...</TableCell>
+                            <TableCell colSpan={5} className="text-center text-muted-foreground">Loading...</TableCell>
                         </TableRow>
                     )}
                     {!isLoading && stocks.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={4} className="text-center text-muted-foreground">No stock records found.</TableCell>
+                            <TableCell colSpan={5} className="text-center text-muted-foreground">No stock records found.</TableCell>
                         </TableRow>
                     )}
                     {!isLoading && stocks.map((stock, index) => (
                         <TableRow key={stock.id}>
                             <TableCell className="font-medium text-right">{index + 1}</TableCell>
                             <TableCell className="text-center">{stock.name || '—'}</TableCell>
+                            <TableCell className="text-center">{stock.size || '—'}</TableCell>
                             <TableCell className="text-center">{stock.warehouse_name || `Warehouse #${stock.warehouse_id}`}</TableCell>
                             <TableCell className="text-center">{stock.available_stock ?? stock.stocks ?? 0}</TableCell>
                         </TableRow>

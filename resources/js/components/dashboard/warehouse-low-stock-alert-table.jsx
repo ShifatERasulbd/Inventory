@@ -56,6 +56,7 @@ export function WarehouseLowStockAlertTable() {
                     <TableRow>
                         <TableHead className="w-[50px] text-right">SL</TableHead>
                         <TableHead className="text-center">Product</TableHead>
+                        <TableHead className="text-center">Size</TableHead>
                         <TableHead className="text-center">Warehouse</TableHead>
                         <TableHead className="text-center">Stock</TableHead>
                     </TableRow>
@@ -78,6 +79,7 @@ export function WarehouseLowStockAlertTable() {
                             <TableRow key={stock.id}>
                                 <TableCell className="font-medium text-right">{index + 1}</TableCell>
                                 <TableCell className="text-center">{stock.name || '—'}</TableCell>
+                                <TableCell className="text-center">{stock.size || '—'}</TableCell>
                                 <TableCell className="text-center">{stock.warehouse_name || `Warehouse #${stock.warehouse_id}`}</TableCell>
                                 <TableCell className="text-center text-red-600 font-semibold">{quantity}</TableCell>
                             </TableRow>

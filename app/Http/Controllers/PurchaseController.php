@@ -121,8 +121,15 @@ class PurchaseController extends Controller
         }
 
         return Product::query()
+            ->with(['size:id,size'])
             ->whereIn('id', array_unique($productIds))
-            ->pluck('name', 'id')
+            ->get(['id', 'name', 'size_id'])
+            ->mapWithKeys(fn (Product $product) => [
+                $product->id => [
+                    'name' => $product->name,
+                    'size' => $product->size?->size,
+                ],
+            ])
             ->all();
     }
 
@@ -132,12 +139,15 @@ class PurchaseController extends Controller
 
         $formattedProducts = array_values(array_map(function ($item) use ($productMap) {
             $productId = (int) ($item['product_id'] ?? 0);
+            $productData = $productMap[$productId] ?? null;
+
             return [
                 'product_id'     => $productId,
                 'quantity'       => (int) ($item['quantity'] ?? 0),
                 'purchase_price' => (float) ($item['purchase_price'] ?? 0),
                 'selling_price'  => (float) ($item['selling_price'] ?? 0),
-                'product_name'   => $productMap[$productId] ?? null,
+                'product_name'   => is_array($productData) ? ($productData['name'] ?? null) : null,
+                'size'           => is_array($productData) ? ($productData['size'] ?? null) : null,
             ];
         }, $products));
 

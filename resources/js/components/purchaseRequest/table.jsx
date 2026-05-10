@@ -65,9 +65,10 @@ export default function PurchaseRequestTable({
                                                 <div key={`${purchase.id}-${productIndex}`} className="rounded-md border border-border/60 px-3 py-2 text-sm">
                                                     <div className="font-medium">
                                                         {product.product_name || `Product #${product.product_id}`}
+                                                    ({product.size || 'N/A'})
                                                     </div>
                                                     <div className="text-muted-foreground">
-                                                        Qty: {Number(product.quantity ?? 0)} | Purchase: {formatMoney(product.purchase_price)} | Selling: {formatMoney(product.selling_price)}
+                                                        Qty: {Number(product.quantity ?? 0)} | Size: {product.size || product.size_name || product?.size?.size || 'N/A'} | Purchase: {formatMoney(product.purchase_price)} | Selling: {formatMoney(product.selling_price)}
                                                     </div>
                                                 </div>
                                             ))}

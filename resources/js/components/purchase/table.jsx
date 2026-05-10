@@ -101,7 +101,7 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                                                         {item.product_name || `Product #${item.product_id}`}
                                                     </div>
                                                     <div className="text-muted-foreground">
-                                                        Qty: {Number(item.quantity ?? 0)} | Purchase: {Number(item.purchase_price ?? 0).toFixed(2)} | Selling: {Number(item.selling_price ?? 0).toFixed(2)}
+                                                        Qty: {Number(item.quantity ?? 0)} | Size: {item.size || item.size_name || item?.size?.size || 'N/A'} | Purchase: {Number(item.purchase_price ?? 0).toFixed(2)} | Selling: {Number(item.selling_price ?? 0).toFixed(2)}
                                                     </div>
                                                 </div>
                                             ))}
