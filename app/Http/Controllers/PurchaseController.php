@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\Sell;
-use App\Models\Stock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -52,26 +51,6 @@ class PurchaseController extends Controller
             if (! $sell->wasRecentlyCreated) {
                 continue;
             }
-
-            $stock = Stock::query()->where([
-                'product_id'   => $productId,
-                'warehouse_id' => $purchase->purchase_to,
-            ])->first();
-
-            if ($stock) {
-                $stock->update([
-                    'stocks' => (int) ($stock->stocks ?? 0) + max($quantity, 0),
-                ]);
-                continue;
-            }
-
-            Stock::query()->create([
-                'product_id'   => $productId,
-                'warehouse_id' => $purchase->purchase_to,
-                'stocks'       => max(0, 0),
-                'cartoon_id'   => null,
-                'barcode'      => null,
-            ]);
         }
     }
 
