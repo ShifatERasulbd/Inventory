@@ -10,14 +10,30 @@ const initialForm={
     warehouse_id: '',
 }
 
-function validateForm(form){
+async function fetchCurrentUser() {
+    const response = await fetch('/api/user', {
+        credentials: 'include',
+        headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    });
+
+    if (!response.ok) {
+        return null;
+    }
+
+    return response.json();
+}
+
+function validateForm(form, isSuperAdmin){
     const errors={};
 
     if(!form.name.trim()){
         errors.name=['The Rack Name is Required']
     }
 
-    if(!form.warehouse_id){
+    if(isSuperAdmin && !form.warehouse_id){
         errors.warehouse_id=['Please select the warehouse']
     }
 
@@ -26,12 +42,13 @@ function validateForm(form){
 
 export default function AddRacks(){
     const navigate= useNavigate();
-    const { setPageTitle }= useAppContext();
+    const { setPageTitle, user, setUser }= useAppContext();
     const[ form,setForm]=useState(initialForm);
     const [errors, setErrors] = useState({});
     const [warehouses, setWarehouses] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [requestError, setRequestError] = useState('');
+    const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
    
     useEffect(() => {
         setPageTitle('Add Rack');
@@ -39,10 +56,62 @@ export default function AddRacks(){
 
 
     useEffect(() => {
-        Promise.all([fetchWarehouses()]).then(([w]) => {
-            setWarehouses(w);
-            });
-    }, []);
+        let ignore = false;
+
+        async function loadData() {
+            try {
+                const [warehouseData, currentUser] = await Promise.all([
+                    fetchWarehouses(),
+                    user ? Promise.resolve(user) : fetchCurrentUser(),
+                ]);
+
+                if (ignore) {
+                    return;
+                }
+
+                setWarehouses(Array.isArray(warehouseData) ? warehouseData : []);
+
+                if (!user && currentUser) {
+                    setUser(currentUser);
+                }
+
+                const userData = user || currentUser;
+                const loginWarehouseId = Array.isArray(userData?.warehouse_ids)
+                    ? userData.warehouse_ids[0]
+                    : null;
+
+                if (!(Array.isArray(userData?.role_slugs) && userData.role_slugs.includes('super-admin')) && loginWarehouseId) {
+                    setForm((previous) => ({
+                        ...previous,
+                        warehouse_id: String(loginWarehouseId),
+                    }));
+                }
+            } catch {
+                if (!ignore) {
+                    setWarehouses([]);
+                }
+            }
+        }
+
+        loadData();
+
+        return () => {
+            ignore = true;
+        };
+    }, [setUser, user]);
+
+    const warehouseLabel = (() => {
+        const loginWarehouseId = Array.isArray(user?.warehouse_ids)
+            ? Number(user.warehouse_ids[0] ?? 0)
+            : 0;
+
+        if (!loginWarehouseId) {
+            return 'Auto from login warehouse';
+        }
+
+        const matched = warehouses.find((warehouse) => Number(warehouse.id) === loginWarehouseId);
+        return matched ? `${matched.name} (ID: ${matched.id})` : `Warehouse ID: ${loginWarehouseId}`;
+    })();
 
     const handleWarehouseChange = (value) => {
         setForm((previous) => ({
@@ -70,7 +139,7 @@ export default function AddRacks(){
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        const validationErrors = validateForm(form);
+        const validationErrors = validateForm(form, isSuperAdmin);
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
             return;
@@ -116,6 +185,8 @@ export default function AddRacks(){
                     onCancel={() => navigate('/racks')}
                     errors={errors}
                     requestError={requestError}
+                    isSuperAdmin={isSuperAdmin}
+                    warehouseLabel={warehouseLabel}
                  />
             </div>
         </div>

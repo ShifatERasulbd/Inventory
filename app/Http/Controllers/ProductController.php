@@ -30,6 +30,7 @@ class ProductController extends Controller
     {
         return $product->load([
             'brand:id,name',
+            'category:id,name',
             'color:id,name',
             'fabric:id,name',
             'size:id,size',
@@ -107,6 +108,13 @@ class ProductController extends Controller
         return Product::query()
             ->where('style_number', $product->style_number)
             ->where('brand_id', $product->brand_id)
+            ->where(function ($query) use ($product) {
+                if ($product->category_id === null) {
+                    $query->whereNull('category_id');
+                } else {
+                    $query->where('category_id', $product->category_id);
+                }
+            })
             ->where('fabric_id', $product->fabric_id)
             ->where('gender_id', $product->gender_id)
             ->where('warehouse_id', $product->warehouse_id)
@@ -125,7 +133,8 @@ class ProductController extends Controller
             Product::query()
                 ->with([
                     'brand:id,name',
-                    'color:id,name',
+                    'category:id,name',
+                    'color:id,name,color_code',
                     'fabric:id,name',
                     'size:id,size',
                     'gender:id,name',
@@ -141,6 +150,7 @@ class ProductController extends Controller
     {
         $validated = $request->validate([
             'brand_id' => ['required', 'integer', 'exists:brands,id'],
+            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'style_number' => ['required', 'string', 'max:50'],
             'hs_number' => ['nullable', 'string', 'max:100'],
             'ref_number' => ['nullable', 'string', 'max:100'],
@@ -199,6 +209,7 @@ class ProductController extends Controller
                     foreach ($sizeIds as $sizeId) {
                         $product = Product::query()->create([
                             'brand_id' => $validated['brand_id'],
+                            'category_id' => $validated['category_id'] ?? null,
                             'style_number' => $validated['style_number'],
                             'hs_number' => $validated['hs_number'] ?? null,
                             'ref_number' => $validated['ref_number'] ?? null,
@@ -253,8 +264,18 @@ class ProductController extends Controller
         }
     }
 
-    public function show(Product $product): JsonResponse
+    public function show(Request $request, Product $product): JsonResponse
     {
+        $variantOnly = $request->boolean('variant_only');
+
+        if ($variantOnly) {
+            $productData = $this->productWithRelations($product)->toArray();
+            $productData['color_ids'] = $product->color_id ? [(int) $product->color_id] : [];
+            $productData['size_ids'] = $product->size_id ? [(int) $product->size_id] : [];
+
+            return response()->json($productData);
+        }
+
         $styleGroup = $this->styleGroupQuery($product)
             ->orderBy('id')
             ->get(['id', 'color_id', 'size_id']);
@@ -270,6 +291,7 @@ class ProductController extends Controller
     {
         $validated = $request->validate([
             'brand_id' => ['required', 'integer', 'exists:brands,id'],
+            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'style_number' => ['required', 'string', 'max:50'],
             'hs_number' => ['nullable', 'string', 'max:100'],
             'ref_number' => ['nullable', 'string', 'max:100'],
@@ -366,6 +388,7 @@ class ProductController extends Controller
 
         $sharedAttributes = [
             'brand_id' => $validated['brand_id'],
+            'category_id' => $validated['category_id'] ?? null,
             'style_number' => $validated['style_number'],
             'hs_number' => $validated['hs_number'] ?? null,
             'ref_number' => $validated['ref_number'] ?? null,
@@ -396,6 +419,13 @@ class ProductController extends Controller
 
             $existingPairs = Product::query()
                 ->where('brand_id', $sharedAttributes['brand_id'])
+                ->where(function ($query) use ($sharedAttributes) {
+                    if (($sharedAttributes['category_id'] ?? null) === null) {
+                        $query->whereNull('category_id');
+                    } else {
+                        $query->where('category_id', $sharedAttributes['category_id']);
+                    }
+                })
                 ->where('style_number', $sharedAttributes['style_number'])
                 ->where('fabric_id', $sharedAttributes['fabric_id'])
                 ->where('gender_id', $sharedAttributes['gender_id'])

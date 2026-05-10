@@ -67,7 +67,6 @@ function escapeHtml(value) {
 export default function Product() {
   const navigate = useNavigate();
   const { setPageTitle } = useAppContext();
-  const barcodePrintRef = useRef(null);
   const barcodePrintSourceRef = useRef(null);
   const bulkBarcodePrintSourceRef = useRef(null);
   const [products, setProducts] = useState([]);
@@ -76,7 +75,7 @@ export default function Product() {
   const [deletingId, setDeletingId] = useState(null);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
-  const [barcodeProduct, setBarcodeProduct] = useState(null);
+  const [barcodeDialogProducts, setBarcodeDialogProducts] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   const [isBulkBarcodeDialogOpen, setIsBulkBarcodeDialogOpen] = useState(false);
@@ -202,7 +201,7 @@ export default function Product() {
   };
 
   const handlePrintBarcode = () => {
-    if (!barcodeProduct?.barCode || !barcodePrintSourceRef.current) {
+    if (barcodeDialogProducts.length === 0 || !barcodePrintSourceRef.current) {
       return;
     }
 
@@ -231,19 +230,21 @@ export default function Product() {
 
             .print-sheet {
               min-height: 100vh;
-              display: flex;
-              align-items: center;
-              justify-content: center;
               padding: 24px;
               box-sizing: border-box;
             }
 
+            .barcode-list {
+              display: flex;
+              flex-direction: column;
+              gap: 16px;
+            }
+
             .barcode-card {
               width: 100%;
-              max-width: 760px;
               border: 1px solid #d4d4d8;
               border-radius: 12px;
-              padding: 24px;
+              padding: 16px;
               box-sizing: border-box;
               text-align: center;
             }
@@ -275,6 +276,12 @@ export default function Product() {
               color: #71717a;
             }
 
+            .barcode-missing {
+              margin-top: 12px;
+              font-size: 13px;
+              color: #71717a;
+            }
+
             @media print {
               body {
                 -webkit-print-color-adjust: exact;
@@ -286,19 +293,15 @@ export default function Product() {
               }
 
               .barcode-card {
-                border: none;
-                max-width: none;
+                break-inside: avoid;
               }
             }
           </style>
         </head>
         <body>
           <div class="print-sheet">
-            <div class="barcode-card">
-              <h1>${escapeHtml(barcodeProduct.name || 'Product Barcode')}</h1>
-              <p>Barcode Label</p>
-              <div class="barcode-wrap">${barcodeMarkup}</div>
-              <div class="barcode-value">${escapeHtml(barcodeProduct.barCode)}</div>
+            <div class="barcode-list">
+              ${barcodeMarkup}
             </div>
           </div>
         </body>
@@ -315,6 +318,7 @@ export default function Product() {
 
   const selectedProducts = products.filter((product) => selectedIds.includes(product.id));
   const selectedProductsWithBarcode = selectedProducts.filter((product) => Boolean(product?.barCode));
+  const barcodeDialogProductsWithBarcode = barcodeDialogProducts.filter((product) => Boolean(product?.barCode));
 
   const handlePrintBulkBarcodes = () => {
     if (selectedProducts.length === 0 || !bulkBarcodePrintSourceRef.current) {
@@ -446,8 +450,22 @@ export default function Product() {
                 onRequestBulkBarcode={() => setIsBulkBarcodeDialogOpen(true)}
                 onRequestBulkDelete={() => setIsBulkDeleteDialogOpen(true)}
                 onAdd={() => navigate('/products/add')}
-                onEdit={(id) => navigate(`/products/${id}/edit`)}
-                onViewBarcode={setBarcodeProduct}
+                onEdit={(id, options = {}) => {
+                  const query = options?.variantOnly ? '?variant_only=1' : '';
+                  navigate(`/products/${id}/edit${query}`);
+                }}
+                onCopy={(product, options = {}) => navigate('/products/add', {
+                  state: {
+                    copyFrom: product,
+                    copyVariants: Array.isArray(options.variants) ? options.variants : [product],
+                  },
+                })}
+                onViewBarcode={(product, options = {}) => {
+                  const variants = Array.isArray(options?.variants) && options.variants.length > 0
+                    ? options.variants
+                    : [product];
+                  setBarcodeDialogProducts(variants);
+                }}
                 onRequestDelete={setProductToDelete}
                 deletingId={deletingId}
                 isBulkDeleting={isBulkDeleting}
@@ -557,35 +575,43 @@ export default function Product() {
               </AlertDialogContent>
             </AlertDialog>
 
-            <AlertDialog open={Boolean(barcodeProduct)} onOpenChange={(open) => !open && setBarcodeProduct(null)}>
+            <AlertDialog open={barcodeDialogProducts.length > 0} onOpenChange={(open) => !open && setBarcodeDialogProducts([])}>
               <AlertDialogContent className="max-w-[95vw] sm:max-w-3xl">
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Product Barcode</AlertDialogTitle>
+                  <AlertDialogTitle>Product Barcodes</AlertDialogTitle>
                   <AlertDialogDescription>
-                    {barcodeProduct?.name || 'Selected product'}
+                    {barcodeDialogProducts.length} product(s), {barcodeDialogProductsWithBarcode.length} with barcode.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
 
-                <div className="w-full rounded-md border p-4 overflow-hidden">
-                  {barcodeProduct?.barCode ? (
-                    <div className="space-y-3 text-center">
-                      <div className="w-full">
-                        <div ref={barcodePrintRef} className="mx-auto flex justify-center overflow-hidden bg-white">
-                        <Barcode
-                          value={barcodeProduct.barCode}
-                          format="CODE128"
-                          width={getBarcodeWidth(barcodeProduct.barCode)}
-                          height={72}
-                          fontSize={14}
-                          margin={0}
-                          displayValue
-                        />
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground break-all">{barcodeProduct.barCode}</p>
-                    </div>
+                <div className="max-h-[65vh] space-y-3 overflow-y-auto rounded-md border p-3">
+                  {barcodeDialogProducts.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No products found.</p>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No barcode is available for this product.</p>
+                    barcodeDialogProducts.map((product) => (
+                      <div key={product.id} className="rounded-md border bg-white p-3 text-center">
+                        <p className="text-sm font-medium">{product.name || 'Product'}</p>
+
+                        {product?.barCode ? (
+                          <div className="mt-2 space-y-2">
+                            <div className="flex justify-center overflow-hidden">
+                              <Barcode
+                                value={product.barCode}
+                                format="CODE128"
+                                width={getBarcodeWidth(product.barCode)}
+                                height={72}
+                                fontSize={14}
+                                margin={0}
+                                displayValue
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground break-all">{product.barCode}</p>
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-xs text-muted-foreground">No barcode is available for this product.</p>
+                        )}
+                      </div>
+                    ))
                   )}
                 </div>
 
@@ -594,10 +620,10 @@ export default function Product() {
                     type="button"
                     variant="default"
                     onClick={handlePrintBarcode}
-                    disabled={!barcodeProduct?.barCode}
+                    disabled={barcodeDialogProductsWithBarcode.length === 0}
                     className="sm:mr-auto"
                   >
-                    Print
+                    Print All
                   </Button>
                   <AlertDialogCancel>Close</AlertDialogCancel>
                 </AlertDialogFooter>
@@ -606,42 +632,27 @@ export default function Product() {
 
             <div className="pointer-events-none fixed -left-[9999px] top-0 opacity-0" aria-hidden="true">
               <div ref={barcodePrintSourceRef} className="bg-white p-2">
-                {barcodeProduct?.barCode ? (
-                  <Barcode
-                    value={barcodeProduct.barCode}
-                    format="CODE128"
-                    width={getPrintBarcodeWidth(barcodeProduct.barCode)}
-                    height={96}
-                    fontSize={16}
-                    margin={0}
-                    displayValue
-                  />
-                ) : null}
-              </div>
-            </div>
-
-            <div className="pointer-events-none fixed -left-[9999px] top-0 opacity-0" aria-hidden="true">
-              <div ref={bulkBarcodePrintSourceRef} className="bg-white p-2">
-                {selectedProducts.map((product) => (
-                  <div key={product.id} className="barcode-item" style={{ marginBottom: '12px' }}>
-                    <h2>{escapeHtml(product.name || 'Product')}</h2>
+                {barcodeDialogProducts.map((product) => (
+                  <div key={product.id} className="barcode-card">
+                    <h1>{product.name || 'Product Barcode'}</h1>
+                    <p>Barcode Label</p>
                     {product?.barCode ? (
                       <>
-                        <div className="barcode-wrap" style={{ display: 'flex', justifyContent: 'center' }}>
+                        <div className="barcode-wrap">
                           <Barcode
                             value={product.barCode}
                             format="CODE128"
                             width={getPrintBarcodeWidth(product.barCode)}
-                            height={96}
-                            fontSize={16}
+                            height={120}
+                            fontSize={28}
                             margin={0}
                             displayValue
                           />
                         </div>
-                        <div className="barcode-value">{escapeHtml(product.barCode)}</div>
+                        <div className="barcode-value">{product.barCode}</div>
                       </>
                     ) : (
-                      <div className="missing">No barcode is available for this product.</div>
+                      <div className="barcode-missing">No barcode is available for this product.</div>
                     )}
                   </div>
                 ))}

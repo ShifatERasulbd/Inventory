@@ -23,7 +23,8 @@ export function ColorTable({ colors = [], onAdd, onEdit, onRequestDelete, deleti
     const filtered = colors.filter((c) => {
         const q = search.toLowerCase();
         return (
-            c.name?.toLowerCase().includes(q) 
+            c.name?.toLowerCase().includes(q) ||
+            c.color_code?.toLowerCase().includes(q)
            
         );
     });
@@ -52,6 +53,7 @@ export function ColorTable({ colors = [], onAdd, onEdit, onRequestDelete, deleti
                     <TableRow>
                         <TableHead className="w-[100px]">SL No.</TableHead>
                         <TableHead>Color</TableHead>
+                        <TableHead>Color Code</TableHead>
                        
                         <TableHead className="w-[160px]">Action</TableHead>
                     </TableRow>
@@ -60,7 +62,7 @@ export function ColorTable({ colors = [], onAdd, onEdit, onRequestDelete, deleti
                 <TableBody>
                     {isLoading && (
                         <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                            <TableCell colSpan={4} className="text-center text-muted-foreground">
                                 Loading Colors...
                             </TableCell>
                         </TableRow>
@@ -68,7 +70,7 @@ export function ColorTable({ colors = [], onAdd, onEdit, onRequestDelete, deleti
 
                     {!isLoading && colors.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                            <TableCell colSpan={4} className="text-center text-muted-foreground">
                                 No Colors found.
                             </TableCell>
                         </TableRow>
@@ -76,7 +78,7 @@ export function ColorTable({ colors = [], onAdd, onEdit, onRequestDelete, deleti
 
                     {!isLoading && filtered.length === 0 && colors.length > 0 && (
                         <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                            <TableCell colSpan={4} className="text-center text-muted-foreground">
                                 No Colors match your search.
                             </TableCell>
                         </TableRow>
@@ -87,6 +89,7 @@ export function ColorTable({ colors = [], onAdd, onEdit, onRequestDelete, deleti
                             <TableRow key={color.id}>
                                 <TableCell className="font-medium">{index + 1}</TableCell>
                                 <TableCell>{color.name}</TableCell>
+                                <TableCell>{color.color_code ?? '—'}</TableCell>
                                 
                                 <TableCell>
                                     <div className="flex items-center gap-2">

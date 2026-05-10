@@ -27,11 +27,12 @@ export function StockTable({ stocks = [], onAddStock, onDeductStock, onEdit, onR
         const query = search.toLowerCase();
         return (
             stock.name?.toLowerCase().includes(query) ||
-            String(stock.size ?? '').toLowerCase().includes(query)
+            String(stock.size ?? '').toLowerCase().includes(query) ||
+            String(stock.color_variant ?? '').toLowerCase().includes(query)
         );
     });
 
-    const columnCount = isSuperAdmin ? 6 : 5;
+    const columnCount = isSuperAdmin ? 7 : 6;
 
     return (
         <>
@@ -53,6 +54,7 @@ export function StockTable({ stocks = [], onAddStock, onDeductStock, onEdit, onR
                         <TableRow>
                             <TableHead className="w-[100px]">SL No.</TableHead>
                             <TableHead>Product Name</TableHead>
+                            <TableHead>Color Variant</TableHead>
                             <TableHead>Size</TableHead>
                             {isSuperAdmin && <TableHead>Warehouse Name</TableHead>}
                             <TableHead>Available Stock</TableHead>
@@ -90,6 +92,7 @@ export function StockTable({ stocks = [], onAddStock, onDeductStock, onEdit, onR
                                 <TableRow key={stock.id}>
                                     <TableCell className="font-medium">{index + 1}</TableCell>
                                     <TableCell>{stock.name}</TableCell>
+                                    <TableCell>{stock.color_variant || 'N/A'}</TableCell>
                                     <TableCell>{stock.size || 'N/A'}</TableCell>
                                     {isSuperAdmin && <TableCell>{stock.warehouse_name || `Warehouse #${stock.warehouse_id ?? 'N/A'}`}</TableCell>}
                                     <TableCell>{Number(stock.available_stock ?? 0)}</TableCell>

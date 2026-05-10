@@ -10,12 +10,11 @@ import { createColors } from './api';
 
 const initialForm = {
     name: '',
-   
+    color_code: '',
 };
 
 function validateForm(form) {
     const trimmedName = form.name.trim();
-   
     const validationErrors = {};
 
     if (!trimmedName) {
@@ -72,6 +71,7 @@ export default function AddColor() {
         try {
             await createColors({
                 name: form.name.trim(),
+                color_code: form.color_code.trim() || null,
             });
 
             toast.success('Color created successfully.', {

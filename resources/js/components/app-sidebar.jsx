@@ -59,6 +59,7 @@ const StrorageItems=[
 
 const ProductionItems=[
     {title:'Brand', icon:Tag, path:'/brands',permission:'manage-Production'},
+    {title:'Category', icon:Tag, path:'/categories',permission:'manage-Production'},
     {title:'Color', icon: Palette, path:'/colors', permission:'manage-Production'},
     {title:'Supplier(Fabrics)', icon: Palette, path:'/suppliers', permission:'manage-Production'},
     {title:'Fabric', icon: Shirt, path:'/fabrics', permission:'manage-Production'},

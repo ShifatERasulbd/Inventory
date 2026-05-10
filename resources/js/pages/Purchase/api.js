@@ -75,3 +75,26 @@ export async function fetchProducts() {
     const payload = await requestJson('/api/products');
     return Array.isArray(payload) ? payload : [];
 }
+
+export async function fetchCartoons() {
+    const payload = await requestJson('/api/cartoons');
+    return Array.isArray(payload) ? payload : [];
+}
+
+export async function fetchRacks() {
+    const payload = await requestJson('/api/racks');
+    return Array.isArray(payload) ? payload : [];
+}
+
+export async function fetchRackRows(rackId) {
+    const payload = await requestJson(`/api/racks/${rackId}/rows`);
+    return Array.isArray(payload) ? payload : [];
+}
+
+export async function assignCartoonRack(cartoonId, data) {
+    await ensureCsrfCookie();
+    return requestJson(`/api/cartoons/${cartoonId}/assign-rack`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}

@@ -9,6 +9,7 @@ import { fetchColor, updateColors } from './api';
 
 const initialForm = {
     name: '',
+    color_code: '',
 };
 
 export default function EditColor() {
@@ -38,7 +39,7 @@ export default function EditColor() {
                 if (!ignore) {
                     setForm({
                         name: color.name || '',
-                        
+                        color_code: color.color_code || '',
                     });
                 }
             } catch (error) {
@@ -76,7 +77,7 @@ export default function EditColor() {
         try {
             await updateColors(id, {
                 name: form.name.trim(),
-               
+                color_code: form.color_code.trim() || null,
             });
 
             toast.success('Color updated successfully.', {

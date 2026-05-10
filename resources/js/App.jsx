@@ -69,6 +69,11 @@ const Brand=lazyWithRetry(()=>import ('@/pages/Brand/brand'),'brands');
 const AddBrand=lazyWithRetry(()=>import ('@/pages/Brand/addBrand'),'brands-add');
 const EditBrand = lazyWithRetry(() => import('@/pages/Brand/editBrand'),'brands-edit');
 
+// Category
+const Category = lazyWithRetry(() => import('@/pages/Category/category'), 'categories');
+const AddCategory = lazyWithRetry(() => import('@/pages/Category/addCategory'), 'categories-add');
+const EditCategory = lazyWithRetry(() => import('@/pages/Category/editCategory'), 'categories-edit');
+
 
 // Color
 const Color=lazyWithRetry(()=>import('@/pages/Color/color'),'colors');
@@ -184,6 +189,11 @@ export default function App() {
                             <Route path="/brands" element={<Brand/>}/>
                             <Route path="/brands/add" element={<AddBrand/>}/>
                             <Route path="/brands/:id/edit" element={<EditBrand/>}/>
+
+                            {/* Category */}
+                            <Route path="/categories" element={<Category/>}/>
+                            <Route path="/categories/add" element={<AddCategory/>}/>
+                            <Route path="/categories/:id/edit" element={<EditCategory/>}/>
 
                             {/* Color */}
                             <Route path="/colors" element={<Color/>}/>

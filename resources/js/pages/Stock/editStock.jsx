@@ -21,6 +21,7 @@ export default function EditStock() {
     const { setPageTitle } = useAppContext();
 
     const [form, setForm] = useState(initialForm);
+    const [existingBarcodes, setExistingBarcodes] = useState([]);
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -40,12 +41,14 @@ export default function EditStock() {
             try {
                 const stock = await fetchStock(id);
                 if (!ignore) {
+                    const barcodes = Array.isArray(stock.barcode) ? stock.barcode : [];
+                    setExistingBarcodes(barcodes);
                     setForm({
                         product_id: String(stock.product_id ?? ''),
                         stocks: String(stock.stocks ?? stock.available_stock ?? 0),
                         warehouse_id: stock.warehouse_id == null ? '' : String(stock.warehouse_id),
                         cartoon_id: stock.cartoon_id == null ? '' : String(stock.cartoon_id),
-                        barcode: Array.isArray(stock.barcode) ? stock.barcode.join(', ') : (stock.barcode || ''),
+                        barcode: '',
                     });
                 }
             } catch (error) {
@@ -81,12 +84,16 @@ export default function EditStock() {
         setErrors({});
 
         try {
+            const newBarcodes = form.barcode.trim()
+                ? form.barcode.split(',').map((b) => b.trim()).filter(Boolean)
+                : [];
+
             await updateStock(id, {
                 product_id: Number(form.product_id),
                 stocks: Number(form.stocks),
                 warehouse_id: form.warehouse_id === '' ? null : Number(form.warehouse_id),
                 cartoon_id: form.cartoon_id === '' ? null : Number(form.cartoon_id),
-                barcode: form.barcode.trim() ? form.barcode.split(',').map((b) => b.trim()).filter(Boolean) : null,
+                ...(newBarcodes.length > 0 ? { barcode: newBarcodes, adjust_mode: 'add' } : {}),
             });
 
             toast.success('Stock updated successfully.', {
@@ -117,6 +124,7 @@ export default function EditStock() {
 
             <EditForm
                 form={form}
+                existingBarcodes={existingBarcodes}
                 onChange={handleChange}
                 onSubmit={handleSubmit}
                 onCancel={() => navigate('/stocks')}

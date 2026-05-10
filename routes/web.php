@@ -11,6 +11,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RackController;
 use App\Http\Controllers\RackRowController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\SeasonController;
 use App\Http\Controllers\ColorController;
 use App\Http\Controllers\SupplierController;
@@ -62,6 +63,9 @@ Route::prefix('api')->group(function () {
         // Brand Controller
         Route::apiResource('/brands', BrandController::class);
 
+        // Category Controller
+        Route::apiResource('/categories', CategoryController::class);
+
         // Color Controller
         Route::apiResource('/colors', ColorController::class);
 
@@ -82,6 +86,7 @@ Route::prefix('api')->group(function () {
         Route::get('/cartoon-tracking', [CartoonController::class, 'tracking']);
         Route::apiResource('/cartoons', CartoonController::class);
         Route::post('/cartoons/{cartoon}/adjust-quantity', [CartoonController::class, 'adjustQuantity']);
+        Route::post('/cartoons/{cartoon}/assign-rack', [CartoonController::class, 'assignRack']);
 
         // Stock Controller
         Route::apiResource('/stocks', StockController::class);

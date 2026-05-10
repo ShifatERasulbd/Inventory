@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import AddForm from '@/components/product/addForm';
@@ -7,6 +7,7 @@ import { useAppContext } from '@/context/AppContext';
 import { generateBarcodesMap } from '@/components/product/BarcodePreview';
 
 import { fetchBrands } from '@/pages/Brand/api';
+import { fetchCategories } from '@/pages/Category/api';
 import { fetchColors } from '@/pages/Color/api';
 import { fetchFabrics } from '@/pages/Fabric/api';
 import { fetchProductsFor } from '@/pages/ProductsFor/api';
@@ -18,6 +19,7 @@ import { createProducts } from './api';
 
 const initialForm = {
     brand_id: '',
+    category_id: '',
     style_number: '',
     hs_number: '',
     ref_number: '',
@@ -38,6 +40,20 @@ const initialForm = {
 const MAX_SINGLE_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_TOTAL_IMAGE_BYTES = 7 * 1024 * 1024;
 const MAX_GALLERY_IMAGES = 8;
+
+const cleanText = (value) => {
+    if (typeof value !== 'string') {
+        return value ?? '';
+    }
+
+    return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
+const getFabricRefNumber = (fabricId, fabricList) => {
+    const selectedFabric = (Array.isArray(fabricList) ? fabricList : []).find((fabric) => String(fabric.id) === String(fabricId));
+
+    return cleanText(selectedFabric?.ref_number);
+};
 
 function validateForm(form) {
     const validationErrors = {};
@@ -101,6 +117,7 @@ function validateForm(form) {
 }
 
 export default function AddProduct() {
+    const location = useLocation();
     const navigate = useNavigate();
     const { setPageTitle } = useAppContext();
     const [form, setForm] = useState(initialForm);
@@ -108,6 +125,7 @@ export default function AddProduct() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [requestError, setRequestError] = useState('');
     const [brands, setBrands] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [colors, setColors] = useState([]);
     const [fabrics, setFabrics] = useState([]);
     const [sizes, setSizes] = useState([]);
@@ -124,8 +142,9 @@ export default function AddProduct() {
 
         async function loadOptions() {
             try {
-                const [brandData, colorData, fabricData, sizeData, productForData, warehouseData, seasonData] = await Promise.all([
+                const [brandData, categoryData, colorData, fabricData, sizeData, productForData, warehouseData, seasonData] = await Promise.all([
                     fetchBrands(),
+                    fetchCategories(),
                     fetchColors(),
                     fetchFabrics(),
                     fetchSizes(),
@@ -139,6 +158,7 @@ export default function AddProduct() {
                 }
 
                 setBrands(Array.isArray(brandData) ? brandData : []);
+                setCategories(Array.isArray(categoryData) ? categoryData : []);
                 setColors(Array.isArray(colorData) ? colorData : []);
                 setFabrics(Array.isArray(fabricData) ? fabricData : []);
                 setSizes(Array.isArray(sizeData) ? sizeData : []);
@@ -159,6 +179,74 @@ export default function AddProduct() {
         };
     }, []);
 
+    useEffect(() => {
+        const copied = location.state?.copyFrom;
+        const copiedVariants = Array.isArray(location.state?.copyVariants) ? location.state.copyVariants : [];
+
+        if (!copied) {
+            return;
+        }
+
+        const sourceVariants = copiedVariants.length > 0 ? copiedVariants : [copied];
+        const nextColorIds = Array.from(new Set(
+            sourceVariants
+                .map((item) => item?.color_id)
+                .filter((value) => value !== undefined && value !== null && value !== '')
+                .map((value) => String(value))
+        ));
+        const nextSizeIds = Array.from(new Set(
+            sourceVariants
+                .map((item) => item?.size_id)
+                .filter((value) => value !== undefined && value !== null && value !== '')
+                .map((value) => String(value))
+        ));
+
+        const nextColor = nextColorIds[0] || '';
+        const nextSize = nextSizeIds[0] || '';
+
+        setForm((previous) => ({
+            ...previous,
+            brand_id: copied.brand_id ? String(copied.brand_id) : '',
+            category_id: copied.category_id ? String(copied.category_id) : '',
+            style_number: copied.style_number || '',
+            hs_number: copied.hs_number || '',
+            ref_number: copied.ref_number || '',
+            name: copied.name || '',
+            description: copied.description || '',
+            color_id: nextColor,
+            color_ids: nextColorIds.length > 0 ? nextColorIds : [''],
+            fabric_id: copied.fabric_id ? String(copied.fabric_id) : '',
+            size_id: nextSize,
+            size_ids: nextSizeIds.length > 0 ? nextSizeIds : [''],
+            gender_id: copied.gender_id ? String(copied.gender_id) : '',
+            warehouse_id: copied.warehouse_id ? String(copied.warehouse_id) : '',
+            season_id: copied.season_id ? String(copied.season_id) : '',
+            cover_image: null,
+            gallery_images: [],
+        }));
+    }, [location.state]);
+
+    useEffect(() => {
+        if (!form.fabric_id) {
+            if (form.ref_number !== '') {
+                setForm((previous) => ({
+                    ...previous,
+                    ref_number: '',
+                }));
+            }
+
+            return;
+        }
+
+        const nextRefNumber = getFabricRefNumber(form.fabric_id, fabrics);
+        if (nextRefNumber !== form.ref_number) {
+            setForm((previous) => ({
+                ...previous,
+                ref_number: nextRefNumber,
+            }));
+        }
+    }, [form.fabric_id, fabrics, form.ref_number]);
+
     const handleChange = (event) => {
         const { name, value } = event.target;
         setForm((previous) => ({
@@ -178,10 +266,15 @@ export default function AddProduct() {
     };
 
     const handleSelectChange = (field, value) => {
-        setForm((previous) => ({
-            ...previous,
-            [field]: value || '',
-        }));
+        setForm((previous) => {
+            const nextValue = value || '';
+
+            return {
+                ...previous,
+                [field]: nextValue,
+                ...(field === 'fabric_id' ? { ref_number: getFabricRefNumber(nextValue, fabrics) } : {}),
+            };
+        });
 
         setErrors((previous) => {
             if (!previous[field]) {
@@ -294,6 +387,7 @@ export default function AddProduct() {
         try {
             await createProducts({
                 brand_id: Number(form.brand_id),
+                category_id: form.category_id ? Number(form.category_id) : null,
                 style_number: form.style_number.trim(),
                 hs_number: form.hs_number.trim() || null,
                 ref_number: form.ref_number.trim() || null,
@@ -347,6 +441,7 @@ export default function AddProduct() {
                 <AddForm
                     form={form}
                     brands={brands}
+                    categories={categories}
                     colors={colors}
                     fabrics={fabrics}
                     sizes={sizes}

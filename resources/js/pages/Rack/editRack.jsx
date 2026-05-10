@@ -6,14 +6,30 @@ import { toast } from 'sonner';
 import { useAppContext } from '@/context/AppContext';
 import { fetchRack, updateRack } from './api';
 
-function validateForm(form){
+async function fetchCurrentUser() {
+    const response = await fetch('/api/user', {
+        credentials: 'include',
+        headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    });
+
+    if (!response.ok) {
+        return null;
+    }
+
+    return response.json();
+}
+
+function validateForm(form, isSuperAdmin){
     const errors={};
 
     if(!form.name.trim()){
         errors.name=['The Rack Name is Required']
     }
 
-    if(!form.warehouse_id){
+    if(isSuperAdmin && !form.warehouse_id){
         errors.warehouse_id=['Please select the warehouse']
     }
 
@@ -23,13 +39,14 @@ function validateForm(form){
 export default function EditRack(){
     const navigate = useNavigate();
     const { id } = useParams();
-    const { setPageTitle } = useAppContext();
+    const { setPageTitle, user, setUser } = useAppContext();
     const [form, setForm] = useState({ name: '', warehouse_id: '' });
     const [errors, setErrors] = useState({});
     const [warehouses, setWarehouses] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [requestError, setRequestError] = useState('');
+    const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
    
     useEffect(() => {
         setPageTitle('Edit Rack');
@@ -39,15 +56,20 @@ export default function EditRack(){
         const loadData = async () => {
             try {
                 setIsLoading(true);
-                const [rack, warehouses] = await Promise.all([
+                const [rack, warehouseData, currentUser] = await Promise.all([
                     fetchRack(id),
                     fetchWarehouses(),
+                    user ? Promise.resolve(user) : fetchCurrentUser(),
                 ]);
                 setForm({
                     name: rack.name,
                     warehouse_id: rack.warehouse_id,
                 });
-                setWarehouses(warehouses);
+                setWarehouses(Array.isArray(warehouseData) ? warehouseData : []);
+
+                if (!user && currentUser) {
+                    setUser(currentUser);
+                }
             } catch (error) {
                 const message = error.message || 'Failed to load rack.';
                 setRequestError(message);
@@ -60,7 +82,17 @@ export default function EditRack(){
         };
         
         loadData();
-    }, [id]);
+    }, [id, setUser, user]);
+
+    const warehouseLabel = (() => {
+        const currentWarehouseId = Number(form.warehouse_id ?? 0);
+        if (!currentWarehouseId) {
+            return 'Auto from login warehouse';
+        }
+
+        const matched = warehouses.find((warehouse) => Number(warehouse.id) === currentWarehouseId);
+        return matched ? `${matched.name} (ID: ${matched.id})` : `Warehouse ID: ${currentWarehouseId}`;
+    })();
 
     const handleWarehouseChange = (value) => {
         setForm((previous) => ({
@@ -89,7 +121,7 @@ export default function EditRack(){
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        const validationErrors = validateForm(form);
+        const validationErrors = validateForm(form, isSuperAdmin);
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
             return;
@@ -140,6 +172,8 @@ export default function EditRack(){
                     onCancel={() => navigate('/racks')}
                     errors={errors}
                     requestError={requestError}
+                    isSuperAdmin={isSuperAdmin}
+                    warehouseLabel={warehouseLabel}
                 />
             </div>
         </div>

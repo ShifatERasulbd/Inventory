@@ -13,7 +13,9 @@ export default function AddForm({
     errors = {},
     isSubmitting,
     onCancel,
-    requestError
+    requestError,
+    isSuperAdmin = false,
+    warehouseLabel = ''
 }){
     return (
         <>
@@ -42,25 +44,29 @@ export default function AddForm({
 
                         {/* Warehouses */}
                         <div className="space-y-3">
-                            <Label htmlFor="rack-warehouse">Assign Warehouse <span className="text-destructive">*</span></Label>
-                            {warehouses.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">No warehouses available.</p>
+                            <Label htmlFor="rack-warehouse">Assign Warehouse {isSuperAdmin ? <span className="text-destructive">*</span> : '(Login Warehouse)'}</Label>
+                            {isSuperAdmin ? (
+                                warehouses.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">No warehouses available.</p>
+                                ) : (
+                                    <Select
+                                        value={form.warehouse_id ? String(form.warehouse_id) : ''}
+                                        onValueChange={onWarehouseChange}
+                                    >
+                                        <SelectTrigger id="rack-warehouse" className="w-full">
+                                            <SelectValue placeholder="Select a warehouse" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {warehouses.map((warehouse) => (
+                                                <SelectItem key={warehouse.id} value={String(warehouse.id)}>
+                                                    {warehouse.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )
                             ) : (
-                                <Select
-                                    value={form.warehouse_id ? String(form.warehouse_id) : ''}
-                                    onValueChange={onWarehouseChange}
-                                >
-                                    <SelectTrigger id="rack-warehouse" className="w-full">
-                                        <SelectValue placeholder="Select a warehouse" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {warehouses.map((warehouse) => (
-                                            <SelectItem key={warehouse.id} value={String(warehouse.id)}>
-                                                {warehouse.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Input id="rack-warehouse" value={warehouseLabel} disabled />
                             )}
                             {errors.warehouse_id && <p className="text-xs text-destructive">{errors.warehouse_id[0]}</p>}
                         </div>

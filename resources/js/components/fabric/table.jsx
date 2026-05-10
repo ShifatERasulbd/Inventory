@@ -18,16 +18,26 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
+const stripHtmlTags = (value) => {
+    if (typeof value !== 'string') {
+        return value;
+    }
+
+    return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
+const toSearchText = (value) => String(stripHtmlTags(value) ?? '').toLowerCase();
+
 export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, deletingId, isLoading }) {
     const [search, setSearch] = useState('');
     const filtered = fabrics.filter((f) => {
         const q = search.toLowerCase();
         return (
-            f.name?.toLowerCase().includes(q) ||
-            f.type?.toLowerCase().includes(q) ||
-            f.composition?.toLowerCase().includes(q) ||
-            f.construction?.toLowerCase().includes(q) ||
-            f.ref_number?.toLowerCase().includes(q)
+            toSearchText(f.name).includes(q) ||
+            toSearchText(f.type).includes(q) ||
+            toSearchText(f.composition).includes(q) ||
+            toSearchText(f.construction).includes(q) ||
+            toSearchText(f.ref_number).includes(q)
         );
     });
 
@@ -94,13 +104,13 @@ export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, dele
                         filtered.map((fabric, index) => (
                             <TableRow key={fabric.id}>
                                 <TableCell className="font-medium">{index + 1}</TableCell>
-                                <TableCell>{fabric.name}</TableCell>
-                                <TableCell>{fabric.type ?? '—'}</TableCell>
-                                <TableCell>{fabric.composition ?? '—'}</TableCell>
-                                <TableCell>{fabric.construction ?? '—'}</TableCell>
-                                <TableCell>{fabric.ref_number ?? '—'}</TableCell>
+                                <TableCell>{stripHtmlTags(fabric.name) || '—'}</TableCell>
+                                <TableCell>{stripHtmlTags(fabric.type) || '—'}</TableCell>
+                                <TableCell>{stripHtmlTags(fabric.composition) || '—'}</TableCell>
+                                <TableCell>{stripHtmlTags(fabric.construction) || '—'}</TableCell>
+                                <TableCell>{stripHtmlTags(fabric.ref_number) || '—'}</TableCell>
                                 <TableCell>{fabric.gsm != null ? fabric.gsm : '—'}</TableCell>
-                                <TableCell>{fabric.supplier?.name ?? '—'}</TableCell>
+                                <TableCell>{stripHtmlTags(fabric.supplier?.name) || '—'}</TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                       
@@ -110,7 +120,7 @@ export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, dele
                                                        <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            aria-label={`Edit ${fabric.name}`}
+                                                            aria-label={`Edit ${stripHtmlTags(fabric.name) || 'fabric'}`}
                                                             onClick={() => onEdit(fabric.id)}
                                                         >
                                                             <Pencil />
@@ -127,7 +137,7 @@ export function FabricTable({ fabrics = [], onAdd, onEdit, onRequestDelete, dele
                                                    <Button
                                                         variant="ghost"
                                                         size="icon"
-                                                        aria-label={`Delete ${fabric.name}`}
+                                                     aria-label={`Delete ${stripHtmlTags(fabric.name) || 'fabric'}`}
                                                         onClick={() => onRequestDelete(fabric)}
                                                         disabled={deletingId === fabric.id}
                                                     >

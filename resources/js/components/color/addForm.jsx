@@ -29,6 +29,18 @@ export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitti
                             {errors.name && <p className="text-xs text-destructive">{errors.name[0]}</p>}
                         </div>
 
+                        <div className="space-y-2">
+                            <Label htmlFor="color-code">Color Code</Label>
+                            <Input
+                                id="color-code"
+                                name="color_code"
+                                value={form.color_code}
+                                onChange={onChange}
+                                placeholder="e.g. #ff0000"
+                            />
+                            {errors.color_code && <p className="text-xs text-destructive">{errors.color_code[0]}</p>}
+                        </div>
+
                     </div>
                 </CardContent>
 

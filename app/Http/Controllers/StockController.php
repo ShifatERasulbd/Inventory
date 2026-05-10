@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Cartoon;
 use App\Models\Stock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class StockController extends Controller
 {
@@ -47,7 +49,7 @@ class StockController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Stock::query()
-            ->with(['product:id,name,size_id', 'product.size:id,size', 'warehouse:id,name'])
+            ->with(['product:id,name,size_id,color_id', 'product.size:id,size', 'product.color:id,name,color_code', 'warehouse:id,name'])
             ->orderBy('id');
 
         $user = $request->user();
@@ -75,6 +77,8 @@ class StockController extends Controller
                 'available_stock' => (int) ($stock->stocks ?? 0),
                 'name' => $stock->product?->name,
                 'size' => $stock->product?->size?->size,
+                'color_variant' => $stock->product?->color?->color_code
+                    ?? $stock->product?->color?->name,
             ]);
 
         return response()->json($stocks);
@@ -103,7 +107,7 @@ class StockController extends Controller
             'cartoon_id' => $validated['cartoon_id'] ?? null,
             'barcode' => count($barcodes) > 0 ? $barcodes : null,
         ]);
-        $stock->load(['product:id,name,size_id', 'product.size:id,size']);
+        $stock->load(['product:id,name,size_id,color_id', 'product.size:id,size', 'product.color:id,name,color_code']);
 
         return response()->json([
             'id' => $stock->id,
@@ -115,12 +119,14 @@ class StockController extends Controller
             'available_stock' => (int) ($stock->stocks ?? 0),
             'name' => $stock->product?->name,
             'size' => $stock->product?->size?->size,
+            'color_variant' => $stock->product?->color?->color_code
+                ?? $stock->product?->color?->name,
         ], 201);
     }
 
     public function show(Stock $stock): JsonResponse
     {
-        $stock->load(['product:id,name,size_id', 'product.size:id,size']);
+        $stock->load(['product:id,name,size_id,color_id', 'product.size:id,size', 'product.color:id,name,color_code']);
 
         return response()->json([
             'id' => $stock->id,
@@ -132,6 +138,8 @@ class StockController extends Controller
             'available_stock' => (int) ($stock->stocks ?? 0),
             'name' => $stock->product?->name,
             'size' => $stock->product?->size?->size,
+            'color_variant' => $stock->product?->color?->color_code
+                ?? $stock->product?->color?->name,
         ]);
     }
 
@@ -147,22 +155,25 @@ class StockController extends Controller
             'adjust_mode' => ['sometimes', 'nullable', 'string', 'in:add,deduct'],
         ]);
 
-        $existingBarcodes = is_array($stock->barcode) ? $stock->barcode : [];
-        $barcodeValue = $existingBarcodes;
-        $stocksValue = (int) ($validated['stocks'] ?? $validated['available_stock'] ?? $stock->stocks);
+        $existingBarcodes  = is_array($stock->barcode) ? $stock->barcode : [];
+        $barcodeValue      = $existingBarcodes;
+        $stocksValue       = (int) ($validated['stocks'] ?? $validated['available_stock'] ?? $stock->stocks);
+        $incomingBarcodes  = [];
+        $isAdd             = false;
 
         if (array_key_exists('barcode', $validated)) {
             if ($validated['barcode'] === null) {
                 $barcodeValue = null;
-                $stocksValue = 0;
+                $stocksValue  = 0;
             } else {
                 $incomingBarcodes = $this->normalizeBarcodes($validated['barcode']);
-                $adjustMode = $validated['adjust_mode'] ?? 'add';
+                $adjustMode       = $validated['adjust_mode'] ?? 'add';
+                $isAdd            = $adjustMode === 'add';
 
-                if ($adjustMode === 'deduct') {
+                if (! $isAdd) {
+                    // Deduct mode — remove scanned barcodes from existing stock.
                     $barcodeValue = $existingBarcodes;
 
-                    // Deduct by scanned quantity from existing stock.
                     foreach ($incomingBarcodes as $incomingBarcode) {
                         $matchedIndex = array_search($incomingBarcode, $barcodeValue, true);
 
@@ -178,6 +189,7 @@ class StockController extends Controller
 
                     $barcodeValue = array_values($barcodeValue);
                 } else {
+                    // Add mode — merge new barcodes into existing stock.
                     $barcodeValue = array_merge($existingBarcodes, $incomingBarcodes);
                 }
 
@@ -185,14 +197,61 @@ class StockController extends Controller
             }
         }
 
-        $stock->update([
-            'product_id' => array_key_exists('product_id', $validated) ? $validated['product_id'] : $stock->product_id,
-            'stocks' => $stocksValue,
-            'warehouse_id' => array_key_exists('warehouse_id', $validated) ? $validated['warehouse_id'] : $stock->warehouse_id,
-            'cartoon_id' => array_key_exists('cartoon_id', $validated) ? $validated['cartoon_id'] : $stock->cartoon_id,
-            'barcode' => $barcodeValue,
-        ]);
-        $stock->load(['product:id,name,size_id', 'product.size:id,size']);
+        DB::beginTransaction();
+        try {
+            // When adding barcodes to stock, remove those exact codes from any cartoon
+            // sitting at the same warehouse — mirrors how CartoonController deducts from
+            // source warehouse when codes are packed into a cartoon.
+            if ($isAdd && $incomingBarcodes !== []) {
+                $stockWarehouseId = array_key_exists('warehouse_id', $validated)
+                    ? $validated['warehouse_id']
+                    : $stock->warehouse_id;
+
+                if ($stockWarehouseId) {
+                    $cartoons = Cartoon::query()
+                        ->where('warehouse_id', $stockWarehouseId)
+                        ->whereNotNull('product_code')
+                        ->lockForUpdate()
+                        ->get();
+
+                    foreach ($cartoons as $cartoon) {
+                        $cartoonCodes = is_array($cartoon->product_code) ? $cartoon->product_code : [];
+                        $changed      = false;
+
+                        foreach ($incomingBarcodes as $code) {
+                            $idx = array_search($code, $cartoonCodes, true);
+                            if ($idx !== false) {
+                                unset($cartoonCodes[$idx]);
+                                $changed = true;
+                            }
+                        }
+
+                        if ($changed) {
+                            $cartoonCodes = array_values($cartoonCodes);
+                            $cartoon->update([
+                                'product_code' => count($cartoonCodes) > 0 ? $cartoonCodes : null,
+                                'quantity'     => count($cartoonCodes),
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            $stock->update([
+                'product_id'   => array_key_exists('product_id', $validated) ? $validated['product_id'] : $stock->product_id,
+                'stocks'       => $stocksValue,
+                'warehouse_id' => array_key_exists('warehouse_id', $validated) ? $validated['warehouse_id'] : $stock->warehouse_id,
+                'cartoon_id'   => array_key_exists('cartoon_id', $validated) ? $validated['cartoon_id'] : $stock->cartoon_id,
+                'barcode'      => $barcodeValue,
+            ]);
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+
+        $stock->load(['product:id,name,size_id,color_id', 'product.size:id,size', 'product.color:id,name,color_code']);
 
         return response()->json([
             'id' => $stock->id,
@@ -204,6 +263,8 @@ class StockController extends Controller
             'available_stock' => (int) ($stock->stocks ?? 0),
             'name' => $stock->product?->name,
             'size' => $stock->product?->size?->size,
+            'color_variant' => $stock->product?->color?->color_code
+                ?? $stock->product?->color?->name,
         ]);
     }
 

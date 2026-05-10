@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import EditForm from '@/components/product/editForm';
 import { generateBarcodesMap } from '@/components/product/BarcodePreview';
 import { useAppContext } from '@/context/AppContext';
 import { fetchBrands } from '@/pages/Brand/api';
+import { fetchCategories } from '@/pages/Category/api';
 import { fetchColors } from '@/pages/Color/api';
 import { fetchFabrics } from '@/pages/Fabric/api';
 import { fetchProductsFor } from '@/pages/ProductsFor/api';
@@ -17,6 +18,7 @@ import { fetchProduct, updateProducts } from './api';
 
 const initialForm = {
     brand_id: '',
+    category_id: '',
     style_number: '',
     hs_number: '',
     ref_number: '',
@@ -38,6 +40,20 @@ const initialForm = {
 const MAX_SINGLE_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_TOTAL_IMAGE_BYTES = 7 * 1024 * 1024;
 const MAX_GALLERY_IMAGES = 8;
+
+const cleanText = (value) => {
+    if (typeof value !== 'string') {
+        return value ?? '';
+    }
+
+    return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
+const getFabricRefNumber = (fabricId, fabricList) => {
+    const selectedFabric = (Array.isArray(fabricList) ? fabricList : []).find((fabric) => String(fabric.id) === String(fabricId));
+
+    return cleanText(selectedFabric?.ref_number);
+};
 
 function validateForm(form) {
     const validationErrors = {};
@@ -79,8 +95,10 @@ function validateForm(form) {
 
 export default function EditProduct() {
     const { id } = useParams();
+    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { setPageTitle } = useAppContext();
+    const variantOnly = searchParams.get('variant_only') === '1';
 
     const [form, setForm] = useState(initialForm);
     const [errors, setErrors] = useState({});
@@ -88,6 +106,7 @@ export default function EditProduct() {
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
     const [brands, setBrands] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [colors, setColors] = useState([]);
     const [fabrics, setFabrics] = useState([]);
     const [sizes, setSizes] = useState([]);
@@ -113,9 +132,10 @@ export default function EditProduct() {
             setLoadError('');
 
             try {
-                const [product, brandData, colorData, fabricData, sizeData, productForData, warehouseData, seasonData] = await Promise.all([
-                    fetchProduct(id),
+                const [product, brandData, categoryData, colorData, fabricData, sizeData, productForData, warehouseData, seasonData] = await Promise.all([
+                    fetchProduct(id, { variantOnly }),
                     fetchBrands(),
+                    fetchCategories(),
                     fetchColors(),
                     fetchFabrics(),
                     fetchSizes(),
@@ -129,6 +149,7 @@ export default function EditProduct() {
                 }
 
                 setBrands(Array.isArray(brandData) ? brandData : []);
+                setCategories(Array.isArray(categoryData) ? categoryData : []);
                 setColors(Array.isArray(colorData) ? colorData : []);
                 setFabrics(Array.isArray(fabricData) ? fabricData : []);
                 setSizes(Array.isArray(sizeData) ? sizeData : []);
@@ -156,6 +177,7 @@ export default function EditProduct() {
                     : (product.size_id ? [String(product.size_id)] : ['']);
                 setForm({
                     brand_id: product.brand_id ? String(product.brand_id) : '',
+                    category_id: product.category_id ? String(product.category_id) : '',
                     style_number: product.style_number || '',
                     hs_number: product.hs_number || '',
                     ref_number: product.ref_number || '',
@@ -189,7 +211,28 @@ export default function EditProduct() {
         return () => {
             ignore = true;
         };
-    }, [id]);
+    }, [id, variantOnly]);
+
+    useEffect(() => {
+        if (!form.fabric_id) {
+            if (form.ref_number !== '') {
+                setForm((previous) => ({
+                    ...previous,
+                    ref_number: '',
+                }));
+            }
+
+            return;
+        }
+
+        const nextRefNumber = getFabricRefNumber(form.fabric_id, fabrics);
+        if (nextRefNumber !== form.ref_number) {
+            setForm((previous) => ({
+                ...previous,
+                ref_number: nextRefNumber,
+            }));
+        }
+    }, [form.fabric_id, fabrics, form.ref_number]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -200,10 +243,15 @@ export default function EditProduct() {
     };
 
     const handleSelectChange = (field, value) => {
-        setForm((previous) => ({
-            ...previous,
-            [field]: value || '',
-        }));
+        setForm((previous) => {
+            const nextValue = value || '';
+
+            return {
+                ...previous,
+                [field]: nextValue,
+                ...(field === 'fabric_id' ? { ref_number: getFabricRefNumber(nextValue, fabrics) } : {}),
+            };
+        });
 
         setErrors((previous) => {
             if (!previous[field]) {
@@ -333,6 +381,7 @@ export default function EditProduct() {
         try {
             await updateProducts(id, {
                 brand_id: Number(form.brand_id),
+                category_id: form.category_id ? Number(form.category_id) : null,
                 style_number: form.style_number.trim(),
                 hs_number: form.hs_number.trim() || null,
                 ref_number: form.ref_number.trim() || null,
@@ -400,6 +449,7 @@ export default function EditProduct() {
             <EditForm
                 form={form}
                 brands={brands}
+                categories={categories}
                 colors={colors}
                 fabrics={fabrics}
                 sizes={sizes}

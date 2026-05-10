@@ -8,11 +8,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { fetchStocks } from '@/pages/Stock/api';
 
 export function WarehouseLowStockAlertTable() {
     const [stocks, setStocks] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 25;
 
     useEffect(() => {
         let ignore = false;
@@ -46,6 +49,17 @@ export function WarehouseLowStockAlertTable() {
         return Number.isFinite(quantity) && quantity < 10;
     });
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [lowStocks.length]);
+
+    const totalItems = lowStocks.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+    const safePage = Math.min(currentPage, totalPages);
+    const startIndex = (safePage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedLowStocks = lowStocks.slice(startIndex, endIndex);
+
     return (
         <Card>
             <CardHeader>
@@ -56,6 +70,7 @@ export function WarehouseLowStockAlertTable() {
                     <TableRow>
                         <TableHead className="w-[50px] text-right">SL</TableHead>
                         <TableHead className="text-center">Product</TableHead>
+                        <TableHead className="text-center">Color Variant</TableHead>
                         <TableHead className="text-center">Size</TableHead>
                         <TableHead className="text-center">Warehouse</TableHead>
                         <TableHead className="text-center">Stock</TableHead>
@@ -64,21 +79,22 @@ export function WarehouseLowStockAlertTable() {
                 <TableBody>
                     {isLoading && (
                         <TableRow>
-                            <TableCell colSpan={4} className="text-center text-muted-foreground">Loading...</TableCell>
+                            <TableCell colSpan={6} className="text-center text-muted-foreground">Loading...</TableCell>
                         </TableRow>
                     )}
                     {!isLoading && lowStocks.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={4} className="text-center text-muted-foreground">No low stock found under 10.</TableCell>
+                            <TableCell colSpan={6} className="text-center text-muted-foreground">No low stock found under 10.</TableCell>
                         </TableRow>
                     )}
-                    {!isLoading && lowStocks.map((stock, index) => {
+                    {!isLoading && paginatedLowStocks.map((stock, index) => {
                         const quantity = Number(stock.available_stock ?? stock.stocks ?? 0);
 
                         return (
                             <TableRow key={stock.id}>
-                                <TableCell className="font-medium text-right">{index + 1}</TableCell>
-                                <TableCell className="text-center">{stock.name || '—'}</TableCell>
+                                <TableCell className="font-medium text-right">{startIndex + index + 1}</TableCell>
+                                <TableCell className="text-center">{stock.name || stock.product_name || (stock.product_id ? `Product #${stock.product_id}` : '—')}</TableCell>
+                                <TableCell className="text-center">{stock.color_variant || '—'}</TableCell>
                                 <TableCell className="text-center">{stock.size || '—'}</TableCell>
                                 <TableCell className="text-center">{stock.warehouse_name || `Warehouse #${stock.warehouse_id}`}</TableCell>
                                 <TableCell className="text-center text-red-600 font-semibold">{quantity}</TableCell>
@@ -87,6 +103,35 @@ export function WarehouseLowStockAlertTable() {
                     })}
                 </TableBody>
             </Table>
+
+            {!isLoading && totalItems > 0 && (
+                <div className="flex items-center justify-between px-6 py-4">
+                    <p className="text-sm text-muted-foreground">
+                        Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems}
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={safePage <= 1}
+                            onClick={() => setCurrentPage((previous) => Math.max(1, previous - 1))}
+                        >
+                            Previous
+                        </Button>
+                        <p className="text-sm text-muted-foreground">Page {safePage} of {totalPages}</p>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={safePage >= totalPages}
+                            onClick={() => setCurrentPage((previous) => Math.min(totalPages, previous + 1))}
+                        >
+                            Next
+                        </Button>
+                    </div>
+                </div>
+            )}
         </Card>
     );
 }

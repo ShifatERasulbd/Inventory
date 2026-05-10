@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 
-export default function EditForm({ form, onChange, onSubmit, onCancel, isSubmitting, errors = {} }) {
+export default function EditForm({ form, existingBarcodes = [], onChange, onSubmit, onCancel, isSubmitting, errors = {} }) {
     return (
         <Card>
             <CardHeader>
@@ -74,15 +74,23 @@ export default function EditForm({ form, onChange, onSubmit, onCancel, isSubmitt
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
-                            <Label htmlFor="barcode">Barcode</Label>
+                            <Label htmlFor="barcode">Scan New Barcodes</Label>
                             <Input
                                 id="barcode"
                                 name="barcode"
                                 value={form.barcode}
                                 onChange={onChange}
-                                placeholder="Scan or type barcode (comma-separate multiple)"
+                                placeholder="Scan or type new barcode(s) — comma-separate multiple"
                             />
-                            <p className="text-xs text-muted-foreground">Separate multiple barcodes with commas. Each barcode counts as 1 stock unit.</p>
+                            <p className="text-xs text-muted-foreground">
+                                Enter only <strong>new</strong> barcodes to add. Each barcode counts as 1 stock unit and will be removed from the cartoon.
+                            </p>
+                            {existingBarcodes.length > 0 && (
+                                <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+                                    <span className="font-medium text-foreground">Already in stock ({existingBarcodes.length}):</span>{' '}
+                                    {existingBarcodes.join(', ')}
+                                </div>
+                            )}
                             {errors.barcode && <p className="text-xs text-destructive">{errors.barcode[0]}</p>}
                         </div>
                     </div>

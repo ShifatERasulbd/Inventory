@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 use App\Models\Brand;
+use App\Models\Category;
 use App\Models\Color;
 use App\Models\Fabric;
 use App\Models\ProductFor;
@@ -20,6 +21,7 @@ class Product extends Model
 
       protected $fillable=[
         'brand_id',
+        'category_id',
         'style_number',
         'hs_number',
         'ref_number',
@@ -50,6 +52,11 @@ class Product extends Model
       public function brand(): BelongsTo
       {
             return $this->belongsTo(Brand::class);
+      }
+
+      public function category(): BelongsTo
+      {
+        return $this->belongsTo(Category::class);
       }
 
       public function color(): BelongsTo

@@ -17,6 +17,7 @@ class ColorController extends Controller
     {
         $validated= $request->validate([
             'name'=>['required','string','max:100'],
+            'color_code'=>['nullable','string','max:50'],
         ]);
         $color= Color::query()->create($validated);
         return response()->json($color,201);
@@ -31,6 +32,7 @@ class ColorController extends Controller
     {
         $validated=$request->validate([
             'name'=>['required','string','max:100'],
+            'color_code'=>['nullable','string','max:50'],
         ]);
         $color->update($validated);
         return response()->json($color->fresh());

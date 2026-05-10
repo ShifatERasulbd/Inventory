@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Cartoon;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\Sell;
@@ -13,6 +14,28 @@ class PurchaseController extends Controller
     private function isApprovedStatus(string $status): bool
     {
         return in_array(strtolower($status), ['approve', 'approved', 'active'], true);
+    }
+
+    private function isReceivedStatus(string $status): bool
+    {
+        return strtolower($status) === 'received';
+    }
+
+    private function syncReceivedPurchaseToCartoonWarehouse(Purchase $purchase): void
+    {
+        if (! $this->isReceivedStatus((string) $purchase->status)) {
+            return;
+        }
+
+        if (! $purchase->purchase_to) {
+            return;
+        }
+
+        Cartoon::query()
+            ->where('p_o_number', $purchase->id)
+            ->update([
+                'warehouse_id' => (int) $purchase->purchase_to,
+            ]);
     }
 
     private function syncApprovedPurchaseToSellAndStock(Purchase $purchase): void
@@ -242,6 +265,7 @@ class PurchaseController extends Controller
         $purchase->update($updatePayload);
 
         $this->syncApprovedPurchaseToSellAndStock($purchase);
+        $this->syncReceivedPurchaseToCartoonWarehouse($purchase);
 
         $purchase->load([
             'purchaseFromWarehouse:id,name',
@@ -286,6 +310,8 @@ class PurchaseController extends Controller
             'po_number'     => $validated['po_number'],
             'status'        => $validated['status'],
         ]);
+
+        $this->syncReceivedPurchaseToCartoonWarehouse($purchase);
 
         $purchase->load([
             'purchaseFromWarehouse:id,name',
@@ -378,6 +404,7 @@ class PurchaseController extends Controller
         ]);
 
         $this->syncApprovedPurchaseToSellAndStock($purchase);
+        $this->syncReceivedPurchaseToCartoonWarehouse($purchase);
 
         $purchase->load([
             'purchaseFromWarehouse:id,name',

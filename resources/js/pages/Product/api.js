@@ -45,8 +45,17 @@ export async function fetchProducts() {
 // Backward-compatible export while older imports are being migrated.
 // export const fetchColors = fetchColors;
 
-export async function fetchProduct(id) {
-    return requestJson(`/api/products/${id}`);
+export async function fetchProduct(id, options = {}) {
+    const params = new URLSearchParams();
+
+    if (options?.variantOnly) {
+        params.set('variant_only', '1');
+    }
+
+    const query = params.toString();
+    const url = query ? `/api/products/${id}?${query}` : `/api/products/${id}`;
+
+    return requestJson(url);
 }
 
 export async function createProducts(data) {

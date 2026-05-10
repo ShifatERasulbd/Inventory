@@ -9,6 +9,21 @@ use Illuminate\Validation\Rule;
 
 class RackController extends Controller
 {
+    private function resolveLoginWarehouseId(Request $request): ?int
+    {
+        $warehouseIds = $request->user()?->warehouse_ids;
+
+        if (! is_array($warehouseIds) || $warehouseIds === []) {
+            return null;
+        }
+
+        $warehouseId = $warehouseIds[0] ?? null;
+
+        return is_int($warehouseId) || ctype_digit((string) $warehouseId)
+            ? (int) $warehouseId
+            : null;
+    }
+
     private function visibleWarehouseIds(Request $request): ?array
     {
         $user = $request->user();
@@ -50,17 +65,35 @@ class RackController extends Controller
 
     public function store(Request $request):JsonResponse
     {
-        $validated=$request->validate([
-            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
-            'name' => ['required', 'string', 'max:120', 'unique:racks,name']
-        ]);
+        $rules = [
+            'name' => ['required', 'string', 'max:120', 'unique:racks,name'],
+        ];
+
+        if ($request->user()?->hasRole('super-admin')) {
+            $rules['warehouse_id'] = ['required', 'integer', 'exists:warehouses,id'];
+        }
+
+        $validated = $request->validate($rules);
+
+        $warehouseId = $request->user()?->hasRole('super-admin')
+            ? (int) ($validated['warehouse_id'] ?? 0)
+            : $this->resolveLoginWarehouseId($request);
+
+        if (! $warehouseId) {
+            return response()->json([
+                'message' => 'No warehouse is assigned to your user account.',
+            ], 422);
+        }
 
         $visibleWarehouseIds = $this->visibleWarehouseIds($request);
-        if (is_array($visibleWarehouseIds) && ! in_array((int) $validated['warehouse_id'], $visibleWarehouseIds, true)) {
+        if (is_array($visibleWarehouseIds) && ! in_array($warehouseId, $visibleWarehouseIds, true)) {
             abort(403, 'You are not allowed to create racks for this warehouse.');
         }
 
-        $rack = Rack::query()->create($validated);
+        $rack = Rack::query()->create([
+            'name' => $validated['name'],
+            'warehouse_id' => $warehouseId,
+        ]);
         return response()->json($rack->load('warehouse:id,name'), 201);
     }
 
@@ -74,17 +107,29 @@ class RackController extends Controller
     {
         $this->ensureRackVisible($request, $rack);
 
-        $validated = $request->validate([
-            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
-            'name' => ['required', 'string', 'max:120', Rule::unique('racks', 'name')->ignore($rack->id)]
-        ]);
+        $rules = [
+            'name' => ['required', 'string', 'max:120', Rule::unique('racks', 'name')->ignore($rack->id)],
+        ];
+
+        if ($request->user()?->hasRole('super-admin')) {
+            $rules['warehouse_id'] = ['required', 'integer', 'exists:warehouses,id'];
+        }
+
+        $validated = $request->validate($rules);
+
+        $warehouseId = $request->user()?->hasRole('super-admin')
+            ? (int) ($validated['warehouse_id'] ?? 0)
+            : (int) $rack->warehouse_id;
 
         $visibleWarehouseIds = $this->visibleWarehouseIds($request);
-        if (is_array($visibleWarehouseIds) && ! in_array((int) $validated['warehouse_id'], $visibleWarehouseIds, true)) {
+        if (is_array($visibleWarehouseIds) && ! in_array($warehouseId, $visibleWarehouseIds, true)) {
             abort(403, 'You are not allowed to move racks to this warehouse.');
         }
 
-        $rack->update($validated);
+        $rack->update([
+            'name' => $validated['name'],
+            'warehouse_id' => $warehouseId,
+        ]);
         return response()->json($rack->load('warehouse:id,name'));
     }
 

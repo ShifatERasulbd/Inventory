@@ -1,4 +1,4 @@
-import { Pencil, Search, FileText, Trash2 } from 'lucide-react';
+import { Pencil, Search, FileText, Trash2, PackageCheck } from 'lucide-react';
 import { useState } from 'react';
 import {
   Tooltip,
@@ -18,7 +18,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 
-export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDelete, deletingId, onAddNew, onInvoice }) {
+export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDelete, deletingId, onAddNew, onInvoice, onAssignRack }) {
     const [search, setSearch] = useState('');
 
     const filtered = purchases.filter((purchase) => {
@@ -145,6 +145,24 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                                                     </TooltipTrigger>
                                                     <TooltipContent side="bottom">
                                                     <p>Edit</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`Assign rack for purchase ${purchase.po_number}`}
+                                                            onClick={() => onAssignRack?.(purchase)}
+                                                        >
+                                                            <PackageCheck />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                        <p>Assign Rack</p>
                                                     </TooltipContent>
                                                 </Tooltip>
                                             </TooltipProvider>

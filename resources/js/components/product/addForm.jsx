@@ -8,6 +8,23 @@ import { Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import BarcodePreview from './BarcodePreview';
 
+const stripHtmlTags = (value) => {
+    if (typeof value !== 'string') {
+        return value;
+    }
+
+    return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
+const toDisplayPart = (value) => {
+    const cleaned = stripHtmlTags(value);
+    if (cleaned === '' || cleaned === null || cleaned === undefined) {
+        return null;
+    }
+
+    return String(cleaned);
+};
+
 function ProductSelect({ id, label, value, options = [], placeholder, error, onValueChange, valueKey = 'id', labelKey = 'name' }) {
     return (
         <div className="space-y-2">
@@ -22,7 +39,7 @@ function ProductSelect({ id, label, value, options = [], placeholder, error, onV
                     <SelectContent>
                         {options.map((option) => (
                             <SelectItem key={option[valueKey]} value={String(option[valueKey])}>
-                                {option[labelKey]}
+                                {stripHtmlTags(option[labelKey])}
                             </SelectItem>
                         ))}
                     </SelectContent>
@@ -79,7 +96,7 @@ function ProductRepeaterSelect({
                                         <SelectContent>
                                             {options.map((option) => (
                                                 <SelectItem key={option[valueKey]} value={String(option[valueKey])}>
-                                                    {option[labelKey]}
+                                                    {stripHtmlTags(option[labelKey])}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -110,6 +127,7 @@ function ProductRepeaterSelect({
 export default function AddForm({
     form,
     brands = [],
+    categories = [],
     colors = [],
     fabrics = [],
     sizes = [],
@@ -136,6 +154,53 @@ export default function AddForm({
     submitLabel = 'Create Product',
     submittingLabel = 'Creating...',
 }) {
+    const colorOptions = useMemo(
+        () =>
+            (colors || []).map((color) => ({
+                ...color,
+                display_label: [toDisplayPart(color.name), toDisplayPart(color.color_code)].filter(Boolean).join(' - '),
+            })),
+        [colors]
+    );
+
+    const fabricOptions = useMemo(
+        () =>
+            (fabrics || []).map((fabric) => ({
+                ...fabric,
+                display_label: [
+                    toDisplayPart(fabric.ref_number),
+                    toDisplayPart(fabric.composition),
+                    toDisplayPart(fabric.construction),
+                    fabric.gsm !== null && fabric.gsm !== undefined && fabric.gsm !== '' ? String(fabric.gsm) : null,
+                ]
+                    .filter(Boolean)
+                    .join(' -> '),
+            })),
+        [fabrics]
+    );
+
+    const selectedFabric = useMemo(
+        () => (fabrics || []).find((fabric) => String(fabric.id) === String(form.fabric_id)),
+        [fabrics, form.fabric_id]
+    );
+
+    const fabricDetailsText = useMemo(() => {
+        if (!selectedFabric) {
+            return 'Select a fabric to view details.';
+        }
+
+        const detailParts = [
+            toDisplayPart(selectedFabric.ref_number),
+            toDisplayPart(selectedFabric.composition),
+            toDisplayPart(selectedFabric.construction),
+            selectedFabric.gsm !== null && selectedFabric.gsm !== undefined && selectedFabric.gsm !== ''
+                ? String(selectedFabric.gsm)
+                : null,
+        ].filter(Boolean);
+
+        return detailParts.length > 0 ? detailParts.join(' -> ') : 'No details available for this fabric.';
+    }, [selectedFabric]);
+
     const selectedCoverPreviewUrl = useMemo(() => {
         if (!form?.cover_image) {
             return '';
@@ -187,7 +252,7 @@ export default function AddForm({
                         </div>
                     </div>
 
-                     <div className="grid grid-cols-1 gap-5 md:grid-cols-5">
+                                         <div className="grid grid-cols-1 gap-5 md:grid-cols-6">
                           <ProductSelect
                             id="product-brand"
                             label="Brand"
@@ -197,14 +262,24 @@ export default function AddForm({
                             error={errors.brand_id}
                             onValueChange={(value) => onSelectChange('brand_id', value)}
                         />
+                        <ProductSelect
+                            id="product-category"
+                            label="Category"
+                            value={form.category_id}
+                            options={categories}
+                            placeholder="Select a category"
+                            error={errors.category_id}
+                            onValueChange={(value) => onSelectChange('category_id', value)}
+                        />
                          <ProductSelect
                             id="product-fabric"
                             label="Fabric"
                             value={form.fabric_id}
-                            options={fabrics}
+                                     options={fabricOptions}
                             placeholder="Select a fabric"
                             error={errors.fabric_id}
                             onValueChange={(value) => onSelectChange('fabric_id', value)}
+                                     labelKey="display_label"
                         />
 
                         <ProductSelect
@@ -238,17 +313,23 @@ export default function AddForm({
                         />
                      </div>
 
+                    <div className="rounded-md border bg-muted/40 px-3 py-2">
+                        <p className="text-xs font-medium text-muted-foreground">Fabric Details</p>
+                        <p className="text-sm text-foreground">{fabricDetailsText}</p>
+                    </div>
+
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                         <ProductRepeaterSelect
                             id="product-color"
                             label="Colors"
                             values={form.color_ids}
-                            options={colors}
+                            options={colorOptions}
                             placeholder="Select a color"
                             error={errors.color_ids}
                             onValueChange={(index, value) => onRepeaterSelectChange?.('color_ids', index, value)}
                             onAdd={() => onAddRepeaterItem?.('color_ids')}
                             onRemove={(index) => onRemoveRepeaterItem?.('color_ids', index)}
+                            labelKey="display_label"
                         />
 
                         <ProductRepeaterSelect
@@ -286,14 +367,15 @@ export default function AddForm({
                                 id="product-ref-number"
                                 name="ref_number"
                                 value={form.ref_number}
-                                onChange={onChange}
+                                readOnly
+                                className="bg-muted/60"
                                 placeholder="e.g. REF-0001"
                             />
                             {errors.ref_number && <p className="text-xs text-destructive">{errors.ref_number[0]}</p>}
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="product-hs-number">HS Number</Label>
+                            <Label htmlFor="product-hs-number">HS Code</Label>
                             <Input
                                 id="product-hs-number"
                                 name="hs_number"
