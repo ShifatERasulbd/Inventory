@@ -105,6 +105,7 @@ class RackController extends Controller
 
     public function update(Request $request, Rack $rack):JsonResponse
     {
+      
         $this->ensureRackVisible($request, $rack);
 
         $rules = [

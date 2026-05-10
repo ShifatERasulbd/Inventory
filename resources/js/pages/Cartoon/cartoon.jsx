@@ -16,10 +16,18 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppContext } from '@/context/AppContext';
 import Barcode from 'react-barcode';
 
-import { adjustCartoonQuantity, deleteCartoon, fetchCartoons } from './api';
+import {
+  adjustCartoonQuantity,
+  assignCartoonRack,
+  deleteCartoon,
+  fetchCartoons,
+  fetchRackRows,
+  fetchRacks,
+} from './api';
 
 function getBarcodeWidth(value) {
   const length = value?.length || 0;
@@ -87,6 +95,12 @@ export default function Cartoon() {
   const [codeInput, setCodeInput] = useState('');
   const [scannedCodes, setScannedCodes] = useState([]);
   const [isAdjusting, setIsAdjusting] = useState(false);
+  const [assignCartoonTarget, setAssignCartoonTarget] = useState(null);
+  const [racks, setRacks] = useState([]);
+  const [rackRows, setRackRows] = useState([]);
+  const [selectedRackId, setSelectedRackId] = useState('');
+  const [selectedRackRowId, setSelectedRackRowId] = useState('');
+  const [isAssigningRack, setIsAssigningRack] = useState(false);
 
     useEffect(() => {
     setPageTitle('Cartoons');
@@ -331,6 +345,94 @@ export default function Cartoon() {
     };
   };
 
+  const openAssignRackDialog = async (cartoon) => {
+    if (String(cartoon?.purchase?.status ?? '').toLowerCase() !== 'received') {
+      toast.error('Rack can be assigned only when purchase status is received.', {
+        style: { color: '#dc2626' },
+      });
+      return;
+    }
+
+    setAssignCartoonTarget(cartoon);
+    setSelectedRackId('');
+    setSelectedRackRowId('');
+    setRackRows([]);
+
+    try {
+      const rackData = await fetchRacks();
+      setRacks(Array.isArray(rackData) ? rackData : []);
+    } catch (error) {
+      setRacks([]);
+      toast.error(error.message || 'Failed to load racks.', {
+        style: { color: '#dc2626' },
+      });
+    }
+  };
+
+  const handleRackChange = async (value) => {
+    setSelectedRackId(value);
+    setSelectedRackRowId('');
+
+    if (!value) {
+      setRackRows([]);
+      return;
+    }
+
+    try {
+      const rows = await fetchRackRows(value);
+      setRackRows(Array.isArray(rows) ? rows : []);
+    } catch (error) {
+      setRackRows([]);
+      toast.error(error.message || 'Failed to load rack rows.', {
+        style: { color: '#dc2626' },
+      });
+    }
+  };
+
+  const handleAssignRack = async () => {
+    if (!assignCartoonTarget?.id) {
+      return;
+    }
+
+    if (!selectedRackId) {
+      toast.error('Please select a rack first.', {
+        style: { color: '#dc2626' },
+      });
+      return;
+    }
+
+    setIsAssigningRack(true);
+    try {
+      const updated = await assignCartoonRack(assignCartoonTarget.id, {
+        rack_id: Number(selectedRackId),
+        ...(selectedRackRowId ? { rack_row_id: Number(selectedRackRowId) } : {}),
+      });
+
+      setCartoons((previous) => previous.map((cartoon) => (
+        cartoon.id === updated.id ? updated : cartoon
+      )));
+
+      toast.success('Cartoon assigned to rack successfully.', {
+        style: { color: '#16a34a' },
+      });
+
+      setAssignCartoonTarget(null);
+      setSelectedRackId('');
+      setSelectedRackRowId('');
+      setRackRows([]);
+    } catch (error) {
+      toast.error(error.message || 'Failed to assign rack.', {
+        style: { color: '#dc2626' },
+      });
+    } finally {
+      setIsAssigningRack(false);
+    }
+  };
+
+  const destinationRacks = racks.filter((rack) => (
+    Number(rack?.warehouse_id ?? 0) === Number(assignCartoonTarget?.warehouse_id ?? 0)
+  ));
+
     return (
     <div className="space-y-5">
       {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
@@ -341,6 +443,7 @@ export default function Cartoon() {
                 onAdd={() => navigate('/cartoons/add')}
                 onAddQuantity={(cartoon) => openAdjustDialog('add', cartoon)}
                 onDeductQuantity={(cartoon) => openAdjustDialog('deduct', cartoon)}
+                onAssignRack={openAssignRackDialog}
                 onViewBarcode={(cartoon) => setBarcodeCartoon(cartoon)}
                 onEdit={(id) => navigate(`/cartoons/${id}/edit`)}
                 onRequestDelete={setCartoonToDelete}
@@ -509,6 +612,73 @@ export default function Cartoon() {
                     </AlertDialogAction>
                 </AlertDialogFooter>
                 </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog
+              open={Boolean(assignCartoonTarget)}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setAssignCartoonTarget(null);
+                  setSelectedRackId('');
+                  setSelectedRackRowId('');
+                  setRackRows([]);
+                }
+              }}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Assign Cartoon To Rack</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Assign rack for cartoon {assignCartoonTarget?.cartoon_number || ''}.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Rack</Label>
+                    <Select value={selectedRackId} onValueChange={handleRackChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a rack" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {destinationRacks.map((rack) => (
+                          <SelectItem key={rack.id} value={String(rack.id)}>
+                            {rack.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {destinationRacks.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        No racks are available in this warehouse.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Rack Row (Optional)</Label>
+                    <Select value={selectedRackRowId} onValueChange={setSelectedRackRowId} disabled={!selectedRackId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={selectedRackId ? 'Select a rack row' : 'Select a rack first'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {rackRows.map((row) => (
+                          <SelectItem key={row.id} value={String(row.id)}>
+                            Row {row.row_number}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isAssigningRack}>Cancel</AlertDialogCancel>
+                  <Button type="button" onClick={handleAssignRack} disabled={isAssigningRack}>
+                    {isAssigningRack ? 'Assigning...' : 'Assign Rack'}
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
             </AlertDialog>
 
             <div className="pointer-events-none fixed -left-[9999px] top-0 opacity-0" aria-hidden="true">

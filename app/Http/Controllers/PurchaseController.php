@@ -6,8 +6,10 @@ use App\Models\Cartoon;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\Sell;
+use App\Models\Stock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PurchaseController extends Controller
 {
@@ -36,6 +38,60 @@ class PurchaseController extends Controller
             ->update([
                 'warehouse_id' => (int) $purchase->purchase_to,
             ]);
+    }
+
+    private function syncReceivedPurchaseToDestinationStock(Purchase $purchase, ?string $previousStatus = null): void
+    {
+        if (! $this->isReceivedStatus((string) $purchase->status)) {
+            return;
+        }
+
+        if ($previousStatus !== null && $this->isReceivedStatus($previousStatus)) {
+            return;
+        }
+
+        $warehouseId = (int) ($purchase->purchase_to ?? 0);
+        if ($warehouseId <= 0) {
+            return;
+        }
+
+        $items = is_array($purchase->products) ? $purchase->products : [];
+        if ($items === []) {
+            return;
+        }
+
+        DB::transaction(function () use ($items, $warehouseId): void {
+            foreach ($items as $item) {
+                $productId = (int) ($item['product_id'] ?? 0);
+                $quantity = (int) ($item['quantity'] ?? $item['stocks'] ?? 0);
+
+                if ($productId <= 0 || $quantity <= 0) {
+                    continue;
+                }
+
+                $stock = Stock::query()
+                    ->where('product_id', $productId)
+                    ->where('warehouse_id', $warehouseId)
+                    ->whereNull('cartoon_id')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $stock) {
+                    Stock::query()->create([
+                        'product_id' => $productId,
+                        'warehouse_id' => $warehouseId,
+                        'stocks' => $quantity,
+                        'cartoon_id' => null,
+                        'barcode' => null,
+                    ]);
+                    continue;
+                }
+
+                $stock->update([
+                    'stocks' => ((int) $stock->stocks) + $quantity,
+                ]);
+            }
+        });
     }
 
     private function syncApprovedPurchaseToSellAndStock(Purchase $purchase): void
@@ -123,13 +179,14 @@ class PurchaseController extends Controller
         }
 
         return Product::query()
-            ->with(['size:id,size'])
+            ->with(['size:id,size', 'color:id,name'])
             ->whereIn('id', array_unique($productIds))
-            ->get(['id', 'name', 'size_id'])
+            ->get(['id', 'name', 'size_id', 'color_id'])
             ->mapWithKeys(fn (Product $product) => [
                 $product->id => [
                     'name' => $product->name,
                     'size' => $product->size?->size,
+                    'color' => $product->color?->name,
                 ],
             ])
             ->all();
@@ -150,6 +207,7 @@ class PurchaseController extends Controller
                 'selling_price'  => (float) ($item['selling_price'] ?? 0),
                 'product_name'   => is_array($productData) ? ($productData['name'] ?? null) : null,
                 'size'           => is_array($productData) ? ($productData['size'] ?? null) : null,
+                'color'          => is_array($productData) ? ($productData['color'] ?? null) : null,
             ];
         }, $products));
 
@@ -235,6 +293,7 @@ class PurchaseController extends Controller
     public function updateRequestStatus(Request $request, Purchase $purchase): JsonResponse
     {
         $user = $request->user();
+        $previousStatus = (string) $purchase->status;
 
         if (! $user->hasRole('super-admin')) {
             $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
@@ -266,6 +325,7 @@ class PurchaseController extends Controller
 
         $this->syncApprovedPurchaseToSellAndStock($purchase);
         $this->syncReceivedPurchaseToCartoonWarehouse($purchase);
+        $this->syncReceivedPurchaseToDestinationStock($purchase, $previousStatus);
 
         $purchase->load([
             'purchaseFromWarehouse:id,name',
@@ -311,7 +371,9 @@ class PurchaseController extends Controller
             'status'        => $validated['status'],
         ]);
 
+        $this->syncApprovedPurchaseToSellAndStock($purchase);
         $this->syncReceivedPurchaseToCartoonWarehouse($purchase);
+        $this->syncReceivedPurchaseToDestinationStock($purchase, null);
 
         $purchase->load([
             'purchaseFromWarehouse:id,name',
@@ -354,6 +416,7 @@ class PurchaseController extends Controller
     public function update(Request $request, Purchase $purchase): JsonResponse
     {
         $user = $request->user();
+        $previousStatus = (string) $purchase->status;
 
         // Check permission: super-admin or user's warehouse involved
         if (! $user->hasRole('super-admin')) {
@@ -371,6 +434,7 @@ class PurchaseController extends Controller
 
         $rules = [
             'purchase_form'             => ['required', 'integer', 'exists:warehouses,id'],
+            'purchase_to'               => ['required', 'integer', 'exists:warehouses,id'],
             'products'                  => ['required', 'array', 'min:1'],
             'products.*.product_id'     => ['required', 'integer', 'exists:products,id'],
             'products.*.quantity'       => ['required', 'integer', 'min:1'],
@@ -381,22 +445,13 @@ class PurchaseController extends Controller
             'note'                      => ['nullable', 'string', 'max:2000'],
         ];
 
-        if ($user?->hasRole('super-admin')) {
-            $rules['purchase_to'] = ['required', 'integer', 'exists:warehouses,id'];
-        }
+      
 
         $validated = $request->validate($rules);
 
-        $purchaseTo = $this->resolvePurchaseTo($request, $validated);
-        if (! $purchaseTo) {
-            return response()->json([
-                'message' => 'No warehouse is assigned to your user account.',
-            ], 422);
-        }
-
         $purchase->update([
             'purchase_form' => $validated['purchase_form'],
-            'purchase_to'   => $purchaseTo,
+            'purchase_to'   => $validated['purchase_to'],
             'products'      => $validated['products'],
             'po_number'     => $validated['po_number'],
             'status'        => $validated['status'],
@@ -405,6 +460,7 @@ class PurchaseController extends Controller
 
         $this->syncApprovedPurchaseToSellAndStock($purchase);
         $this->syncReceivedPurchaseToCartoonWarehouse($purchase);
+        $this->syncReceivedPurchaseToDestinationStock($purchase, $previousStatus);
 
         $purchase->load([
             'purchaseFromWarehouse:id,name',

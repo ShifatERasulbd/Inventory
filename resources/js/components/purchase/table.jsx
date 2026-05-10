@@ -1,4 +1,4 @@
-import { Pencil, Search, FileText, Trash2, PackageCheck } from 'lucide-react';
+import { Pencil, Search, FileText, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import {
   Tooltip,
@@ -10,6 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
+        Select,
+        SelectContent,
+        SelectItem,
+        SelectTrigger,
+        SelectValue,
+} from '@/components/ui/select';
+import {
     Table,
     TableBody,
     TableCell,
@@ -18,7 +25,21 @@ import {
     TableRow,
 } from '@/components/ui/table';
 
-export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDelete, deletingId, onAddNew, onInvoice, onAssignRack }) {
+export function PurchaseTable({
+    purchases = [],
+    isLoading,
+    onEdit,
+    onRequestDelete,
+    deletingId,
+    onAddNew,
+    onInvoice,
+    statusDrafts = {},
+    updatingStatusId = null,
+    onStatusDraftChange,
+    onUpdateStatus,
+    userWarehouseIds = [],
+    isSuperAdmin = false,
+}) {
     const [search, setSearch] = useState('');
 
     const filtered = purchases.filter((purchase) => {
@@ -91,6 +112,27 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                         {!isLoading &&
                             filtered.map((purchase, index) => (
                                 <TableRow key={purchase.id}>
+                                    {(() => {
+                                        const normalizedStatus = String(purchase.status || '').toLowerCase();
+                                        const purchaseToId = Number(purchase.purchase_to ?? 0);
+                                        const canReceive = normalizedStatus === 'shipped' && (
+                                            isSuperAdmin || userWarehouseIds.includes(purchaseToId)
+                                        );
+                                        const canShip = normalizedStatus === 'approved';
+                                        const showStatusAction = canShip || canReceive;
+
+                                        let statusOptions = [];
+                                        if (canShip) {
+                                            statusOptions = ['approved', 'shipped'];
+                                        }
+                                        if (canReceive) {
+                                            statusOptions = ['shipped', 'received'];
+                                        }
+
+                                        const currentStatusValue = statusDrafts[purchase.id] ?? purchase.status;
+
+                                        return (
+                                            <>
                                     <TableCell className="font-medium">{index + 1}</TableCell>
                                     <TableCell>{purchase.po_number}</TableCell>
                                     <TableCell>
@@ -101,7 +143,7 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                                                         {item.product_name || `Product #${item.product_id}`}
                                                     </div>
                                                     <div className="text-muted-foreground">
-                                                        Qty: {Number(item.quantity ?? 0)} | Size: {item.size || item.size_name || item?.size?.size || 'N/A'} | Purchase: {Number(item.purchase_price ?? 0).toFixed(2)} | Selling: {Number(item.selling_price ?? 0).toFixed(2)}
+                                                        Qty: {Number(item.quantity ?? 0)} | Size: {item.size || item.size_name || item?.size?.size || 'N/A'} | Color: {item.color || item.color_name || item?.color?.name || 'N/A'} | Purchase: {Number(item.purchase_price ?? 0).toFixed(2)} | Selling: {Number(item.selling_price ?? 0).toFixed(2)}
                                                     </div>
                                                 </div>
                                             ))}
@@ -109,7 +151,38 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                                     </TableCell>
                                     <TableCell>{purchase.purchase_form_name || `Warehouse #${purchase.purchase_form}`}</TableCell>
                                     <TableCell>{purchase.purchase_to_name || `Warehouse #${purchase.purchase_to}`}</TableCell>
-                                    <TableCell className="capitalize">{purchase.status}</TableCell>
+                                    <TableCell className="capitalize">
+                                        {showStatusAction ? (
+                                            <div className="flex flex-col gap-2">
+                                                <Select
+                                                    value={currentStatusValue}
+                                                    onValueChange={(value) => onStatusDraftChange?.(purchase.id, value)}
+                                                >
+                                                    <SelectTrigger className="h-9 w-[140px]">
+                                                        <SelectValue placeholder="Select status" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {statusOptions.map((statusOption) => (
+                                                            <SelectItem key={`${purchase.id}-${statusOption}`} value={statusOption}>
+                                                                {statusOption.charAt(0).toUpperCase() + statusOption.slice(1)}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    className="w-fit"
+                                                    onClick={() => onUpdateStatus?.(purchase.id, purchase.status)}
+                                                    disabled={updatingStatusId === purchase.id}
+                                                >
+                                                    {updatingStatusId === purchase.id ? 'Updating...' : 'Update'}
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            purchase.status
+                                        )}
+                                    </TableCell>
                                     <TableCell>{purchase.note || 'No note'}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
@@ -155,24 +228,6 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            aria-label={`Assign rack for purchase ${purchase.po_number}`}
-                                                            onClick={() => onAssignRack?.(purchase)}
-                                                        >
-                                                            <PackageCheck />
-                                                        </Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="bottom">
-                                                        <p>Assign Rack</p>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            </TooltipProvider>
-
-                                            <TooltipProvider>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
                                                             aria-label={`Delete purchase ${purchase.po_number}`}
                                                             onClick={() => onRequestDelete(purchase)}
                                                             disabled={deletingId === purchase.id}
@@ -190,6 +245,9 @@ export function PurchaseTable({ purchases = [], isLoading, onEdit, onRequestDele
                                             
                                         </div>
                                     </TableCell>
+                                            </>
+                                        );
+                                    })()}
                                 </TableRow>
                             ))}
                     </TableBody>

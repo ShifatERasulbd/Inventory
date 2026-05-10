@@ -12,13 +12,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Barcode, Pencil, Plus, Search, Trash2,Minus } from 'lucide-react';
+import { Barcode, Pencil, Plus, Search, Trash2, Minus, PackageCheck } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
-export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuantity, onViewBarcode, onEdit, onRequestDelete, deletingId, isLoading }) {
+export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuantity, onAssignRack, onViewBarcode, onEdit, onRequestDelete, deletingId, isLoading }) {
     const [search, setSearch] = useState('');
     const filtered = cartoons.filter((c) => {
         const q = search.toLowerCase();
@@ -182,6 +182,26 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                                                     </TooltipContent>
                                                 </Tooltip>
                                         </TooltipProvider>
+
+                                        {String(cartoon.purchase?.status ?? '').toLowerCase() === 'received' && (
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`Assign rack for ${cartoon.cartoon_number}`}
+                                                            onClick={() => onAssignRack?.(cartoon)}
+                                                        >
+                                                            <PackageCheck />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                        <p>Assign Rack</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        )}
                                       
                                     </div>
                                 </TableCell>

@@ -15,22 +15,33 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppContext } from '@/context/AppContext';
 
 import {
-    assignCartoonRack,
     deletePurchase,
-    fetchCartoons,
     fetchPurchases,
-    fetchRackRows,
-    fetchRacks,
+    updatePurchaseStatus,
 } from './api';
+
+async function fetchCurrentUser() {
+    const response = await fetch('/api/user', {
+        credentials: 'include',
+        headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    });
+
+    if (!response.ok) {
+        return null;
+    }
+
+    return response.json();
+}
 
 export default function Purchase() {
     const navigate = useNavigate();
-    const { setPageTitle } = useAppContext();
+    const { setPageTitle, user, setUser } = useAppContext();
 
     const [purchases, setPurchases] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -38,14 +49,8 @@ export default function Purchase() {
     const [purchaseToDelete, setPurchaseToDelete] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
     const [invoicePurchase, setInvoicePurchase] = useState(null);
-    const [assignPurchase, setAssignPurchase] = useState(null);
-    const [cartoons, setCartoons] = useState([]);
-    const [racks, setRacks] = useState([]);
-    const [rackRows, setRackRows] = useState([]);
-    const [selectedCartoonId, setSelectedCartoonId] = useState('');
-    const [selectedRackId, setSelectedRackId] = useState('');
-    const [selectedRackRowId, setSelectedRackRowId] = useState('');
-    const [isAssigningRack, setIsAssigningRack] = useState(false);
+    const [statusDrafts, setStatusDrafts] = useState({});
+    const [updatingStatusId, setUpdatingStatusId] = useState(null);
 
     useEffect(() => {
         setPageTitle('Purchases');
@@ -81,6 +86,31 @@ export default function Purchase() {
         };
     }, []);
 
+    useEffect(() => {
+        let ignore = false;
+
+        async function loadUser() {
+            if (user) {
+                return;
+            }
+
+            try {
+                const currentUser = await fetchCurrentUser();
+                if (!ignore && currentUser) {
+                    setUser(currentUser);
+                }
+            } catch {
+                // Keep table usable even if user info cannot be fetched.
+            }
+        }
+
+        loadUser();
+
+        return () => {
+            ignore = true;
+        };
+    }, [setUser, user]);
+
     const handleConfirmDelete = async () => {
         if (!purchaseToDelete) {
             return;
@@ -107,98 +137,49 @@ export default function Purchase() {
         }
     };
 
-    const openAssignRackDialog = async (purchase) => {
-        const status = String(purchase?.status ?? '').toLowerCase();
-        if (status !== 'received') {
-            toast.error('Rack can be assigned only after the purchase is received.', {
-                style: { color: '#dc2626' },
-            });
-            return;
-        }
-
-        setAssignPurchase(purchase);
-        setSelectedCartoonId('');
-        setSelectedRackId('');
-        setSelectedRackRowId('');
-        setRackRows([]);
-
-        try {
-            const [cartoonData, rackData] = await Promise.all([fetchCartoons(), fetchRacks()]);
-            setCartoons(Array.isArray(cartoonData) ? cartoonData : []);
-            setRacks(Array.isArray(rackData) ? rackData : []);
-        } catch (error) {
-            setCartoons([]);
-            setRacks([]);
-            toast.error(error.message || 'Failed to load rack assignment data.', {
-                style: { color: '#dc2626' },
-            });
-        }
+    const handleStatusDraftChange = (id, value) => {
+        setStatusDrafts((previous) => ({
+            ...previous,
+            [id]: value,
+        }));
     };
 
-    const handleRackChange = async (value) => {
-        setSelectedRackId(value);
-        setSelectedRackRowId('');
+    const handleUpdateStatus = async (id, currentStatus) => {
+        const nextStatus = statusDrafts[id] ?? currentStatus;
 
-        if (!value) {
-            setRackRows([]);
+        if (String(nextStatus).toLowerCase() === String(currentStatus).toLowerCase()) {
+            toast.info('Please select a different status before updating.');
             return;
         }
 
         try {
-            const rows = await fetchRackRows(value);
-            setRackRows(Array.isArray(rows) ? rows : []);
-        } catch (error) {
-            setRackRows([]);
-            toast.error(error.message || 'Failed to load rack rows.', {
-                style: { color: '#dc2626' },
-            });
-        }
-    };
+            setUpdatingStatusId(id);
+            const updated = await updatePurchaseStatus(id, { status: nextStatus });
 
-    const handleAssignRack = async () => {
-        if (!selectedCartoonId) {
-            toast.error('Please select a cartoon first.', { style: { color: '#dc2626' } });
-            return;
-        }
-
-        if (!selectedRackId) {
-            toast.error('Please select a rack first.', { style: { color: '#dc2626' } });
-            return;
-        }
-
-        setIsAssigningRack(true);
-        try {
-            await assignCartoonRack(selectedCartoonId, {
-                rack_id: Number(selectedRackId),
-                ...(selectedRackRowId ? { rack_row_id: Number(selectedRackRowId) } : {}),
+            setPurchases((previous) => previous.map((item) => (item.id === id ? updated : item)));
+            setStatusDrafts((previous) => {
+                const next = { ...previous };
+                delete next[id];
+                return next;
             });
 
-            toast.success('Cartoon assigned to rack successfully.', {
+            toast.success('Purchase status updated successfully.', {
                 style: { color: '#16a34a' },
             });
-
-            setAssignPurchase(null);
-            setSelectedCartoonId('');
-            setSelectedRackId('');
-            setSelectedRackRowId('');
-            setRackRows([]);
         } catch (error) {
-            toast.error(error.message || 'Failed to assign rack.', {
+            toast.error(error.message || 'Failed to update purchase status.', {
                 style: { color: '#dc2626' },
             });
         } finally {
-            setIsAssigningRack(false);
+            setUpdatingStatusId(null);
         }
     };
 
-    const assignableCartoons = cartoons.filter((cartoon) => (
-        Number(cartoon?.p_o_number ?? 0) === Number(assignPurchase?.id ?? 0)
-        && Number(cartoon?.warehouse_id ?? 0) === Number(assignPurchase?.purchase_to ?? 0)
-    ));
+    const userWarehouseIds = Array.isArray(user?.warehouse_ids)
+        ? user.warehouse_ids.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0)
+        : [];
 
-    const destinationRacks = racks.filter((rack) => (
-        Number(rack?.warehouse_id ?? 0) === Number(assignPurchase?.purchase_to ?? 0)
-    ));
+    const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
 
     return (
         <div className="space-y-5">
@@ -210,9 +191,14 @@ export default function Purchase() {
                 onAddNew={() => navigate('/purchases/add')}
                 onInvoice={setInvoicePurchase}
                 onEdit={(id) => navigate(`/purchases/${id}/edit`)}
-                onAssignRack={openAssignRackDialog}
                 onRequestDelete={setPurchaseToDelete}
                 deletingId={deletingId}
+                statusDrafts={statusDrafts}
+                updatingStatusId={updatingStatusId}
+                onStatusDraftChange={handleStatusDraftChange}
+                onUpdateStatus={handleUpdateStatus}
+                userWarehouseIds={userWarehouseIds}
+                isSuperAdmin={isSuperAdmin}
             />
 
             <PurchaseInvoiceModal
@@ -242,94 +228,6 @@ export default function Purchase() {
                 </AlertDialogContent>
             </AlertDialog>
 
-            <AlertDialog
-                open={Boolean(assignPurchase)}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setAssignPurchase(null);
-                        setSelectedCartoonId('');
-                        setSelectedRackId('');
-                        setSelectedRackRowId('');
-                        setRackRows([]);
-                    }
-                }}
-            >
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Assign Cartoon To Rack</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Assign received purchase cartoons to racks in destination warehouse {assignPurchase?.purchase_to_name || ''}.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Cartoon</Label>
-                            <Select value={selectedCartoonId} onValueChange={setSelectedCartoonId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a cartoon" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {assignableCartoons.map((cartoon) => (
-                                        <SelectItem key={cartoon.id} value={String(cartoon.id)}>
-                                            {cartoon.cartoon_number} (Qty: {Number(cartoon.quantity ?? 0)})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {assignableCartoons.length === 0 && (
-                                <p className="text-xs text-muted-foreground">
-                                    No cartoons found for this received purchase in destination warehouse.
-                                </p>
-                            )}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Rack</Label>
-                            <Select value={selectedRackId} onValueChange={handleRackChange}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a rack" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {destinationRacks.map((rack) => (
-                                        <SelectItem key={rack.id} value={String(rack.id)}>
-                                            {rack.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {destinationRacks.length === 0 && (
-                                <p className="text-xs text-muted-foreground">
-                                    No racks are available in the destination warehouse.
-                                </p>
-                            )}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Rack Row (Optional)</Label>
-                            <Select value={selectedRackRowId} onValueChange={setSelectedRackRowId} disabled={!selectedRackId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder={selectedRackId ? 'Select a rack row' : 'Select a rack first'} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {rackRows.map((row) => (
-                                        <SelectItem key={row.id} value={String(row.id)}>
-                                            Row {row.row_number}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isAssigningRack}>Cancel</AlertDialogCancel>
-                        <Button type="button" onClick={handleAssignRack} disabled={isAssigningRack}>
-                            {isAssigningRack ? 'Assigning...' : 'Assign Rack'}
-                        </Button>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </div>
     );
 }

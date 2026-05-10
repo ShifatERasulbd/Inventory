@@ -59,6 +59,14 @@ export async function updatePurchase(id, data) {
     });
 }
 
+export async function updatePurchaseStatus(id, data) {
+    await ensureCsrfCookie();
+    return requestJson(`/api/purchases/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+    });
+}
+
 export async function deletePurchase(id) {
     await ensureCsrfCookie();
     return requestJson(`/api/purchases/${id}`, {
