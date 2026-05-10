@@ -51,7 +51,11 @@ export function ProductTable({
             product.warehouse?.name?.toLowerCase().includes(q)
         );
     });
-    const filteredIds = filtered.map((product) => product.id);
+    const uniqueFiltered = filtered.filter((product, index, list) => {
+        const styleNumber = (product.style_number || '').trim().toLowerCase();
+        return list.findIndex((item) => ((item.style_number || '').trim().toLowerCase() === styleNumber)) === index;
+    });
+    const filteredIds = uniqueFiltered.map((product) => product.id);
     const selectedSet = new Set(selectedIds);
     const selectedVisibleCount = filteredIds.filter((id) => selectedSet.has(id)).length;
     const allVisibleSelected = filteredIds.length > 0 && selectedVisibleCount === filteredIds.length;
@@ -118,17 +122,14 @@ export function ProductTable({
                             <TableHead>Style No.</TableHead>
                             <TableHead>Product</TableHead>
                             <TableHead>Brand</TableHead>
-                            <TableHead>Color</TableHead>
-                            <TableHead>Size</TableHead>
                             <TableHead>Warehouse</TableHead>
-                            <TableHead>Stock</TableHead>
                             <TableHead className="w-[160px]">Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {isLoading && (
                             <TableRow>
-                                <TableCell colSpan={11} className="text-center text-muted-foreground">
+                                <TableCell colSpan={8} className="text-center text-muted-foreground">
                                     Loading Products...
                                 </TableCell>
                             </TableRow>
@@ -136,22 +137,22 @@ export function ProductTable({
 
                         {!isLoading && products.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={11} className="text-center text-muted-foreground">
+                                <TableCell colSpan={8} className="text-center text-muted-foreground">
                                     No Products found.
                                 </TableCell>
                             </TableRow>
                         )}
 
-                        {!isLoading && filtered.length === 0 && products.length > 0 && (
+                        {!isLoading && uniqueFiltered.length === 0 && products.length > 0 && (
                             <TableRow>
-                                <TableCell colSpan={11} className="text-center text-muted-foreground">
+                                <TableCell colSpan={8} className="text-center text-muted-foreground">
                                     No Products match your search.
                                 </TableCell>
                             </TableRow>
                         )}
 
                         {!isLoading &&
-                            filtered.map((product, index) => (
+                            uniqueFiltered.map((product, index) => (
                                 <TableRow key={product.id}>
                                     <TableCell>
                                         <Checkbox
@@ -183,10 +184,7 @@ export function ProductTable({
                                         </div>
                                     </TableCell>
                                     <TableCell>{product.brand?.name || 'N/A'}</TableCell>
-                                    <TableCell>{product.color?.name || 'N/A'}</TableCell>
-                                    <TableCell>{product.size?.size || 'N/A'}</TableCell>
                                     <TableCell>{product.warehouse?.name || 'N/A'}</TableCell>
-                                    <TableCell>{product.available_stock ?? product.stocks ?? product.quantity ?? 0}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
                                             <TooltipProvider>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Stock;
 use App\Models\WareHouse;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -101,6 +102,23 @@ class ProductController extends Controller
         }
     }
 
+    private function styleGroupQuery(Product $product): Builder
+    {
+        return Product::query()
+            ->where('style_number', $product->style_number)
+            ->where('brand_id', $product->brand_id)
+            ->where('fabric_id', $product->fabric_id)
+            ->where('gender_id', $product->gender_id)
+            ->where('warehouse_id', $product->warehouse_id)
+            ->where(function ($query) use ($product) {
+                if ($product->ref_number === null) {
+                    $query->whereNull('ref_number');
+                } else {
+                    $query->where('ref_number', $product->ref_number);
+                }
+            });
+    }
+
     public function index(): JsonResponse
     {
         return response()->json(
@@ -124,6 +142,7 @@ class ProductController extends Controller
         $validated = $request->validate([
             'brand_id' => ['required', 'integer', 'exists:brands,id'],
             'style_number' => ['required', 'string', 'max:50'],
+            'hs_number' => ['nullable', 'string', 'max:100'],
             'ref_number' => ['nullable', 'string', 'max:100'],
             'name' => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string', 'max:2000'],
@@ -181,6 +200,7 @@ class ProductController extends Controller
                         $product = Product::query()->create([
                             'brand_id' => $validated['brand_id'],
                             'style_number' => $validated['style_number'],
+                            'hs_number' => $validated['hs_number'] ?? null,
                             'ref_number' => $validated['ref_number'] ?? null,
                             'name' => $validated['name'],
                             'description' => $validated['description'] ?? null,
@@ -235,7 +255,15 @@ class ProductController extends Controller
 
     public function show(Product $product): JsonResponse
     {
-        return response()->json($this->productWithRelations($product));
+        $styleGroup = $this->styleGroupQuery($product)
+            ->orderBy('id')
+            ->get(['id', 'color_id', 'size_id']);
+
+        $productData = $this->productWithRelations($product)->toArray();
+        $productData['color_ids'] = $styleGroup->pluck('color_id')->filter()->unique()->map(fn ($id) => (int) $id)->values()->all();
+        $productData['size_ids'] = $styleGroup->pluck('size_id')->filter()->unique()->map(fn ($id) => (int) $id)->values()->all();
+
+        return response()->json($productData);
     }
 
     public function update(Request $request, Product $product): JsonResponse
@@ -243,15 +271,21 @@ class ProductController extends Controller
         $validated = $request->validate([
             'brand_id' => ['required', 'integer', 'exists:brands,id'],
             'style_number' => ['required', 'string', 'max:50'],
+            'hs_number' => ['nullable', 'string', 'max:100'],
             'ref_number' => ['nullable', 'string', 'max:100'],
             'name' => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string', 'max:2000'],
             'color_id' => ['required', 'integer', 'exists:colors,id'],
+            'color_ids' => ['required', 'array', 'min:1'],
+            'color_ids.*' => ['required', 'integer', 'exists:colors,id'],
             'fabric_id' => ['required', 'integer', 'exists:fabrics,id'],
-             'season_id' => ['nullable', 'integer', 'exists:seasons,id'],
+            'season_id' => ['nullable', 'integer', 'exists:seasons,id'],
             'size_id' => ['required', 'integer', 'exists:sizes,id'],
+            'size_ids' => ['required', 'array', 'min:1'],
+            'size_ids.*' => ['required', 'integer', 'exists:sizes,id'],
             'gender_id' => ['required', 'integer', 'exists:products_for,id'],
-            'barCode' => ['required', 'string', 'max:200'],
+            'barCode' => ['nullable', 'string', 'max:200'],
+            'barcodes' => ['required', 'string'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'cover_image' => ['nullable', 'image', 'max:3072'],
             'gallery_images' => ['nullable', 'array', 'max:8'],
@@ -309,9 +343,115 @@ class ProductController extends Controller
             $validated['gallery_images'] = array_values(array_merge($baseGallery, $newGalleryImages));
         }
 
-        unset($validated['remove_cover_image'], $validated['remove_gallery_images']);
+        $colorIds = collect($validated['color_ids'] ?? [])->filter()->unique()->map(fn ($value) => (int) $value)->values()->all();
+        $sizeIds = collect($validated['size_ids'] ?? [])->filter()->unique()->map(fn ($value) => (int) $value)->values()->all();
 
-        $product->update($validated);
+        // Decode barcode map sent as JSON string from FormData.
+        $decodedBarcodes = json_decode($validated['barcodes'] ?? '', true);
+        $barcodesMap = is_array($decodedBarcodes) ? $decodedBarcodes : [];
+
+        if ($colorIds === [] || $sizeIds === []) {
+            return response()->json([
+                'message' => 'Color and size values are required.',
+                'errors' => [
+                    'color_ids' => ['Please add at least one color.'],
+                    'size_ids' => ['Please add at least one size.'],
+                ],
+            ], 422);
+        }
+
+        $primaryColorId = $colorIds[0];
+        $primarySizeId = $sizeIds[0];
+        $primaryBarcodeKey = "{$primaryColorId}_{$primarySizeId}";
+
+        $sharedAttributes = [
+            'brand_id' => $validated['brand_id'],
+            'style_number' => $validated['style_number'],
+            'hs_number' => $validated['hs_number'] ?? null,
+            'ref_number' => $validated['ref_number'] ?? null,
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? null,
+            'fabric_id' => $validated['fabric_id'],
+            'gender_id' => $validated['gender_id'],
+            'warehouse_id' => $validated['warehouse_id'],
+            'season_id' => $validated['season_id'] ?? null,
+            'cover_image' => $validated['cover_image'] ?? $product->cover_image,
+            'gallery_images' => $validated['gallery_images'] ?? $currentGalleryImages,
+        ];
+
+        unset(
+            $validated['remove_cover_image'],
+            $validated['remove_gallery_images'],
+            $validated['color_ids'],
+            $validated['size_ids'],
+            $validated['barcodes']
+        );
+
+        DB::transaction(function () use ($product, $sharedAttributes, $primaryColorId, $primarySizeId, $barcodesMap, $primaryBarcodeKey, $colorIds, $sizeIds) {
+            $product->update(array_merge($sharedAttributes, [
+                'color_id' => $primaryColorId,
+                'size_id' => $primarySizeId,
+                'barCode' => $barcodesMap[$primaryBarcodeKey] ?? $product->barCode,
+            ]));
+
+            $existingPairs = Product::query()
+                ->where('brand_id', $sharedAttributes['brand_id'])
+                ->where('style_number', $sharedAttributes['style_number'])
+                ->where('fabric_id', $sharedAttributes['fabric_id'])
+                ->where('gender_id', $sharedAttributes['gender_id'])
+                ->where('warehouse_id', $sharedAttributes['warehouse_id'])
+                ->where(function ($query) use ($sharedAttributes) {
+                    if ($sharedAttributes['ref_number'] === null) {
+                        $query->whereNull('ref_number');
+                    } else {
+                        $query->where('ref_number', $sharedAttributes['ref_number']);
+                    }
+                })
+                ->get(['color_id', 'size_id'])
+                ->map(fn (Product $item) => "{$item->color_id}_{$item->size_id}")
+                ->values()
+                ->all();
+
+            $existingPairMap = array_fill_keys($existingPairs, true);
+            $warehouseIds = WareHouse::query()->pluck('id')->all();
+            $stockRows = [];
+            $now = now();
+
+            foreach ($colorIds as $colorId) {
+                foreach ($sizeIds as $sizeId) {
+                    $pairKey = "{$colorId}_{$sizeId}";
+
+                    if (isset($existingPairMap[$pairKey])) {
+                        continue;
+                    }
+
+                    $created = Product::query()->create(array_merge($sharedAttributes, [
+                        'color_id' => $colorId,
+                        'size_id' => $sizeId,
+                        'barCode' => $barcodesMap[$pairKey] ?? null,
+                    ]));
+
+                    foreach ($warehouseIds as $warehouseId) {
+                        $stockRows[] = [
+                            'product_id' => $created->id,
+                            'stocks' => 0,
+                            'warehouse_id' => (int) $warehouseId,
+                            'cartoon_id' => null,
+                            'barcode' => null,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
+                    }
+
+                    $existingPairMap[$pairKey] = true;
+                }
+            }
+
+            if ($stockRows !== []) {
+                Stock::query()->insert($stockRows);
+            }
+        });
+
         $this->deleteImagesIfUnreferenced($imagesToDeleteAfterUpdate, $product->id);
 
         return response()->json($this->productWithRelations($product->fresh()));

@@ -19,6 +19,7 @@ import { createProducts } from './api';
 const initialForm = {
     brand_id: '',
     style_number: '',
+    hs_number: '',
     ref_number: '',
     name: '',
     description: '',
@@ -294,6 +295,7 @@ export default function AddProduct() {
             await createProducts({
                 brand_id: Number(form.brand_id),
                 style_number: form.style_number.trim(),
+                hs_number: form.hs_number.trim() || null,
                 ref_number: form.ref_number.trim() || null,
                 name: form.name.trim(),
                 description: form.description.trim(),

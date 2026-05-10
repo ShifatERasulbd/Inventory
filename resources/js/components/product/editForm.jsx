@@ -287,6 +287,18 @@ export default function EditForm({
                             />
                             {errors.ref_number && <p className="text-xs text-destructive">{errors.ref_number[0]}</p>}
                         </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="product-hs-number">HS Number</Label>
+                            <Input
+                                id="product-hs-number"
+                                name="hs_number"
+                                value={form.hs_number || ''}
+                                onChange={onChange}
+                                placeholder="e.g. 6203.42"
+                            />
+                            {errors.hs_number && <p className="text-xs text-destructive">{errors.hs_number[0]}</p>}
+                        </div>
                     </div>
 
                     <div className="space-y-3">

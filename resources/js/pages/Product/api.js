@@ -121,6 +121,11 @@ export async function updateProducts(id, data) {
             return;
         }
 
+        if (key === 'barcodes' && typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            formData.append('barcodes', JSON.stringify(value));
+            return;
+        }
+
         if (key === 'gallery_images' && Array.isArray(value)) {
             value.forEach((file) => {
                 if (file) {

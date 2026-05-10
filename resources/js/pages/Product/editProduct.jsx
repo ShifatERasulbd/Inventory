@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import EditForm from '@/components/product/editForm';
-import { generateBarcodeValue } from '@/components/product/BarcodePreview';
+import { generateBarcodesMap } from '@/components/product/BarcodePreview';
 import { useAppContext } from '@/context/AppContext';
 import { fetchBrands } from '@/pages/Brand/api';
 import { fetchColors } from '@/pages/Color/api';
@@ -18,6 +18,7 @@ import { fetchProduct, updateProducts } from './api';
 const initialForm = {
     brand_id: '',
     style_number: '',
+    hs_number: '',
     ref_number: '',
     name: '',
     description: '',
@@ -37,11 +38,6 @@ const initialForm = {
 const MAX_SINGLE_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_TOTAL_IMAGE_BYTES = 7 * 1024 * 1024;
 const MAX_GALLERY_IMAGES = 8;
-
-function findOptionLabel(options, value, labelKey, fallbackPrefix) {
-    const match = (options || []).find((option) => String(option.id) === String(value));
-    return match?.[labelKey] || `${fallbackPrefix}${value}`;
-}
 
 function validateForm(form) {
     const validationErrors = {};
@@ -161,6 +157,7 @@ export default function EditProduct() {
                 setForm({
                     brand_id: product.brand_id ? String(product.brand_id) : '',
                     style_number: product.style_number || '',
+                    hs_number: product.hs_number || '',
                     ref_number: product.ref_number || '',
                     name: product.name || '',
                     description: product.description || '',
@@ -334,13 +331,10 @@ export default function EditProduct() {
         setErrors({});
 
         try {
-            const colorName = findOptionLabel(colors, selectedColorIds[0], 'name', 'COLOR');
-            const fabricName = findOptionLabel(fabrics, form.fabric_id, 'name', 'FABRIC');
-            const sizeName = findOptionLabel(sizes, selectedSizeIds[0], 'size', 'SIZE');
-
             await updateProducts(id, {
                 brand_id: Number(form.brand_id),
                 style_number: form.style_number.trim(),
+                hs_number: form.hs_number.trim() || null,
                 ref_number: form.ref_number.trim() || null,
                 name: form.name.trim(),
                 description: form.description.trim(),
@@ -350,12 +344,15 @@ export default function EditProduct() {
                 size_id: Number(selectedSizeIds[0]),
                 size_ids: selectedSizeIds.map((value) => Number(value)),
                 gender_id: Number(form.gender_id),
-                barCode: generateBarcodeValue({
+                barcodes: generateBarcodesMap({
                     styleNumber: form.style_number,
-                    colorName,
-                    fabricName,
+                    colorIds: selectedColorIds,
+                    fabricId: form.fabric_id,
                     refNumber: form.ref_number,
-                    sizeName,
+                    sizeIds: selectedSizeIds,
+                    colors,
+                    fabrics,
+                    sizes,
                 }),
                 warehouse_id: Number(form.warehouse_id),
                 season_id: form.season_id ? Number(form.season_id) : null,
