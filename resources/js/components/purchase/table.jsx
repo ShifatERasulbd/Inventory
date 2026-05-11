@@ -1,4 +1,5 @@
 import { Pencil, Search, FileText, Trash2 } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 import { useState } from 'react';
 import {
   Tooltip,
@@ -75,10 +76,13 @@ export function PurchaseTable({
                         <TableRow>
                             <TableHead className="w-[80px]">SL No.</TableHead>
                             <TableHead>PO Number</TableHead>
+                            <TableHead>PO Date</TableHead>
                             <TableHead>Products</TableHead>
                             <TableHead>Purchase From</TableHead>
                             <TableHead>Purchase To</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead>Shipping Date</TableHead>
+                            <TableHead>Received Date</TableHead>
                             <TableHead>Note</TableHead>
                             <TableHead className="w-[120px]">Action</TableHead>
                         </TableRow>
@@ -87,7 +91,7 @@ export function PurchaseTable({
                     <TableBody>
                         {isLoading && (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                                <TableCell colSpan={11} className="text-center text-muted-foreground">
                                     Loading purchases...
                                 </TableCell>
                             </TableRow>
@@ -95,7 +99,7 @@ export function PurchaseTable({
 
                         {!isLoading && purchases.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                                <TableCell colSpan={11} className="text-center text-muted-foreground">
                                     No purchases found.
                                 </TableCell>
                             </TableRow>
@@ -103,7 +107,7 @@ export function PurchaseTable({
 
                         {!isLoading && filtered.length === 0 && purchases.length > 0 && (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                                <TableCell colSpan={11} className="text-center text-muted-foreground">
                                     No purchases match your search.
                                 </TableCell>
                             </TableRow>
@@ -135,6 +139,7 @@ export function PurchaseTable({
                                             <>
                                     <TableCell className="font-medium">{index + 1}</TableCell>
                                     <TableCell>{purchase.po_number}</TableCell>
+                                    <TableCell>{formatDate(purchase.po_date)}</TableCell>
                                     <TableCell>
                                         <div className="space-y-2">
                                             {(purchase.products || []).map((item, itemIndex) => (
@@ -183,6 +188,8 @@ export function PurchaseTable({
                                             purchase.status
                                         )}
                                     </TableCell>
+                                    <TableCell>{formatDate(purchase.shipping_date)}</TableCell>
+                                    <TableCell>{formatDate(purchase.received_date)}</TableCell>
                                     <TableCell>{purchase.note || 'No note'}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">

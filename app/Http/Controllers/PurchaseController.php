@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\Sell;
 use App\Models\Stock;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,40 @@ class PurchaseController extends Controller
     private function isReceivedStatus(string $status): bool
     {
         return strtolower($status) === 'received';
+    }
+
+    private function isShippedStatus(string $status): bool
+    {
+        return strtolower($status) === 'shipped';
+    }
+
+    private function normalizeStatusDates(array $validated, ?Purchase $existingPurchase = null): array
+    {
+        if (($validated['shipping_date'] ?? null) === '' || ! array_key_exists('shipping_date', $validated)) {
+            $validated['shipping_date'] = $existingPurchase?->shipping_date?->format('Y-m-d');
+        }
+
+        if (($validated['received_date'] ?? null) === '' || ! array_key_exists('received_date', $validated)) {
+            $validated['received_date'] = $existingPurchase?->received_date?->format('Y-m-d');
+        }
+
+        return $validated;
+    }
+
+    private function applyTransitionStatusDates(array $validated, string $previousStatus): array
+    {
+        $currentStatus = strtolower((string) ($validated['status'] ?? ''));
+        $previous = strtolower((string) $previousStatus);
+
+        if ($previous === 'approved' && $currentStatus === 'shipped' && empty($validated['shipping_date'])) {
+            $validated['shipping_date'] = Carbon::today()->toDateString();
+        }
+
+        if ($previous === 'shipped' && $currentStatus === 'received' && empty($validated['received_date'])) {
+            $validated['received_date'] = Carbon::today()->toDateString();
+        }
+
+        return $validated;
     }
 
     private function syncReceivedPurchaseToCartoonWarehouse(Purchase $purchase): void
@@ -69,6 +104,19 @@ class PurchaseController extends Controller
                     continue;
                 }
 
+                // Get product barcode
+                $product = Product::query()
+                    ->select('id', 'barCode')
+                    ->find($productId);
+
+                $barcode = $product?->barCode ? trim((string) $product->barCode) : null;
+                $barcodes = [];
+
+                // Create array of barcodes for each unit
+                if ($barcode) {
+                    $barcodes = array_fill(0, $quantity, $barcode);
+                }
+
                 $stock = Stock::query()
                     ->where('product_id', $productId)
                     ->where('warehouse_id', $warehouseId)
@@ -82,13 +130,18 @@ class PurchaseController extends Controller
                         'warehouse_id' => $warehouseId,
                         'stocks' => $quantity,
                         'cartoon_id' => null,
-                        'barcode' => null,
+                        'barcode' => $barcodes ?: null,
                     ]);
                     continue;
                 }
 
+                // Merge existing barcodes with new ones
+                $existingBarcodes = is_array($stock->barcode) ? $stock->barcode : [];
+                $updatedBarcodes = array_merge($existingBarcodes, $barcodes);
+
                 $stock->update([
                     'stocks' => ((int) $stock->stocks) + $quantity,
+                    'barcode' => $updatedBarcodes ?: null,
                 ]);
             }
         });
@@ -217,7 +270,10 @@ class PurchaseController extends Controller
             'purchase_to'        => $purchase->purchase_to,
             'products'           => $formattedProducts,
             'po_number'          => $purchase->po_number,
+            'po_date'            => $purchase->created_at?->format('Y-m-d'),
             'status'             => $purchase->status,
+            'shipping_date'      => $purchase->shipping_date?->format('Y-m-d'),
+            'received_date'      => $purchase->received_date?->format('Y-m-d'),
             'note'               => $purchase->note,
             'purchase_form_name' => $purchase->purchaseFromWarehouse?->name,
             'purchase_to_name'   => $purchase->purchaseToWarehouse?->name,
@@ -310,11 +366,18 @@ class PurchaseController extends Controller
 
         $validated = $request->validate([
             'status' => ['required', 'string', 'max:50'],
+            'shipping_date' => ['sometimes', 'nullable', 'date'],
+            'received_date' => ['sometimes', 'nullable', 'date'],
             'note' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ]);
 
+        $validated = $this->normalizeStatusDates($validated, $purchase);
+        $validated = $this->applyTransitionStatusDates($validated, $previousStatus);
+
         $updatePayload = [
             'status' => $validated['status'],
+            'shipping_date' => $validated['shipping_date'] ?? null,
+            'received_date' => $validated['received_date'] ?? null,
         ];
 
         if (array_key_exists('note', $validated)) {
@@ -348,6 +411,8 @@ class PurchaseController extends Controller
             'products.*.selling_price'         => ['required', 'numeric', 'min:0'],
             'po_number'                        => ['required', 'string', 'max:100'],
             'status'                           => ['required', 'string', 'max:50'],
+            'shipping_date'                    => ['nullable', 'date'],
+            'received_date'                    => ['nullable', 'date'],
         ];
 
         if ($request->user()?->hasRole('super-admin')) {
@@ -355,6 +420,7 @@ class PurchaseController extends Controller
         }
 
         $validated = $request->validate($rules);
+        $validated = $this->normalizeStatusDates($validated);
 
         $purchaseTo = $this->resolvePurchaseTo($request, $validated);
         if (! $purchaseTo) {
@@ -369,6 +435,8 @@ class PurchaseController extends Controller
             'products'      => $validated['products'],
             'po_number'     => $validated['po_number'],
             'status'        => $validated['status'],
+            'shipping_date' => $validated['shipping_date'] ?? null,
+            'received_date' => $validated['received_date'] ?? null,
         ]);
 
         $this->syncApprovedPurchaseToSellAndStock($purchase);
@@ -442,12 +510,16 @@ class PurchaseController extends Controller
             'products.*.selling_price'  => ['required', 'numeric', 'min:0'],
             'po_number'                 => ['required', 'string', 'max:100'],
             'status'                    => ['required', 'string', 'max:50'],
+            'shipping_date'             => ['nullable', 'date'],
+            'received_date'             => ['nullable', 'date'],
             'note'                      => ['nullable', 'string', 'max:2000'],
         ];
 
       
 
         $validated = $request->validate($rules);
+        $validated = $this->normalizeStatusDates($validated, $purchase);
+        $validated = $this->applyTransitionStatusDates($validated, $previousStatus);
 
         $purchase->update([
             'purchase_form' => $validated['purchase_form'],
@@ -455,6 +527,8 @@ class PurchaseController extends Controller
             'products'      => $validated['products'],
             'po_number'     => $validated['po_number'],
             'status'        => $validated['status'],
+            'shipping_date' => $validated['shipping_date'] ?? null,
+            'received_date' => $validated['received_date'] ?? null,
             'note'          => $validated['note'] ?? null,
         ]);
 

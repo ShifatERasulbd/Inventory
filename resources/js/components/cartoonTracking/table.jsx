@@ -39,8 +39,8 @@ export default function CartoonTrackingTable({ rows = [], isLoading = false }) {
                 <TableHeader>
                     <TableRow>
                         <TableHead className="w-[70px]">SL</TableHead>
-                        <TableHead>Cartoon Number</TableHead>
-                        <TableHead>PO Number</TableHead>
+                         <TableHead>PO Number</TableHead>
+                        <TableHead>Cartoon Number</TableHead>                       
                         <TableHead>PO Status</TableHead>
                         <TableHead>Warehouse</TableHead>
                         <TableHead className="text-center">Quantity</TableHead>
@@ -66,8 +66,8 @@ export default function CartoonTrackingTable({ rows = [], isLoading = false }) {
                     {!isLoading && rows.map((row, index) => (
                         <TableRow key={row.id}>
                             <TableCell>{index + 1}</TableCell>
-                            <TableCell>{row.cartoon_number || 'N/A'}</TableCell>
-                            <TableCell>{row.po_number || 'N/A'}</TableCell>
+                             <TableCell>{row.po_number || 'N/A'}</TableCell>
+                            <TableCell>{row.cartoon_number || 'N/A'}</TableCell>                           
                             <TableCell>
                                 <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(row.po_status)}`}>
                                     {normalizeStatus(row.po_status)}

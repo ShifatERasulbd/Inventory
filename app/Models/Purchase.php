@@ -18,11 +18,15 @@ class Purchase extends Model
         'products',
         'po_number',
         'status',
+        'shipping_date',
+        'received_date',
         'note',
     ];
 
     protected $casts = [
         'products' => 'array',
+        'shipping_date' => 'date',
+        'received_date' => 'date',
     ];
 
     public function purchaseFromWarehouse(): BelongsTo

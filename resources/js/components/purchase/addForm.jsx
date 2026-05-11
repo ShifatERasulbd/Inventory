@@ -135,6 +135,7 @@ export default function AddPurchaseForm({
                             )}
                             {errors.status && <p className="text-xs text-destructive">{errors.status[0]}</p>}
                         </div>
+
                     </div>
 
                     {/* Products repeater */}

@@ -117,6 +117,9 @@ const PurchaseRequest = lazyWithRetry(() => import('@/pages/PurchaseRequest/purc
 // Sell
 const Sell = lazyWithRetry(() => import('@/pages/Sell/sell'), 'sell');
 
+// Retail POS
+const RetailPOS = lazyWithRetry(() => import('@/pages/Retail/retail'), 'retail');
+
 // Season
 const Season =lazyWithRetry(()=>import ('@/pages/Season/season'),'season');
 const AddSeason = lazyWithRetry(() => import('@/pages/Season/addSeason'), 'season-add');
@@ -236,6 +239,9 @@ export default function App() {
 
                             {/* Sells */}
                             <Route path="/sells" element={<Sell/>}/>
+
+                            {/* Retail POS */}
+                            <Route path="/retail" element={<RetailPOS/>}/>
 
 
                             {/* seasons */}

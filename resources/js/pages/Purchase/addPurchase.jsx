@@ -14,6 +14,8 @@ const initialForm = {
     purchase_to: '',
     po_number: '',
     status: 'pending',
+    shipping_date: '',
+    received_date: '',
     products: [emptyProductRow()],
 };
 
@@ -54,6 +56,14 @@ function validateForm(form, isSuperAdmin) {
 
     if (!form.status.trim()) {
         validationErrors.status = ['Status is required.'];
+    }
+
+    if (form.shipping_date && Number.isNaN(Date.parse(form.shipping_date))) {
+        validationErrors.shipping_date = ['Shipping date must be a valid date.'];
+    }
+
+    if (form.received_date && Number.isNaN(Date.parse(form.received_date))) {
+        validationErrors.received_date = ['Received date must be a valid date.'];
     }
 
     if (!Array.isArray(form.products) || form.products.length === 0) {
@@ -245,6 +255,8 @@ export default function AddPurchase() {
                 })),
                 po_number: form.po_number.trim(),
                 status: form.status.trim(),
+                shipping_date: form.shipping_date || null,
+                received_date: form.received_date || null,
             });
 
             toast.success('Purchase created successfully.', {

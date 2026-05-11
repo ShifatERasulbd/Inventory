@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CountryController;
+use App\Http\Controllers\RetailController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductForController;
 use App\Http\Controllers\RoleController;
@@ -98,6 +99,11 @@ Route::prefix('api')->group(function () {
 
         // Sell Controller
         Route::apiResource('/sells', SellController::class);
+
+        // Retail / POS Controller
+        Route::get('/retail/barcode-lookup', [RetailController::class, 'lookupBarcode']);
+        Route::get('/retail/sales', [RetailController::class, 'index']);
+        Route::post('/retail/sales', [RetailController::class, 'store']);
 
         
         // Season Controller

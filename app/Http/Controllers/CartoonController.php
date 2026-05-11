@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cartoon;
+use App\Models\Product;
 use App\Models\Rack;
 use App\Models\RackRow;
 use App\Models\Stock;
@@ -13,6 +14,100 @@ use Illuminate\Support\Facades\DB;
 
 class CartoonController extends Controller
 {
+    private function buildProductMapForPurchases(iterable $cartoons): array
+    {
+        $productIds = [];
+
+        foreach ($cartoons as $cartoon) {
+            $items = is_array($cartoon->purchase?->products) ? $cartoon->purchase->products : [];
+
+            foreach ($items as $item) {
+                $productId = (int) ($item['product_id'] ?? 0);
+                if ($productId > 0) {
+                    $productIds[] = $productId;
+                }
+            }
+        }
+
+        if ($productIds === []) {
+            return [];
+        }
+
+        return Product::query()
+            ->with(['size:id,size', 'color:id,name'])
+            ->whereIn('id', array_values(array_unique($productIds)))
+            ->get(['id', 'name', 'size_id', 'color_id'])
+            ->mapWithKeys(fn (Product $product) => [
+                $product->id => [
+                    'name' => $product->name,
+                    'size' => $product->size?->size,
+                    'color' => $product->color?->name,
+                ],
+            ])
+            ->all();
+    }
+
+    private function formatPurchaseProducts(?array $items, array $productMap): array
+    {
+        return array_values(array_map(function ($item) use ($productMap) {
+            $productId = (int) ($item['product_id'] ?? 0);
+            $productData = $productMap[$productId] ?? [];
+
+            return [
+                'product_id' => $productId,
+                'quantity' => (int) ($item['quantity'] ?? 0),
+                'product_name' => $productData['name'] ?? null,
+                'color' => $productData['color'] ?? null,
+                'size' => $productData['size'] ?? null,
+            ];
+        }, is_array($items) ? $items : []));
+    }
+
+    private function formatCartoon(Cartoon $cartoon, array $productMap): array
+    {
+        $purchase = $cartoon->purchase;
+
+        return [
+            'id' => $cartoon->id,
+            'cartoon_number' => $cartoon->cartoon_number,
+            'p_o_number' => $cartoon->p_o_number,
+            'quantity' => (int) ($cartoon->quantity ?? 0),
+            'product_code' => is_array($cartoon->product_code) ? array_values($cartoon->product_code) : null,
+            'rack_id' => $cartoon->rack_id,
+            'rack_row_id' => $cartoon->rack_row_id,
+            'warehouse_id' => $cartoon->warehouse_id,
+            'created_at' => $cartoon->created_at,
+            'updated_at' => $cartoon->updated_at,
+            'warehouse' => $cartoon->warehouse ? [
+                'id' => $cartoon->warehouse->id,
+                'name' => $cartoon->warehouse->name,
+            ] : null,
+            'purchase' => $purchase ? [
+                'id' => $purchase->id,
+                'po_number' => $purchase->po_number,
+                'status' => $purchase->status,
+                'purchase_form' => $purchase->purchase_form,
+                'purchase_to' => $purchase->purchase_to,
+                'products' => $this->formatPurchaseProducts($purchase->products, $productMap),
+            ] : null,
+        ];
+    }
+
+    private function formatCartoonCollection(iterable $cartoons): array
+    {
+        $cartoonCollection = collect($cartoons)->values();
+        $productMap = $this->buildProductMapForPurchases($cartoonCollection);
+
+        return $cartoonCollection
+            ->map(fn (Cartoon $cartoon) => $this->formatCartoon($cartoon, $productMap))
+            ->all();
+    }
+
+    private function formatSingleCartoon(Cartoon $cartoon): array
+    {
+        return $this->formatCartoonCollection([$cartoon])[0];
+    }
+
     private function extractPurchaseProductIds(Cartoon $cartoon): array
     {
         $purchase = $cartoon->purchase;
@@ -246,7 +341,7 @@ class CartoonController extends Controller
         }
 
         return response()->json(
-            $query->orderBy('id')->get()
+            $this->formatCartoonCollection($query->orderBy('id')->get())
         );
     }
 
@@ -333,7 +428,7 @@ class CartoonController extends Controller
             'warehouse_id'   => $warehouseId,
         ]);
 
-        return response()->json($cartoon->load(['purchase', 'warehouse']), 201);
+        return response()->json($this->formatSingleCartoon($cartoon->load(['purchase', 'warehouse'])), 201);
     }
 
     public function show(Request $request, Cartoon $cartoon): JsonResponse
@@ -344,7 +439,7 @@ class CartoonController extends Controller
             ], 403);
         }
 
-        return response()->json($cartoon->load(['purchase', 'warehouse']));
+        return response()->json($this->formatSingleCartoon($cartoon->load(['purchase', 'warehouse'])));
     }
 
     public function update(Request $request, Cartoon $cartoon): JsonResponse
@@ -394,7 +489,7 @@ class CartoonController extends Controller
 
         $cartoon->update($validated);
 
-        return response()->json($cartoon->fresh()->load(['purchase', 'warehouse']));
+        return response()->json($this->formatSingleCartoon($cartoon->fresh()->load(['purchase', 'warehouse'])));
     }
 
     public function destroy(Request $request, Cartoon $cartoon): JsonResponse
@@ -444,7 +539,7 @@ class CartoonController extends Controller
                 : null,
         ]);
 
-        return response()->json($cartoon->fresh()->load(['purchase', 'warehouse', 'rack', 'rackRow']));
+        return response()->json($this->formatSingleCartoon($cartoon->fresh()->load(['purchase', 'warehouse', 'rack', 'rackRow'])));
     }
 
     public function adjustQuantity(Request $request, Cartoon $cartoon): JsonResponse
@@ -525,7 +620,7 @@ class CartoonController extends Controller
             ]);
         });
 
-        return response()->json($cartoon->fresh()->load(['purchase', 'warehouse']));
+        return response()->json($this->formatSingleCartoon($cartoon->fresh()->load(['purchase', 'warehouse'])));
     }
 }
  

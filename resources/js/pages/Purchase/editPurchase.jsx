@@ -14,6 +14,8 @@ const initialForm = {
     purchase_to: '',
     po_number: '',
     status: 'pending',
+    shipping_date: '',
+    received_date: '',
     note: '',
     products: [emptyProductRow()],
 };
@@ -102,6 +104,8 @@ export default function EditPurchase() {
                         purchase_to:   String(purchase.purchase_to ?? ''),
                         po_number:     purchase.po_number || '',
                         status:        purchase.status || 'pending',
+                        shipping_date: purchase.shipping_date || '',
+                        received_date: purchase.received_date || '',
                         note:          purchase.note || '',
                         products:      loadedProducts,
                     });
@@ -216,6 +220,8 @@ export default function EditPurchase() {
                 })),
                 po_number: form.po_number.trim(),
                 status: form.status.trim(),
+                shipping_date: form.shipping_date || null,
+                received_date: form.received_date || null,
                 note: form.note || '',
             });
 
