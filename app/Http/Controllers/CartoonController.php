@@ -350,6 +350,8 @@ class CartoonController extends Controller
         $query = Cartoon::query()->with([
             'purchase:id,po_number,status,purchase_form,purchase_to',
             'warehouse:id,name',
+            'rack:id,name',
+            'rackRow:id,row_number,code',
         ]);
 
         if (! $request->user()?->hasRole('super-admin')) {
@@ -373,6 +375,9 @@ class CartoonController extends Controller
                 'po_status' => $cartoon->purchase?->status,
                 'purchase_form' => $cartoon->purchase?->purchase_form,
                 'purchase_to' => $cartoon->purchase?->purchase_to,
+                'rack_name' => $cartoon->rack?->name,
+                'rack_row_number' => $cartoon->rackRow?->row_number,
+                'rack_row_code' => $cartoon->rackRow?->code,
                 'created_at' => $cartoon->created_at,
                 'updated_at' => $cartoon->updated_at,
             ];

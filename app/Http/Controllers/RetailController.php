@@ -194,15 +194,44 @@ class RetailController extends Controller
                 ];
             }
 
-            // Get cartoon IDs from validated items
-            $cartoonIds = array_filter(array_column($validated['items'], 'cartoon_id'));
-            $cartoons   = [];
-            if (!empty($cartoonIds)) {
+            // Build per-cartoon total deduction map
+            $cartoonDeductionMap = []; // [cartoon_id (int) => total qty]
+            foreach ($validated['items'] as $item) {
+                $cid = isset($item['cartoon_id']) ? (int) $item['cartoon_id'] : 0;
+                if ($cid > 0) {
+                    $cartoonDeductionMap[$cid] = ($cartoonDeductionMap[$cid] ?? 0) + (int) $item['quantity'];
+                }
+            }
+
+            // Pre-validate cartoons (warehouse ownership + sufficient quantity)
+            $cartoons = collect();
+            if (! empty($cartoonDeductionMap)) {
                 $cartoons = Cartoon::query()
-                    ->whereIn('id', array_unique($cartoonIds))
+                    ->whereIn('id', array_keys($cartoonDeductionMap))
                     ->lockForUpdate()
                     ->get()
                     ->keyBy('id');
+
+                foreach ($cartoonDeductionMap as $cid => $totalQty) {
+                    $cartoon = $cartoons->get($cid);
+
+                    if (! $cartoon) {
+                        DB::rollBack();
+                        return response()->json(['message' => "Cartoon #{$cid} was not found."], 422);
+                    }
+
+                    if ((int) $cartoon->warehouse_id !== (int) $validated['warehouse_id']) {
+                        DB::rollBack();
+                        return response()->json(['message' => "Cartoon \"{$cartoon->cartoon_number}\" does not belong to the selected warehouse."], 422);
+                    }
+
+                    if ((int) $cartoon->quantity < $totalQty) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => "Insufficient quantity in cartoon \"{$cartoon->cartoon_number}\". Available: {$cartoon->quantity}, needed: {$totalQty}.",
+                        ], 422);
+                    }
+                }
             }
 
             // Deduct stock for each item
@@ -212,8 +241,8 @@ class RetailController extends Controller
                 $newQty   = (int) $stock->stocks - $lineItem['quantity'];
 
                 // Remove the matching barcodes from the barcode array
-                $barcodes     = $existing;
-                $toRemove     = $lineItem['quantity'];
+                $barcodes = $existing;
+                $toRemove = $lineItem['quantity'];
                 if ($lineItem['barcode']) {
                     foreach ($barcodes as $idx => $bc) {
                         if ($bc === $lineItem['barcode'] && $toRemove > 0) {
@@ -232,23 +261,13 @@ class RetailController extends Controller
                     'stocks'  => max(0, $newQty),
                     'barcode' => array_values($barcodes),
                 ]);
+            }
 
-                // Deduct from cartoon if specified
-                $cartoonId = $lineItem['cartoon_id'] ?? null;
-                if ($cartoonId && isset($cartoons[$cartoonId])) {
-                    $cartoon = $cartoons[$cartoonId];
-
-                    if ((int) $cartoon->quantity < (int) $lineItem['quantity']) {
-                        DB::rollBack();
-                        return response()->json([
-                            'message' => "Insufficient quantity in selected cartoon {$cartoon->cartoon_number}.",
-                        ], 422);
-                    }
-
-                    $cartoon->update([
-                        'quantity' => max(0, (int) $cartoon->quantity - $lineItem['quantity']),
-                    ]);
-                }
+            // Deduct cartoon quantities directly via DB (bypasses Eloquent events/caching)
+            foreach ($cartoonDeductionMap as $cid => $totalQty) {
+                DB::table('cartoons')
+                    ->where('id', $cid)
+                    ->decrement('quantity', $totalQty);
             }
 
             // Generate reference number

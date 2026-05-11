@@ -43,13 +43,15 @@ export default function CartoonTrackingTable({ rows = [], isLoading = false }) {
                         <TableHead>Cartoon Number</TableHead>                       
                         <TableHead>PO Status</TableHead>
                         <TableHead>Warehouse</TableHead>
+                        <TableHead>Rack</TableHead>
+                        <TableHead>Rack Row</TableHead>
                         <TableHead className="text-center">Quantity</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {isLoading && (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground">
                                 Loading cartoon tracking...
                             </TableCell>
                         </TableRow>
@@ -57,7 +59,7 @@ export default function CartoonTrackingTable({ rows = [], isLoading = false }) {
 
                     {!isLoading && rows.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground">
+                            <TableCell colSpan={8} className="text-center text-muted-foreground">
                                 No tracking records found.
                             </TableCell>
                         </TableRow>
@@ -74,6 +76,12 @@ export default function CartoonTrackingTable({ rows = [], isLoading = false }) {
                                 </span>
                             </TableCell>
                             <TableCell>{row.warehouse_name || `Warehouse #${row.warehouse_id ?? 'N/A'}`}</TableCell>
+                            <TableCell>{row.rack_name || <span className="text-muted-foreground text-xs">—</span>}</TableCell>
+                            <TableCell>
+                                {row.rack_row_number
+                                    ? `${row.rack_row_number}${row.rack_row_code ? ` (${row.rack_row_code})` : ''}`
+                                    : <span className="text-muted-foreground text-xs">—</span>}
+                            </TableCell>
                             <TableCell className="text-center">{Number(row.quantity ?? 0)}</TableCell>
                         </TableRow>
                     ))}

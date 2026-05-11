@@ -100,15 +100,10 @@ export default function RetailPOS() {
         setSelectedWarehouseCartoon(cartoonValue);
 
         const cartoonId = cartoonValue !== 'none' ? Number.parseInt(cartoonValue, 10) : null;
-
-        if (!cartoonId) {
-            return;
-        }
-
         setCart((prev) =>
             prev.map((item) => ({
                 ...item,
-                cartoon_id: cartoonId,
+                cartoon_id: cartoonId || null,
             }))
         );
     };
@@ -157,7 +152,9 @@ export default function RetailPOS() {
                         quantity: 1,
                         unit_price: product.unit_price,
                         available_stock: product.available_stock,
-                        cartoon_id: null,
+                        cartoon_id: selectedWarehouseCartoon !== 'none'
+                            ? Number.parseInt(selectedWarehouseCartoon, 10)
+                            : null,
                         cartoons: product.cartoons || [],
                     },
                 ];
@@ -170,7 +167,7 @@ export default function RetailPOS() {
             setIsLookingUp(false);
             barcodeRef.current?.focus();
         }
-    }, [barcodeInput, selectedWarehouse]);
+    }, [barcodeInput, selectedWarehouse, selectedWarehouseCartoon]);
 
     const updateQty = (cartKey, delta) => {
         setCart((prev) =>
