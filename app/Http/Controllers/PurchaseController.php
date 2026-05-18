@@ -99,6 +99,8 @@ class PurchaseController extends Controller
             foreach ($items as $item) {
                 $productId = (int) ($item['product_id'] ?? 0);
                 $quantity = (int) ($item['quantity'] ?? $item['stocks'] ?? 0);
+                $buyingPrice = (float) ($item['purchase_price'] ?? 0);
+                $sellingPrice = (float) ($item['selling_price'] ?? 0);
 
                 if ($productId <= 0 || $quantity <= 0) {
                     continue;
@@ -129,6 +131,8 @@ class PurchaseController extends Controller
                         'product_id' => $productId,
                         'warehouse_id' => $warehouseId,
                         'stocks' => $quantity,
+                        'buying_price' => $buyingPrice,
+                        'selling_price' => $sellingPrice,
                         'cartoon_id' => null,
                         'barcode' => $barcodes ?: null,
                     ]);
@@ -141,6 +145,8 @@ class PurchaseController extends Controller
 
                 $stock->update([
                     'stocks' => ((int) $stock->stocks) + $quantity,
+                    'buying_price' => $buyingPrice,
+                    'selling_price' => $sellingPrice,
                     'barcode' => $updatedBarcodes ?: null,
                 ]);
             }

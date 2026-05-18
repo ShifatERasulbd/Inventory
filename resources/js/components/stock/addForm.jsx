@@ -46,6 +46,36 @@ export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitti
                         </div>
 
                         <div className="space-y-2">
+                            <Label htmlFor="buying_price">Buying Price</Label>
+                            <Input
+                                id="buying_price"
+                                name="buying_price"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={form.buying_price}
+                                onChange={onChange}
+                                placeholder="e.g. 125.00"
+                            />
+                            {errors.buying_price && <p className="text-xs text-destructive">{errors.buying_price[0]}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="selling_price">Selling Price</Label>
+                            <Input
+                                id="selling_price"
+                                name="selling_price"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={form.selling_price}
+                                onChange={onChange}
+                                placeholder="e.g. 140.00"
+                            />
+                            {errors.selling_price && <p className="text-xs text-destructive">{errors.selling_price[0]}</p>}
+                        </div>
+
+                        <div className="space-y-2">
                             <Label htmlFor="warehouse_id">Warehouse ID</Label>
                             <Input
                                 id="warehouse_id"

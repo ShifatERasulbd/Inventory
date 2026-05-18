@@ -33,6 +33,8 @@ export default function Stock() {
     const [barcodeInput, setBarcodeInput] = useState('');
     const [scannedBarcodes, setScannedBarcodes] = useState([]);
     const [isAdjusting, setIsAdjusting] = useState(false);
+    const [sellingPriceDrafts, setSellingPriceDrafts] = useState({});
+    const [savingSellingPriceIds, setSavingSellingPriceIds] = useState([]);
 
     useEffect(() => {
         setPageTitle('Stocks');
@@ -48,7 +50,14 @@ export default function Stock() {
             try {
                 const data = await fetchStocks();
                 if (!ignore) {
-                    setStocks(Array.isArray(data) ? data : []);
+                    const normalized = Array.isArray(data) ? data : [];
+                    setStocks(normalized);
+                    setSellingPriceDrafts(
+                        normalized.reduce((accumulator, stock) => {
+                            accumulator[stock.id] = String(stock.selling_price ?? 0);
+                            return accumulator;
+                        }, {})
+                    );
                 }
             } catch (error) {
                 if (!ignore) {
@@ -162,6 +171,53 @@ export default function Stock() {
         }
     };
 
+    const handleSellingPriceChange = (stockId, value) => {
+        setSellingPriceDrafts((previous) => ({
+            ...previous,
+            [stockId]: value,
+        }));
+    };
+
+    const handleSaveSellingPrice = async (stock) => {
+        const rawValue = String(sellingPriceDrafts[stock.id] ?? stock.selling_price ?? '0').trim();
+        const parsed = Number(rawValue);
+
+        if (!Number.isFinite(parsed) || parsed < 0) {
+            setErrorMessage('Selling price must be a valid non-negative number.');
+            return;
+        }
+
+        setSavingSellingPriceIds((previous) => [...new Set([...previous, stock.id])]);
+        setErrorMessage('');
+
+        try {
+            const updated = await updateStock(stock.id, {
+                selling_price: parsed,
+            });
+
+            setStocks((previous) =>
+                previous.map((item) => (item.id === updated.id ? updated : item))
+            );
+
+            setSellingPriceDrafts((previous) => ({
+                ...previous,
+                [stock.id]: String(updated.selling_price ?? parsed),
+            }));
+
+            toast.success('Selling price updated successfully.', {
+                style: { color: '#16a34a' },
+            });
+        } catch (error) {
+            const message = error.message || 'Failed to update selling price.';
+            setErrorMessage(message);
+            toast.error(message, {
+                style: { color: '#dc2626' },
+            });
+        } finally {
+            setSavingSellingPriceIds((previous) => previous.filter((id) => id !== stock.id));
+        }
+    };
+
     return (
         <div className="space-y-5">
             {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
@@ -175,6 +231,10 @@ export default function Stock() {
                     onRequestDelete={setStockToDelete}
                     deletingId={deletingId}
                     isLoading={isLoading}
+                    sellingPriceDrafts={sellingPriceDrafts}
+                    savingSellingPriceIds={savingSellingPriceIds}
+                    onSellingPriceChange={handleSellingPriceChange}
+                    onSaveSellingPrice={handleSaveSellingPrice}
                 />
             </div>
 

@@ -10,6 +10,8 @@ import { createStock } from './api';
 const initialForm = {
     product_id: '',
     stocks: '',
+    buying_price: '',
+    selling_price: '',
     warehouse_id: '',
     cartoon_id: '',
     barcode: '',
@@ -18,6 +20,8 @@ const initialForm = {
 function validateForm(form) {
     const productId = Number(form.product_id);
     const stockValue = Number(form.stocks);
+    const buyingPrice = Number(form.buying_price);
+    const sellingPrice = form.selling_price === '' ? 0 : Number(form.selling_price);
     const warehouseId = form.warehouse_id === '' ? null : Number(form.warehouse_id);
     const cartoonId = form.cartoon_id === '' ? null : Number(form.cartoon_id);
     const barcode = form.barcode.trim();
@@ -29,6 +33,14 @@ function validateForm(form) {
 
     if (!Number.isInteger(stockValue) || stockValue < 0) {
         validationErrors.stocks = ['Stocks must be a non-negative integer.'];
+    }
+
+    if (Number.isNaN(buyingPrice) || buyingPrice < 0) {
+        validationErrors.buying_price = ['Buying price must be 0 or greater.'];
+    }
+
+    if (Number.isNaN(sellingPrice) || sellingPrice < 0) {
+        validationErrors.selling_price = ['Selling price must be 0 or greater.'];
     }
 
     if (warehouseId !== null && (!Number.isInteger(warehouseId) || warehouseId <= 0)) {
@@ -94,6 +106,8 @@ export default function AddStock() {
             await createStock({
                 product_id: Number(form.product_id),
                 stocks: Number(form.stocks),
+                buying_price: Number(form.buying_price),
+                selling_price: form.selling_price === '' ? 0 : Number(form.selling_price),
                 warehouse_id: form.warehouse_id === '' ? null : Number(form.warehouse_id),
                 cartoon_id: form.cartoon_id === '' ? null : Number(form.cartoon_id),
                 barcode: form.barcode.trim() ? form.barcode.split(',').map((b) => b.trim()).filter(Boolean) : null,

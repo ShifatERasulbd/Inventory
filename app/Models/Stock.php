@@ -14,6 +14,8 @@ class Stock extends Model
     protected $fillable = [
         'product_id',
         'stocks',
+        'buying_price',
+        'selling_price',
         'warehouse_id',
         'cartoon_id',
         'barcode',
@@ -22,6 +24,8 @@ class Stock extends Model
     protected $casts = [
         'stocks' => 'integer',
         'barcode' => 'array',
+        'buying_price' => 'decimal:2',
+        'selling_price' => 'decimal:2',
     ];
 
     public function product(): BelongsTo

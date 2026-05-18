@@ -19,7 +19,19 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAppContext } from '@/context/AppContext';
 
-export function StockTable({ stocks = [], onAddStock, onDeductStock, onEdit, onRequestDelete, deletingId, isLoading }) {
+export function StockTable({
+    stocks = [],
+    onAddStock,
+    onDeductStock,
+    onEdit,
+    onRequestDelete,
+    deletingId,
+    isLoading,
+    sellingPriceDrafts = {},
+    savingSellingPriceIds = [],
+    onSellingPriceChange,
+    onSaveSellingPrice,
+}) {
     const [search, setSearch] = useState('');
     const { user } = useAppContext();
     const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
@@ -32,7 +44,7 @@ export function StockTable({ stocks = [], onAddStock, onDeductStock, onEdit, onR
         );
     });
 
-    const columnCount = isSuperAdmin ? 7 : 6;
+    const columnCount = isSuperAdmin ? 9 : 8;
 
     return (
         <>
@@ -58,6 +70,8 @@ export function StockTable({ stocks = [], onAddStock, onDeductStock, onEdit, onR
                             <TableHead>Size</TableHead>
                             {isSuperAdmin && <TableHead>Warehouse Name</TableHead>}
                             <TableHead>Available Stock</TableHead>
+                            <TableHead>Buying Price</TableHead>
+                            <TableHead>Selling Price</TableHead>
                             <TableHead className="w-[160px]">Action</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -96,6 +110,25 @@ export function StockTable({ stocks = [], onAddStock, onDeductStock, onEdit, onR
                                     <TableCell>{stock.size || 'N/A'}</TableCell>
                                     {isSuperAdmin && <TableCell>{stock.warehouse_name || `Warehouse #${stock.warehouse_id ?? 'N/A'}`}</TableCell>}
                                     <TableCell>{Number(stock.available_stock ?? 0)}</TableCell>
+                                    <TableCell>{Number(stock.buying_price ?? 0).toFixed(2)}</TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                className="h-8 w-24"
+                                                inputMode="decimal"
+                                                value={String(sellingPriceDrafts[stock.id] ?? stock.selling_price ?? 0)}
+                                                onChange={(event) => onSellingPriceChange?.(stock.id, event.target.value)}
+                                            />
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={() => onSaveSellingPrice?.(stock)}
+                                                disabled={savingSellingPriceIds.includes(stock.id)}
+                                            >
+                                                {savingSellingPriceIds.includes(stock.id) ? 'Saving...' : 'Save'}
+                                            </Button>
+                                        </div>
+                                    </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
                                           <TooltipProvider>

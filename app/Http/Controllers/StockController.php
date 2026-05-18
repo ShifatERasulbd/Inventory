@@ -75,6 +75,8 @@ class StockController extends Controller
                 'barcode' => $stock->barcode,
                 'stocks' => (int) ($stock->stocks ?? 0),
                 'available_stock' => (int) ($stock->stocks ?? 0),
+                'buying_price' => (float) ($stock->buying_price ?? 0),
+                'selling_price' => (float) ($stock->selling_price ?? 0),
                 'name' => $stock->product?->name,
                 'size' => $stock->product?->size?->size,
                 'color_variant' => $stock->product?->color?->color_code
@@ -90,6 +92,8 @@ class StockController extends Controller
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'stocks' => ['required_without:available_stock', 'integer', 'min:0'],
             'available_stock' => ['required_without:stocks', 'integer', 'min:0'],
+            'buying_price' => ['required', 'numeric', 'min:0'],
+            'selling_price' => ['nullable', 'numeric', 'min:0'],
             'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
             'cartoon_id' => ['nullable', 'integer', 'exists:cartoons,id'],
             'barcode' => ['nullable'],
@@ -103,6 +107,8 @@ class StockController extends Controller
         $stock = Stock::query()->create([
             'product_id' => $validated['product_id'],
             'stocks' => $stockCount,
+            'buying_price' => (float) $validated['buying_price'],
+            'selling_price' => (float) ($validated['selling_price'] ?? 0),
             'warehouse_id' => $validated['warehouse_id'] ?? null,
             'cartoon_id' => $validated['cartoon_id'] ?? null,
             'barcode' => count($barcodes) > 0 ? $barcodes : null,
@@ -117,6 +123,8 @@ class StockController extends Controller
             'barcode' => $stock->barcode,
             'stocks' => (int) ($stock->stocks ?? 0),
             'available_stock' => (int) ($stock->stocks ?? 0),
+            'buying_price' => (float) ($stock->buying_price ?? 0),
+            'selling_price' => (float) ($stock->selling_price ?? 0),
             'name' => $stock->product?->name,
             'size' => $stock->product?->size?->size,
             'color_variant' => $stock->product?->color?->color_code
@@ -136,6 +144,8 @@ class StockController extends Controller
             'barcode' => $stock->barcode,
             'stocks' => (int) ($stock->stocks ?? 0),
             'available_stock' => (int) ($stock->stocks ?? 0),
+            'buying_price' => (float) ($stock->buying_price ?? 0),
+            'selling_price' => (float) ($stock->selling_price ?? 0),
             'name' => $stock->product?->name,
             'size' => $stock->product?->size?->size,
             'color_variant' => $stock->product?->color?->color_code
@@ -149,6 +159,8 @@ class StockController extends Controller
             'product_id' => ['sometimes', 'required', 'integer', 'exists:products,id'],
             'stocks' => ['sometimes', 'required', 'integer', 'min:0'],
             'available_stock' => ['sometimes', 'required', 'integer', 'min:0'],
+            'buying_price' => ['sometimes', 'required', 'numeric', 'min:0'],
+            'selling_price' => ['sometimes', 'required', 'numeric', 'min:0'],
             'warehouse_id' => ['sometimes', 'nullable', 'integer', 'exists:warehouses,id'],
             'cartoon_id' => ['sometimes', 'nullable', 'integer', 'exists:cartoons,id'],
             'barcode' => ['sometimes', 'nullable'],
@@ -240,6 +252,8 @@ class StockController extends Controller
             $stock->update([
                 'product_id'   => array_key_exists('product_id', $validated) ? $validated['product_id'] : $stock->product_id,
                 'stocks'       => $stocksValue,
+                'buying_price' => array_key_exists('buying_price', $validated) ? (float) $validated['buying_price'] : $stock->buying_price,
+                'selling_price' => array_key_exists('selling_price', $validated) ? (float) $validated['selling_price'] : $stock->selling_price,
                 'warehouse_id' => array_key_exists('warehouse_id', $validated) ? $validated['warehouse_id'] : $stock->warehouse_id,
                 'cartoon_id'   => array_key_exists('cartoon_id', $validated) ? $validated['cartoon_id'] : $stock->cartoon_id,
                 'barcode'      => $barcodeValue,
@@ -261,6 +275,8 @@ class StockController extends Controller
             'barcode' => $stock->barcode,
             'stocks' => (int) ($stock->stocks ?? 0),
             'available_stock' => (int) ($stock->stocks ?? 0),
+            'buying_price' => (float) ($stock->buying_price ?? 0),
+            'selling_price' => (float) ($stock->selling_price ?? 0),
             'name' => $stock->product?->name,
             'size' => $stock->product?->size?->size,
             'color_variant' => $stock->product?->color?->color_code
