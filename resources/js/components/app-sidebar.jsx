@@ -20,6 +20,7 @@ import {
     Shield,
     ChartBarDecreasing,
     ScanBarcode,
+    Key,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -79,6 +80,7 @@ const ProductionItems=[
 const userAccessItems=[
      { title: 'User', icon: Users, path: '/users', permission: 'manage-users' },
      { title: 'Role', icon: Shield, path: '/roles', permission: 'manage-roles' },
+    { title: 'API Users', icon: Key, path: '/api-user', permission: 'manage-users', superAdminOnly: true },
 ]
 
 export function AppSidebar(props) {
@@ -100,7 +102,7 @@ export function AppSidebar(props) {
     const visibleHomeItems = homeItems.filter((item) => canAccess(item.permission));
     const visibleLocationItems=locationItems.filter((item)=>canAccess(item.permission));
     const visibleStrorageItems=StrorageItems.filter((item)=>canAccess(item.permission));
-    const visibleuserAccessItems=userAccessItems.filter((item)=>canAccess(item.permission));
+    const visibleuserAccessItems=userAccessItems.filter((item)=>canAccess(item.permission) && (!item.superAdminOnly || isSuperAdmin));
     const visibleProductionItems=ProductionItems.filter((item)=>canAccess(item.permission));
     const visibleRetailItems=RetailItems.filter((item)=>canAccess(item.permission));
     

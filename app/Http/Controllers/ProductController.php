@@ -169,7 +169,7 @@ class ProductController extends Controller
             'gallery_images' => ['nullable', 'array', 'max:8'],
             'gallery_images.*' => ['image', 'max:3072'],
         ]);
-
+    
         $colorIds = collect($validated['color_ids'] ?? [])->filter()->unique()->values()->all();
         $sizeIds = collect($validated['size_ids'] ?? [])->filter()->unique()->values()->all();
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ApiKeyController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\RetailController;
@@ -36,6 +37,14 @@ Route::prefix('api')->group(function () {
         Route::get('/user', [UserController::class, 'me']);
 
         Route::post('/logout', [AuthController::class, 'logout']);
+
+        Route::middleware('super-admin')->prefix('/access-keys')->group(function () {
+            Route::get('/', [ApiKeyController::class, 'index']);
+            Route::post('/', [ApiKeyController::class, 'store']);
+            Route::get('/{token}', [ApiKeyController::class, 'show']);
+            Route::delete('/{token}', [ApiKeyController::class, 'destroy']);
+        });
+
         // Country Controller
         Route::get('/countries/trashed', [CountryController::class, 'trashed']);
         Route::post('/countries/{id}/restore', [CountryController::class, 'restore']);
@@ -120,5 +129,5 @@ Route::prefix('api')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/{path}', function () {
         return view('app');
-    })->where('path', '^(?!api).*$');
+    })->where('path', '^(?!api\/).*$');
 });
