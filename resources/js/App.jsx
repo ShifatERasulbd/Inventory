@@ -102,6 +102,7 @@ const Cartoon =lazyWithRetry(()=>import('@/pages/Cartoon/cartoon'),'cartoon');
 const AddCartoon = lazyWithRetry(() => import('@/pages/Cartoon/addCartoon'), 'cartoon-add');
 const EditCartoon= lazyWithRetry(() => import('@/pages/Cartoon/editCartoon'), 'cartoon-edit');
 const CartoonTracking = lazyWithRetry(() => import('@/pages/CartoonTracking/cartoonTracking'), 'cartoon-tracking');
+const ReceivedCartoons = lazyWithRetry(() => import('@/pages/ReceivedCartoons/receivedCartoons'), 'received-cartoons');
 
 // Stock
 const Stock =lazyWithRetry(()=>import('@/pages/Stock/stock'),'stock');
@@ -227,6 +228,7 @@ export default function App() {
                             <Route path="/cartoons/add" element={<AddCartoon/>}/>
                             <Route path="/cartoons/:id/edit" element={<EditCartoon/>}/>
                             <Route path="/cartoon-tracking" element={<CartoonTracking/>}/>
+                            <Route path="/received-cartoons" element={<ReceivedCartoons/>}/>
 
                             {/* Stocks */}
                              <Route path="/stocks" element={<Stock/>}/>

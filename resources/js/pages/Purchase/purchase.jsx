@@ -146,6 +146,9 @@ export default function Purchase() {
 
     const handleUpdateStatus = async (id, currentStatus) => {
         const nextStatus = statusDrafts[id] ?? currentStatus;
+        const isShippedToReceived =
+            String(currentStatus).toLowerCase() === 'shipped' &&
+            String(nextStatus).toLowerCase() === 'received';
 
         if (String(nextStatus).toLowerCase() === String(currentStatus).toLowerCase()) {
             toast.info('Please select a different status before updating.');
@@ -166,6 +169,10 @@ export default function Purchase() {
             toast.success('Purchase status updated successfully.', {
                 style: { color: '#16a34a' },
             });
+
+            if (isShippedToReceived) {
+                navigate(`/received-cartoons?purchase_id=${id}`);
+            }
         } catch (error) {
             toast.error(error.message || 'Failed to update purchase status.', {
                 style: { color: '#dc2626' },

@@ -422,7 +422,6 @@ class PurchaseController extends Controller
 
         $this->syncApprovedPurchaseToSellAndStock($purchase);
         $this->syncReceivedPurchaseToCartoonWarehouse($purchase);
-        $this->syncReceivedPurchaseToDestinationStock($purchase, $previousStatus);
 
         $purchase->load([
             'purchaseFromWarehouse:id,name',
@@ -475,7 +474,6 @@ class PurchaseController extends Controller
 
         $this->syncApprovedPurchaseToSellAndStock($purchase);
         $this->syncReceivedPurchaseToCartoonWarehouse($purchase);
-        $this->syncReceivedPurchaseToDestinationStock($purchase, null);
 
         $purchase->load([
             'purchaseFromWarehouse:id,name',
@@ -568,7 +566,6 @@ class PurchaseController extends Controller
 
         $this->syncApprovedPurchaseToSellAndStock($purchase);
         $this->syncReceivedPurchaseToCartoonWarehouse($purchase);
-        $this->syncReceivedPurchaseToDestinationStock($purchase, $previousStatus);
 
         $purchase->load([
             'purchaseFromWarehouse:id,name',

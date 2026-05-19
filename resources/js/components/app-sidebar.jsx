@@ -53,6 +53,7 @@ const StrorageItems = [
     { title: 'Rack', icon: ChartBarDecreasing, path: '/racks', permission: 'read-racks' },
     { title: 'Stock', icon: Boxes, path: '/stocks', permission: 'read-stocks' },
     { title: 'Purchase Order', icon: CreditCard, path: '/purchases', permission: 'read-purchases' },
+    { title: 'Received Cartoons', icon: ScanBarcode, path: '/received-cartoons', permission: 'read-cartoons' },
     { title: 'Purchase Request', icon: ClipboardPlus, path: '/purchase-requests', permission: 'read-purchases' },
     { title: 'Sell', icon: Banknote, path: '/sells', permission: 'read-sales' },
 ];

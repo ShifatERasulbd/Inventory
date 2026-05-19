@@ -16,10 +16,13 @@ class Cartoon extends Model
         'rack_id',
         'rack_row_id',
         'warehouse_id',
+        'received_to_stock_at',
+        'received_to_stock_by',
     ];
 
     protected $casts = [
         'product_code' => 'array',
+        'received_to_stock_at' => 'datetime',
     ];
 
     public function purchase(){

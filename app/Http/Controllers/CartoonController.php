@@ -76,6 +76,8 @@ class CartoonController extends Controller
             'rack_id' => $cartoon->rack_id,
             'rack_row_id' => $cartoon->rack_row_id,
             'warehouse_id' => $cartoon->warehouse_id,
+            'received_to_stock_at' => $cartoon->received_to_stock_at,
+            'received_to_stock_by' => $cartoon->received_to_stock_by,
             'created_at' => $cartoon->created_at,
             'updated_at' => $cartoon->updated_at,
             'warehouse' => $cartoon->warehouse ? [
@@ -106,6 +108,25 @@ class CartoonController extends Controller
     private function formatSingleCartoon(Cartoon $cartoon): array
     {
         return $this->formatCartoonCollection([$cartoon])[0];
+    }
+
+    private function buildPurchasePriceMap(?array $items): array
+    {
+        $map = [];
+
+        foreach (is_array($items) ? $items : [] as $item) {
+            $productId = (int) ($item['product_id'] ?? 0);
+            if ($productId <= 0) {
+                continue;
+            }
+
+            $map[$productId] = [
+                'purchase_price' => (float) ($item['purchase_price'] ?? 0),
+                'selling_price' => (float) ($item['selling_price'] ?? 0),
+            ];
+        }
+
+        return $map;
     }
 
     private function extractPurchaseProductIds(Cartoon $cartoon): array
@@ -343,6 +364,186 @@ class CartoonController extends Controller
         return response()->json(
             $this->formatCartoonCollection($query->orderBy('id')->get())
         );
+    }
+
+    public function receivedQueue(Request $request): JsonResponse
+    {
+        $query = Cartoon::query()
+            ->with(['purchase', 'warehouse'])
+            ->whereNull('received_to_stock_at')
+            ->whereNotNull('product_code')
+            ->whereHas('purchase', function ($purchaseQuery) {
+                $purchaseQuery->whereRaw('LOWER(status) = ?', ['received']);
+            });
+
+        if (! $request->user()?->hasRole('super-admin')) {
+            $warehouseIds = $this->getUserWarehouseIds($request);
+
+            if ($warehouseIds === []) {
+                return response()->json([]);
+            }
+
+            $query->whereIn('warehouse_id', $warehouseIds);
+        }
+
+        $purchaseId = $request->query('purchase_id');
+        if (is_numeric($purchaseId)) {
+            $query->where('p_o_number', (int) $purchaseId);
+        }
+
+        return response()->json(
+            $this->formatCartoonCollection($query->orderByDesc('id')->get())
+        );
+    }
+
+    public function receiveByScan(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'cartoon_number' => ['required', 'string', 'max:120'],
+        ]);
+
+        $cartoon = Cartoon::query()
+            ->with(['purchase', 'warehouse'])
+            ->where('cartoon_number', trim($validated['cartoon_number']))
+            ->first();
+
+        if (! $cartoon) {
+            return response()->json([
+                'message' => 'Cartoon not found for scanned barcode.',
+            ], 404);
+        }
+
+        if (! $this->canAccessCartoon($request, $cartoon)) {
+            return response()->json([
+                'message' => 'You do not have permission to receive this cartoon.',
+            ], 403);
+        }
+
+        if ($cartoon->received_to_stock_at) {
+            return response()->json([
+                'message' => 'This cartoon has already been received to stock.',
+            ], 422);
+        }
+
+        $purchase = $cartoon->purchase;
+        if (! $purchase || strtolower((string) $purchase->status) !== 'received') {
+            return response()->json([
+                'message' => 'Cartoon can be received only after purchase status is received.',
+            ], 422);
+        }
+
+        $warehouseId = (int) ($cartoon->warehouse_id ?? $purchase->purchase_to ?? 0);
+        if ($warehouseId <= 0) {
+            return response()->json([
+                'message' => 'Destination warehouse could not be resolved for this cartoon.',
+            ], 422);
+        }
+
+        $codes = $this->normalizeCodes($cartoon->product_code);
+        if ($codes === []) {
+            return response()->json([
+                'message' => 'No scanned product barcodes found in this cartoon.',
+            ], 422);
+        }
+
+        $purchaseItems = is_array($purchase->products) ? $purchase->products : [];
+        $allowedProductIds = collect($purchaseItems)
+            ->map(fn ($item) => (int) ($item['product_id'] ?? 0))
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($allowedProductIds === []) {
+            return response()->json([
+                'message' => 'No products found in related purchase for this cartoon.',
+            ], 422);
+        }
+
+        $priceMap = $this->buildPurchasePriceMap($purchaseItems);
+
+        $productsByBarcode = Product::query()
+            ->whereIn('barCode', $codes)
+            ->get(['id', 'barCode'])
+            ->groupBy('barCode');
+
+        $counts = [];
+        $codesByProduct = [];
+        $unmatchedCodes = [];
+
+        foreach ($codes as $code) {
+            $matches = $productsByBarcode->get($code, collect());
+
+            $product = $matches->first(function ($item) use ($allowedProductIds) {
+                return in_array((int) $item->id, $allowedProductIds, true);
+            });
+
+            if (! $product) {
+                $unmatchedCodes[] = $code;
+                continue;
+            }
+
+            $productId = (int) $product->id;
+            $counts[$productId] = ($counts[$productId] ?? 0) + 1;
+            $codesByProduct[$productId][] = $code;
+        }
+
+        if ($unmatchedCodes !== []) {
+            return response()->json([
+                'message' => 'Some scanned product barcodes do not match purchase products.',
+                'errors' => [
+                    'product_code' => [
+                        'Unmatched barcode(s): ' . implode(', ', $unmatchedCodes),
+                    ],
+                ],
+            ], 422);
+        }
+
+        DB::transaction(function () use ($counts, $codesByProduct, $priceMap, $warehouseId, $cartoon, $request) {
+            foreach ($counts as $productId => $quantity) {
+                $incomingCodes = $codesByProduct[$productId] ?? [];
+                $prices = $priceMap[$productId] ?? ['purchase_price' => 0, 'selling_price' => 0];
+
+                $stock = Stock::query()
+                    ->where('product_id', $productId)
+                    ->where('warehouse_id', $warehouseId)
+                    ->whereNull('cartoon_id')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $stock) {
+                    Stock::query()->create([
+                        'product_id' => $productId,
+                        'warehouse_id' => $warehouseId,
+                        'stocks' => $quantity,
+                        'buying_price' => (float) ($prices['purchase_price'] ?? 0),
+                        'selling_price' => (float) ($prices['selling_price'] ?? 0),
+                        'cartoon_id' => null,
+                        'barcode' => $incomingCodes !== [] ? array_values($incomingCodes) : null,
+                    ]);
+                    continue;
+                }
+
+                $existing = is_array($stock->barcode) ? $stock->barcode : [];
+                $stock->update([
+                    'stocks' => ((int) $stock->stocks) + $quantity,
+                    'buying_price' => (float) ($prices['purchase_price'] ?? 0),
+                    'selling_price' => (float) ($prices['selling_price'] ?? 0),
+                    'barcode' => array_values(array_merge($existing, $incomingCodes)),
+                ]);
+            }
+
+            $cartoon->update([
+                'warehouse_id' => $warehouseId,
+                'received_to_stock_at' => now(),
+                'received_to_stock_by' => $request->user()?->id,
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Cartoon received and stock updated successfully.',
+            'cartoon' => $this->formatSingleCartoon($cartoon->fresh()->load(['purchase', 'warehouse'])),
+        ]);
     }
 
     public function tracking(Request $request): JsonResponse

@@ -94,6 +94,8 @@ Route::prefix('api')->group(function () {
 
         // Cartoon Controller
         Route::get('/cartoon-tracking', [CartoonController::class, 'tracking'])->middleware('resource.permission:cartoons');
+        Route::get('/received-cartoons', [CartoonController::class, 'receivedQueue'])->middleware('resource.permission:cartoons');
+        Route::post('/received-cartoons/scan', [CartoonController::class, 'receiveByScan'])->middleware('resource.permission:stocks');
         Route::apiResource('/cartoons', CartoonController::class)->middleware('resource.permission:cartoons');
         Route::post('/cartoons/{cartoon}/adjust-quantity', [CartoonController::class, 'adjustQuantity'])->middleware('resource.permission:cartoons');
         Route::post('/cartoons/{cartoon}/assign-rack', [CartoonController::class, 'assignRack'])->middleware('resource.permission:cartoons');
