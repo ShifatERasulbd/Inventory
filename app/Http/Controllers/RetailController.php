@@ -78,12 +78,15 @@ class RetailController extends Controller
             return response()->json(['message' => 'Product not found for this barcode.'], 404);
         }
 
-        // Get latest selling price from sells table
+        // Prefer stock-level selling price for POS scans.
+        // Fallback to latest sell price if stock price is missing/zero.
+        $stockSellingPrice = (float) ($stock->selling_price ?? 0);
         $latestSell = Sell::query()
             ->where('product_id', $stock->product_id)
             ->whereNotNull('selling_price')
             ->orderByDesc('id')
             ->value('selling_price');
+        $unitPrice = $stockSellingPrice > 0 ? $stockSellingPrice : (float) ($latestSell ?? 0);
 
         // Get available cartoons for this product in the warehouse
         $cartoons = Cartoon::query()
@@ -116,7 +119,7 @@ class RetailController extends Controller
             'available_stock' => (int) $stock->stocks,
             'warehouse_id'   => $stock->warehouse_id,
             'warehouse_name' => $stock->warehouse?->name,
-            'unit_price'     => $latestSell ? (float) $latestSell : 0.00,
+            'unit_price'     => $unitPrice,
             'cartoons'       => $cartoons,
         ]);
     }

@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 
 class PublicStockController extends Controller
 {
+
+// public data access with API key having 'stocks:read' permission and optional 'warehouse:{id}' abilities for warehouse filtering
     public function index(Request $request): JsonResponse
     {
 
@@ -97,6 +99,9 @@ class PublicStockController extends Controller
             'warehouse_name' => $stock->warehouse?->name,
             'size' => $stock->product?->size?->size,
             'color_variant' => $stock->product?->color?->color_code ?? $stock->product?->color?->name,
+            
+            'selling_price' => (float) ($stock->selling_price ?? 0),
+            
             'stocks' => (int) ($stock->stocks ?? 0),
             'available_stock' => (int) ($stock->stocks ?? 0),
             'barcode' => $stock->barcode,

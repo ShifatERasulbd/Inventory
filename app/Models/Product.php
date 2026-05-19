@@ -137,6 +137,7 @@ class Product extends Model
 
         $normalized = str_replace('\\', '/', trim($path));
         $normalized = preg_replace('#^public/#', '', $normalized) ?? $normalized;
+        $normalized = preg_replace('#^/?storage/#', '', $normalized) ?? $normalized;
 
         return $normalized;
         }

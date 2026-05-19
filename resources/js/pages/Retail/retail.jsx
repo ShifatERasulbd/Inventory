@@ -212,6 +212,44 @@ export default function RetailPOS() {
         setCart([]);
     };
 
+    const filteredWarehouseCartoons = (() => {
+        if (cart.length === 0) {
+            return warehouseCartoons;
+        }
+
+        const cartoonIdSets = cart
+            .map((item) => new Set((item.cartoons || []).map((c) => Number(c.id)).filter((id) => Number.isInteger(id) && id > 0)))
+            .filter((set) => set.size > 0);
+
+        if (cartoonIdSets.length !== cart.length) {
+            return [];
+        }
+
+        const intersection = [...cartoonIdSets[0]].filter((id) => (
+            cartoonIdSets.every((set) => set.has(id))
+        ));
+
+        if (intersection.length === 0) {
+            return [];
+        }
+
+        return warehouseCartoons.filter((cartoon) => intersection.includes(Number(cartoon.id)));
+    })();
+
+    useEffect(() => {
+        if (selectedWarehouseCartoon === 'none') {
+            return;
+        }
+
+        const stillAvailable = filteredWarehouseCartoons.some(
+            (cartoon) => String(cartoon.id) === selectedWarehouseCartoon
+        );
+
+        if (!stillAvailable) {
+            setSelectedWarehouseCartoon('none');
+        }
+    }, [filteredWarehouseCartoons, selectedWarehouseCartoon]);
+
     const subtotal = cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
 
     const handleCheckout = async () => {
@@ -422,13 +460,18 @@ export default function RetailPOS() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">No cartoon (stock only)</SelectItem>
-                                {warehouseCartoons.map((cartoon) => (
+                                {filteredWarehouseCartoons.map((cartoon) => (
                                     <SelectItem key={cartoon.id} value={String(cartoon.id)}>
                                         {cartoon.cartoon_number} (Qty: {Number(cartoon.quantity || 0)})
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
+                        {cart.length > 0 && filteredWarehouseCartoons.length === 0 && (
+                            <p className="text-xs text-muted-foreground">
+                                No common cartoon contains all products currently in cart.
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-1.5">

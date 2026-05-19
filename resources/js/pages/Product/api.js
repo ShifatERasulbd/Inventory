@@ -114,7 +114,7 @@ export async function createProducts(data) {
     });
 }
 
-export async function updateProducts(id, data) {
+export async function updateProducts(id, data, options = {}) {
     await ensureCsrfCookie();
 
     const formData = new FormData();
@@ -149,7 +149,9 @@ export async function updateProducts(id, data) {
         }
     });
 
-    return requestJson(`/api/products/${id}`, {
+    const query = options?.variantOnly ? '?variant_only=1' : '';
+
+    return requestJson(`/api/products/${id}${query}`, {
         method: 'POST',
         body: formData,
     });

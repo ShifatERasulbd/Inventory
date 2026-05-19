@@ -22,6 +22,7 @@ class ProductController extends Controller
 
         $normalized = str_replace('\\', '/', trim($path));
         $normalized = preg_replace('#^public/#', '', $normalized) ?? $normalized;
+        $normalized = preg_replace('#^/?storage/#', '', $normalized) ?? $normalized;
 
         return $normalized;
     }
@@ -289,6 +290,8 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product): JsonResponse
     {
+        $variantOnly = $request->boolean('variant_only');
+
         $validated = $request->validate([
             'brand_id' => ['required', 'integer', 'exists:brands,id'],
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
@@ -368,6 +371,19 @@ class ProductController extends Controller
         $colorIds = collect($validated['color_ids'] ?? [])->filter()->unique()->map(fn ($value) => (int) $value)->values()->all();
         $sizeIds = collect($validated['size_ids'] ?? [])->filter()->unique()->map(fn ($value) => (int) $value)->values()->all();
 
+        $targetProductIds = $variantOnly
+            ? [(int) $product->id]
+            : $this->styleGroupQuery($product)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->values()
+                ->all();
+
+        if ($targetProductIds === []) {
+            $targetProductIds = [(int) $product->id];
+        }
+
         // Decode barcode map sent as JSON string from FormData.
         $decodedBarcodes = json_decode($validated['barcodes'] ?? '', true);
         $barcodesMap = is_array($decodedBarcodes) ? $decodedBarcodes : [];
@@ -410,12 +426,26 @@ class ProductController extends Controller
             $validated['barcodes']
         );
 
-        DB::transaction(function () use ($product, $sharedAttributes, $primaryColorId, $primarySizeId, $barcodesMap, $primaryBarcodeKey, $colorIds, $sizeIds) {
-            $product->update(array_merge($sharedAttributes, [
-                'color_id' => $primaryColorId,
-                'size_id' => $primarySizeId,
-                'barCode' => $barcodesMap[$primaryBarcodeKey] ?? $product->barCode,
-            ]));
+        DB::transaction(function () use ($variantOnly, $product, $targetProductIds, $sharedAttributes, $primaryColorId, $primarySizeId, $barcodesMap, $primaryBarcodeKey, $colorIds, $sizeIds) {
+            $productsToUpdate = Product::query()
+                ->whereIn('id', $targetProductIds)
+                ->get();
+
+            foreach ($productsToUpdate as $item) {
+                $colorId = $variantOnly ? $primaryColorId : (int) ($item->color_id ?? 0);
+                $sizeId = $variantOnly ? $primarySizeId : (int) ($item->size_id ?? 0);
+                $pairKey = "{$colorId}_{$sizeId}";
+
+                $item->update(array_merge($sharedAttributes, [
+                    'color_id' => $colorId > 0 ? $colorId : $primaryColorId,
+                    'size_id' => $sizeId > 0 ? $sizeId : $primarySizeId,
+                    'barCode' => $barcodesMap[$pairKey] ?? $item->barCode ?? ($barcodesMap[$primaryBarcodeKey] ?? null),
+                ]));
+            }
+
+            if ($variantOnly) {
+                return;
+            }
 
             $existingPairs = Product::query()
                 ->where('brand_id', $sharedAttributes['brand_id'])

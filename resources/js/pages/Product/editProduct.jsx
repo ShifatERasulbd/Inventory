@@ -409,7 +409,7 @@ export default function EditProduct() {
                 gallery_images: form.gallery_images,
                 remove_cover_image: removeCoverImage,
                 remove_gallery_images: removeGalleryImages,
-            });
+            }, { variantOnly });
 
             toast.success('Product updated successfully.', {
                 style: { color: '#16a34a' },

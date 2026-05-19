@@ -50,27 +50,29 @@ curl -H "Authorization: Bearer your_api_key_here" http://localhost:8000/api/publ
 
 **Response**: `200 OK`
 ```json
-[
-  {
-    "id": 1,
-    "product_id": 5,
-    "warehouse_id": 4,
-    "quantity": 150,
-    "created_at": "2026-05-17T10:00:00Z",
-    "updated_at": "2026-05-17T12:30:00Z",
-    "product": {
-      "id": 5,
-      "name": "T-Shirt Blue",
-      "sku": "TSH-BLUE-001",
-      "color_name": "Blue",
-      "size": "L"
-    },
-    "warehouse": {
-      "id": 4,
-      "name": "Toronto Warehouse"
+{
+  "data": [
+    {
+      "id": 1,
+      "product_id": 5,
+      "product_name": "T-Shirt Blue",
+      "product_color_name": "Blue",
+      "product_size": "L",
+      "warehouse_id": 4,
+      "warehouse_name": "Toronto Warehouse",
+      "price": 59.99,
+      "selling_price": 59.99,
+      "buying_price": 34.5,
+      "stocks": 150,
+      "available_stock": 150,
+      "barcode": ["ABC-123"],
+      "updated_at": "2026-05-17T12:30:00Z"
     }
+  ],
+  "meta": {
+    "allowed_warehouse_ids": [4]
   }
-]
+}
 ```
 
 **Error Response**: `401 Unauthorized`
