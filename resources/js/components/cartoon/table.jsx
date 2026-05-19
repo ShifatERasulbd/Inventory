@@ -194,7 +194,10 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                                                             </TableRow>
                                                         </TableHeader>
                                                         <TableBody>
-                                                            {group.cartoons.map((cartoon, detailIndex) => (
+                                                            {group.cartoons.map((cartoon, detailIndex) => {
+                                                                const isShipped = String(cartoon.purchase?.status ?? '').toLowerCase() === 'shipped';
+
+                                                                return (
                                                                 <TableRow key={cartoon.id}>
                                                                     <TableCell className="text-right font-medium">{detailIndex + 1}</TableCell>
                                                                     <TableCell className="text-center">{cartoon.cartoon_number}</TableCell>
@@ -239,6 +242,7 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                                                                                             size="icon"
                                                                                             aria-label={`Edit ${cartoon.cartoon_number}`}
                                                                                             onClick={() => onEdit(cartoon.id)}
+                                                                                            disabled={isShipped}
                                                                                         >
                                                                                             <Pencil />
                                                                                         </Button>
@@ -257,7 +261,7 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                                                                                             size="icon"
                                                                                             aria-label={`Delete ${cartoon.cartoon_number}`}
                                                                                             onClick={() => onRequestDelete(cartoon)}
-                                                                                            disabled={deletingId === cartoon.id}
+                                                                                            disabled={deletingId === cartoon.id || isShipped}
                                                                                         >
                                                                                             <Trash2 className="text-destructive" />
                                                                                         </Button>
@@ -276,6 +280,7 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                                                                                             size="icon"
                                                                                             aria-label={`Add quantity for ${cartoon.cartoon_number}`}
                                                                                             onClick={() => onAddQuantity?.(cartoon)}
+                                                                                            disabled={isShipped}
                                                                                         >
                                                                                             <Plus />
                                                                                         </Button>
@@ -294,6 +299,7 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                                                                                             size="icon"
                                                                                             aria-label={`Deduct quantity for ${cartoon.cartoon_number}`}
                                                                                             onClick={() => onDeductQuantity?.(cartoon)}
+                                                                                            disabled={isShipped}
                                                                                         >
                                                                                             <Minus />
                                                                                         </Button>
@@ -326,7 +332,8 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                                                                         </div>
                                                                     </TableCell>
                                                                 </TableRow>
-                                                            ))}
+                                                                );
+                                                            })}
                                                         </TableBody>
                                                     </Table>
                                                 </div>

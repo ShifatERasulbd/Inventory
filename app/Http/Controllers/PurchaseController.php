@@ -65,14 +65,14 @@ class PurchaseController extends Controller
             return;
         }
 
-        if (! $purchase->purchase_to) {
+        if (! $purchase->purchase_form) {
             return;
         }
 
         Cartoon::query()
             ->where('p_o_number', $purchase->id)
             ->update([
-                'warehouse_id' => (int) $purchase->purchase_to,
+                'warehouse_id' => (int) $purchase->purchase_form,
             ]);
     }
 
