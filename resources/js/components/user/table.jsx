@@ -25,7 +25,12 @@ export default function UserTable({
     onRequestDelete,
     deletingId,
     isLoading,
+    canCreate = false,
+    canUpdate = false,
+    canDelete = false,
 }) {
+    const showActionColumn = canUpdate || canDelete;
+
     const [search, setSearch] = useState('');
     const filtered = users.filter((u) => {
         const q = search.toLowerCase();
@@ -49,10 +54,12 @@ export default function UserTable({
                     className="w-full pl-9"
                 />
             </div>
-            <Button className="gap-2" onClick={onAdd}>
-                <Plus />
-                Add User
-            </Button>
+            {canCreate && (
+                <Button className="gap-2" onClick={onAdd}>
+                    <Plus />
+                    Add User
+                </Button>
+            )}
         </div>
 
         <Card>
@@ -64,13 +71,13 @@ export default function UserTable({
                         <TableHead>Email</TableHead>
                         <TableHead>Warehouses</TableHead>
                         <TableHead>Roles</TableHead>
-                        <TableHead>Action</TableHead>
+                        {showActionColumn && <TableHead>Action</TableHead>}
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {isLoading && (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground">
+                            <TableCell colSpan={showActionColumn ? 6 : 5} className="text-center text-muted-foreground">
                                 Loading users...
                             </TableCell>
                         </TableRow>
@@ -78,7 +85,7 @@ export default function UserTable({
 
                     {!isLoading && users.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground">
+                            <TableCell colSpan={showActionColumn ? 6 : 5} className="text-center text-muted-foreground">
                                 No users found.
                             </TableCell>
                         </TableRow>
@@ -86,7 +93,7 @@ export default function UserTable({
 
                     {!isLoading && filtered.length === 0 && users.length > 0 && (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground">
+                            <TableCell colSpan={showActionColumn ? 6 : 5} className="text-center text-muted-foreground">
                                 No users match your search.
                             </TableCell>
                         </TableRow>
@@ -120,29 +127,33 @@ export default function UserTable({
                                             : <span className="text-muted-foreground">-</span>}
                                     </div>
                                 </TableCell>
+                                {showActionColumn && (
                                 <TableCell>
                                     <div className="flex items-center gap-2">
-                                          <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                     <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        aria-label={`Edit ${user.name}`}
-                                                        onClick={() => onEdit?.(user.id)}
-                                                    >
-                                                        <Pencil />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="bottom">
-                                                    <p>Edit</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                                        {canUpdate && (
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`Edit ${user.name}`}
+                                                            onClick={() => onEdit?.(user.id)}
+                                                        >
+                                                            <Pencil />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                        <p>Edit</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        )}
 
-                                         <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
+                                        {canDelete && (
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
@@ -152,16 +163,16 @@ export default function UserTable({
                                                         >
                                                             <Trash2 className="text-destructive" />
                                                         </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="bottom">
-                                                    <p>Delete</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                      
-                                      
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                        <p>Delete</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        )}
                                     </div>
                                 </TableCell>
+                                )}
                             </TableRow>
                         ))}
                 </TableBody>

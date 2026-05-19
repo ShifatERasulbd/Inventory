@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import EditForm from '@/components/role/editForm';
 import { useAppContext } from '@/context/AppContext';
 
-import { fetchRole, fetchPermissions, updateRole } from './api';
+import { fetchRole, fetchPermissionsByCategory, updateRole } from './api';
 
 const initialForm = {
     name: '',
@@ -22,7 +22,7 @@ export default function EditRole() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
-    const [permissions, setPermissions] = useState([]);
+    const [permissionsByCategory, setPermissionsByCategory] = useState([]);
 
     useEffect(() => {
         setPageTitle('Edit Role');
@@ -38,7 +38,7 @@ export default function EditRole() {
             try {
                 const [role, permissionsPayload] = await Promise.all([
                     fetchRole(id),
-                    fetchPermissions(),
+                    fetchPermissionsByCategory(),
                 ]);
 
                 if (!ignore) {
@@ -47,7 +47,7 @@ export default function EditRole() {
                         name: role?.name || '',
                         permissions: rolePermissionIds,
                     });
-                    setPermissions(Array.isArray(permissionsPayload) ? permissionsPayload : []);
+                    setPermissionsByCategory(Array.isArray(permissionsPayload) ? permissionsPayload : []);
                 }
             } catch (error) {
                 if (!ignore) {
@@ -164,7 +164,7 @@ export default function EditRole() {
                     onPermissionToggle={handlePermissionToggle}
                     onSubmit={handleSubmit}
                     onCancel={handleCancel}
-                    permissions={permissions}
+                    permissionsByCategory={permissionsByCategory}
                     isSubmitting={isSubmitting}
                     errors={errors}
                 />

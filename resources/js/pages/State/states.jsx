@@ -17,7 +17,7 @@ import { deleteState, fetchStates, fetchTrashedStates, restoreState } from './ap
 
 export default function States() {
     const navigate = useNavigate();
-    const { setPageTitle, user } = useAppContext();
+    const { setPageTitle, user, can } = useAppContext();
     const [states, setStates] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
@@ -27,6 +27,9 @@ export default function States() {
     const [restoringId, setRestoringId] = useState(null);
 
     const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
+    const canCreate = can('create', 'states');
+    const canUpdate = can('update', 'states');
+    const canDelete = can('delete', 'states');
     useEffect(() => {
         setPageTitle('States');
     }, [setPageTitle]);
@@ -125,6 +128,9 @@ export default function States() {
                     onRestore={handleRestore}
                     restoringId={restoringId}
                     isSuperAdmin={isSuperAdmin}
+                        canCreate={canCreate}
+                        canUpdate={canUpdate}
+                        canDelete={canDelete}
                 />
             </div>
 

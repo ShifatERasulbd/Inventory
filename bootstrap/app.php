@@ -5,6 +5,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\AuthenticateApiKey;
 use App\Http\Middleware\EnsureSuperAdmin;
+use App\Http\Middleware\CheckResourcePermission;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -16,8 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
         $middleware->alias([
-            'api-key' => AuthenticateApiKey::class,
-            'super-admin' => EnsureSuperAdmin::class,
+            'api-key'             => AuthenticateApiKey::class,
+            'super-admin'         => EnsureSuperAdmin::class,
+            'resource.permission' => CheckResourcePermission::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

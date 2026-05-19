@@ -19,12 +19,15 @@ import { deleteWarehouse, fetchWarehouses } from './api';
 
 export default function Warehouse() {
     const navigate = useNavigate();
-    const { setPageTitle } = useAppContext();
+    const { setPageTitle, can } = useAppContext();
     const [warehouses, setWarehouses] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
     const [deletingId, setDeletingId] = useState(null);
     const [warehouseToDelete, setWarehouseToDelete] = useState(null);
+    const canCreate = can('create', 'warehouses');
+    const canUpdate = can('update', 'warehouses');
+    const canDelete = can('delete', 'warehouses');
 
     useEffect(() => {
         setPageTitle('Warehouses');
@@ -102,6 +105,9 @@ export default function Warehouse() {
                     onAdd={() => navigate('/warehouses/add')}
                     onEdit={(id) => navigate(`/warehouses/${id}/edit`)}
                     onRequestDelete={setWarehouseToDelete}
+                    canCreate={canCreate}
+                    canUpdate={canUpdate}
+                    canDelete={canDelete}
                 />
                 </div>
 

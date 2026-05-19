@@ -19,12 +19,15 @@ import { deleteUser, fetchUsers } from './api';
 
 export default function Users() {
     const navigate = useNavigate();
-    const { setPageTitle } = useAppContext();
+    const { setPageTitle, can } = useAppContext();
     const [users, setUsers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
     const [deletingId, setDeletingId] = useState(null);
     const [userToDelete, setUserToDelete] = useState(null);
+    const canCreate = can('create', 'users');
+    const canUpdate = can('update', 'users');
+    const canDelete = can('delete', 'users');
 
     useEffect(() => {
         setPageTitle('Users');
@@ -100,6 +103,9 @@ export default function Users() {
                     onAdd={() => navigate('/users/add')}
                     onEdit={(id) => navigate(`/users/${id}/edit`)}
                     onRequestDelete={setUserToDelete}
+                    canCreate={canCreate}
+                    canUpdate={canUpdate}
+                    canDelete={canDelete}
                 />
                 </div>
 

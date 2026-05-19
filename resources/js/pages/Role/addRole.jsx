@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import AddForm from '@/components/role/addForm';
 import { useAppContext } from '@/context/AppContext';
 
-import { createRole, fetchPermissions } from './api';
+import { createRole, fetchPermissionsByCategory } from './api';
 
 const initialForm = {
     name: '',
@@ -21,7 +21,7 @@ export default function AddRole() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
-    const [permissions, setPermissions] = useState([]);
+    const [permissionsByCategory, setPermissionsByCategory] = useState([]);
 
     useEffect(() => {
         setPageTitle('Add Role');
@@ -35,9 +35,9 @@ export default function AddRole() {
             setLoadError('');
 
             try {
-                const data = await fetchPermissions();
+                const data = await fetchPermissionsByCategory();
                 if (!ignore) {
-                    setPermissions(Array.isArray(data) ? data : []);
+                    setPermissionsByCategory(Array.isArray(data) ? data : []);
                 }
             } catch (error) {
                 if (!ignore) {
@@ -154,7 +154,7 @@ export default function AddRole() {
                     onPermissionToggle={handlePermissionToggle}
                     onSubmit={handleSubmit}
                     onCancel={handleCancel}
-                    permissions={permissions}
+                    permissionsByCategory={permissionsByCategory}
                     isSubmitting={isSubmitting}
                     errors={errors}
                 />

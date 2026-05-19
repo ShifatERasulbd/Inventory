@@ -41,51 +41,48 @@ import { useAppContext } from '@/context/AppContext';
 
 const homeItems = [
     { title: 'Dashboard', icon: Gauge, path: '/dashboard', permission: 'view-dashboard' },
-   
 ];
 
-const locationItems=[
-    { title: 'Country', icon: Globe, path: '/countries', permission: 'manage-warehouses' },
-    { title: 'State', icon: Airplay, path: '/states', permission: 'manage-warehouses' },
-    { title: 'WareHouse', icon: BarChart3, path: '/warehouses', permission: 'manage-warehouses' },
-]
+const locationItems = [
+    { title: 'Country', icon: Globe, path: '/countries', permission: 'read-countries' },
+    { title: 'State', icon: Airplay, path: '/states', permission: 'read-states' },
+    { title: 'WareHouse', icon: BarChart3, path: '/warehouses', permission: 'read-warehouses' },
+];
 
-const StrorageItems=[
-    
-    {title: 'Rack', icon: ChartBarDecreasing, path:'/racks', permission:'manage-storage'},
-    {title: 'Stock', icon: Boxes, path:'/stocks', permission:'manage-storage'},
-    {title: 'Purchase Order', icon: CreditCard, path:'/purchases',permission:'manage-storage'},
-    {title: 'Purchase Request', icon:  ClipboardPlus , path:'/purchase-requests',permission:'manage-storage'},
-    {title: 'Sell', icon: Banknote, path:'/sells',permission:'manage-storage'},
-]
+const StrorageItems = [
+    { title: 'Rack', icon: ChartBarDecreasing, path: '/racks', permission: 'read-racks' },
+    { title: 'Stock', icon: Boxes, path: '/stocks', permission: 'read-stocks' },
+    { title: 'Purchase Order', icon: CreditCard, path: '/purchases', permission: 'read-purchases' },
+    { title: 'Purchase Request', icon: ClipboardPlus, path: '/purchase-requests', permission: 'read-purchases' },
+    { title: 'Sell', icon: Banknote, path: '/sells', permission: 'read-sales' },
+];
 
-const RetailItems=[
-    {title: 'Retail POS', icon: ScanBarcode, path:'/retail', permission:'manage-storage'},
-]
+const RetailItems = [
+    { title: 'Retail POS', icon: ScanBarcode, path: '/retail', permission: 'read-sales' },
+];
 
-const PackagingItems=[
-      {title:'Cartoon', icon: Circle, path:'/cartoons', permission:'manage-packaging'},
-]
+const PackagingItems = [
+    { title: 'Cartoon', icon: Circle, path: '/cartoons', permission: 'read-cartoons' },
+];
 
-const ProductionItems=[
-    {title:'Brand', icon:Tag, path:'/brands',permission:'manage-Production'},
-    {title:'Category', icon:Tag, path:'/categories',permission:'manage-Production'},
-    {title:'Color', icon: Palette, path:'/colors', permission:'manage-Production'},
-    {title:'Supplier(Fabrics)', icon: Palette, path:'/suppliers', permission:'manage-Production'},
-    {title:'Fabric', icon: Shirt, path:'/fabrics', permission:'manage-Production'},
-    {title:'Season', icon:LifeBuoy, path:'/seasons',permission:'manage-Production'},
-    {title:'Size', icon: FileBarChart2, path:'/sizes', permission:'manage-Production'},
-    {title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-Production'},
-    {title:'Product', icon: MoreHorizontal, path:'/products', permission:'manage-Production'},
-  
-    {title:'Tracking', icon: Circle, path:'/cartoon-tracking', permission:'manage-Production'},
-]
+const ProductionItems = [
+    { title: 'Brand', icon: Tag, path: '/brands', permission: 'read-brands' },
+    { title: 'Category', icon: Tag, path: '/categories', permission: 'read-categories' },
+    { title: 'Color', icon: Palette, path: '/colors', permission: 'read-colors' },
+    { title: 'Supplier(Fabrics)', icon: Palette, path: '/suppliers', permission: 'read-suppliers' },
+    { title: 'Fabric', icon: Shirt, path: '/fabrics', permission: 'read-fabrics' },
+    { title: 'Season', icon: LifeBuoy, path: '/seasons', permission: 'read-seasons' },
+    { title: 'Size', icon: FileBarChart2, path: '/sizes', permission: 'read-sizes' },
+    { title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'read-products' },
+    { title: 'Product', icon: MoreHorizontal, path: '/products', permission: 'read-products' },
+    { title: 'Tracking', icon: Circle, path: '/cartoon-tracking', permission: 'read-cartoons' },
+];
 
-const userAccessItems=[
-     { title: 'User', icon: Users, path: '/users', permission: 'manage-users' },
-     { title: 'Role', icon: Shield, path: '/roles', permission: 'manage-roles' },
-    { title: 'API Users', icon: Key, path: '/api-user', permission: 'manage-users', superAdminOnly: true },
-]
+const userAccessItems = [
+    { title: 'User', icon: Users, path: '/users', permission: 'read-users' },
+    { title: 'Role', icon: Shield, path: '/roles', permission: 'read-roles' },
+    { title: 'API Users', icon: Key, path: '/api-user', permission: 'read-users', superAdminOnly: true },
+];
 
 export function AppSidebar(props) {
     const navigate = useNavigate();

@@ -19,12 +19,15 @@ import { deleteRole, fetchRoles } from './api';
 
 export default function Roles() {
   const navigate = useNavigate();
-  const { setPageTitle } = useAppContext();
+  const { setPageTitle, can } = useAppContext();
   const [roles, setRoles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [deletingId, setDeletingId] = useState(null);
   const [roleToDelete, setRoleToDelete] = useState(null);
+  const canCreate = can('create', 'roles');
+  const canUpdate = can('update', 'roles');
+  const canDelete = can('delete', 'roles');
 
   useEffect(() => {
     setPageTitle('Roles');
@@ -99,6 +102,9 @@ export default function Roles() {
           onEdit={(id) => navigate(`/roles/${id}/edit`)}
           onRequestDelete={setRoleToDelete}
           deletingId={deletingId}
+          canCreate={canCreate}
+          canUpdate={canUpdate}
+          canDelete={canDelete}
         />
       </div>
 

@@ -46,80 +46,80 @@ Route::prefix('api')->group(function () {
         });
 
         // Country Controller
-        Route::get('/countries/trashed', [CountryController::class, 'trashed']);
-        Route::post('/countries/{id}/restore', [CountryController::class, 'restore']);
-        Route::apiResource('/countries', CountryController::class);
+        Route::get('/countries/trashed', [CountryController::class, 'trashed'])->middleware('resource.permission:countries');
+        Route::post('/countries/{id}/restore', [CountryController::class, 'restore'])->middleware('resource.permission:countries');
+        Route::apiResource('/countries', CountryController::class)->middleware('resource.permission:countries');
 
         // State Controller
-        Route::get('/states/trashed', [StateController::class, 'trashed']);
-        Route::post('/states/{id}/restore', [StateController::class, 'restore']);
-        Route::apiResource('/states', StateController::class);
+        Route::get('/states/trashed', [StateController::class, 'trashed'])->middleware('resource.permission:states');
+        Route::post('/states/{id}/restore', [StateController::class, 'restore'])->middleware('resource.permission:states');
+        Route::apiResource('/states', StateController::class)->middleware('resource.permission:states');
 
         // Warehouse Controller
-        Route::apiResource('/warehouses',WarehouseController::class);
+        Route::apiResource('/warehouses', WarehouseController::class)->middleware('resource.permission:warehouses');
 
         // User Controller
-        Route::apiResource('/users', UserController::class);
+        Route::apiResource('/users', UserController::class)->middleware('resource.permission:users');
 
         // Products For Controller
-        Route::apiResource('/products-for', ProductForController::class);
+        Route::apiResource('/products-for', ProductForController::class)->middleware('resource.permission:products');
 
         // Rack Controller
-        Route::apiResource('/racks', RackController::class);
+        Route::apiResource('/racks', RackController::class)->middleware('resource.permission:racks');
 
         // Rack Row Controller
-        Route::apiResource('/racks/{rack}/rows', RackRowController::class);
+        Route::apiResource('/racks/{rack}/rows', RackRowController::class)->middleware('resource.permission:racks');
 
         // Brand Controller
-        Route::apiResource('/brands', BrandController::class);
+        Route::apiResource('/brands', BrandController::class)->middleware('resource.permission:brands');
 
         // Category Controller
-        Route::apiResource('/categories', CategoryController::class);
+        Route::apiResource('/categories', CategoryController::class)->middleware('resource.permission:categories');
 
         // Color Controller
-        Route::apiResource('/colors', ColorController::class);
+        Route::apiResource('/colors', ColorController::class)->middleware('resource.permission:colors');
 
         // Fabric Controller
-        Route::apiResource('/fabrics',FabricController::class);
+        Route::apiResource('/fabrics', FabricController::class)->middleware('resource.permission:fabrics');
 
         // Size Controller
-        Route::apiResource('/sizes',SizeController::class);
+        Route::apiResource('/sizes', SizeController::class)->middleware('resource.permission:sizes');
 
-          // supplier Controller
-        Route::apiResource('/suppliers',SupplierController::class);
-        
+        // Supplier Controller
+        Route::apiResource('/suppliers', SupplierController::class)->middleware('resource.permission:suppliers');
+
         // Product Controller
-        Route::post('/products/bulk-delete', [ProductController::class, 'bulkDestroy']);
-        Route::apiResource('/products', ProductController::class);
+        Route::post('/products/bulk-delete', [ProductController::class, 'bulkDestroy'])->middleware('resource.permission:products');
+        Route::apiResource('/products', ProductController::class)->middleware('resource.permission:products');
 
         // Cartoon Controller
-        Route::get('/cartoon-tracking', [CartoonController::class, 'tracking']);
-        Route::apiResource('/cartoons', CartoonController::class);
-        Route::post('/cartoons/{cartoon}/adjust-quantity', [CartoonController::class, 'adjustQuantity']);
-        Route::post('/cartoons/{cartoon}/assign-rack', [CartoonController::class, 'assignRack']);
+        Route::get('/cartoon-tracking', [CartoonController::class, 'tracking'])->middleware('resource.permission:cartoons');
+        Route::apiResource('/cartoons', CartoonController::class)->middleware('resource.permission:cartoons');
+        Route::post('/cartoons/{cartoon}/adjust-quantity', [CartoonController::class, 'adjustQuantity'])->middleware('resource.permission:cartoons');
+        Route::post('/cartoons/{cartoon}/assign-rack', [CartoonController::class, 'assignRack'])->middleware('resource.permission:cartoons');
 
         // Stock Controller
-        Route::apiResource('/stocks', StockController::class);
+        Route::apiResource('/stocks', StockController::class)->middleware('resource.permission:stocks');
 
         // Purchase Controller
-        Route::apiResource('/purchases', PurchaseController::class);
-        Route::get('/purchase-requests', [PurchaseController::class, 'getPurchaseRequests']);
-        Route::patch('/purchases/{purchase}/status', [PurchaseController::class, 'updateRequestStatus']);
+        Route::apiResource('/purchases', PurchaseController::class)->middleware('resource.permission:purchases');
+        Route::get('/purchase-requests', [PurchaseController::class, 'getPurchaseRequests'])->middleware('resource.permission:purchases');
+        Route::patch('/purchases/{purchase}/status', [PurchaseController::class, 'updateRequestStatus'])->middleware('resource.permission:purchases');
 
         // Sell Controller
-        Route::apiResource('/sells', SellController::class);
+        Route::apiResource('/sells', SellController::class)->middleware('resource.permission:sales');
 
         // Retail / POS Controller
-        Route::get('/retail/barcode-lookup', [RetailController::class, 'lookupBarcode']);
-        Route::get('/retail/sales', [RetailController::class, 'index']);
-        Route::post('/retail/sales', [RetailController::class, 'store']);
+        Route::get('/retail/barcode-lookup', [RetailController::class, 'lookupBarcode'])->middleware('resource.permission:sales');
+        Route::get('/retail/sales', [RetailController::class, 'index'])->middleware('resource.permission:sales');
+        Route::post('/retail/sales', [RetailController::class, 'store'])->middleware('resource.permission:sales');
 
-        
         // Season Controller
-        Route::apiResource('/seasons', SeasonController::class);
+        Route::apiResource('/seasons', SeasonController::class)->middleware('resource.permission:seasons');
 
         Route::middleware('super-admin')->group(function () {
             Route::get('/permissions', [PermissionController::class, 'index']);
+            Route::get('/permissions/by-category', [RoleController::class, 'getPermissionsByCategory']);
             Route::apiResource('/roles', RoleController::class);
             Route::put('/users/{user}/roles', [UserController::class, 'syncRoles']);
         });

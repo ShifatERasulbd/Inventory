@@ -25,7 +25,12 @@ export default function WarehouseTable({
     onRequestDelete,
     deletingId,
     isLoading,
+    canCreate = false,
+    canUpdate = false,
+    canDelete = false,
 }) {
+    const showActionColumn = canUpdate || canDelete;
+
     const [search, setSearch] = useState('');
     const filtered = warehouses.filter((w) => {
         const q = search.toLowerCase();
@@ -49,10 +54,12 @@ export default function WarehouseTable({
                     className="w-full pl-9"
                 />
             </div>
-            <Button className="gap-2" onClick={onAdd}>
-                <Plus />
-                Add Warehouse
-            </Button>
+            {canCreate && (
+                <Button className="gap-2" onClick={onAdd}>
+                    <Plus />
+                    Add Warehouse
+                </Button>
+            )}
         </div>
 
         <Card>
@@ -64,13 +71,13 @@ export default function WarehouseTable({
                         <TableHead>Country</TableHead>
                         <TableHead>State</TableHead>
                         <TableHead>Full Address</TableHead>
-                        <TableHead>Action</TableHead>
+                        {showActionColumn && <TableHead>Action</TableHead>}
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {isLoading && (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground">
+                            <TableCell colSpan={showActionColumn ? 6 : 5} className="text-center text-muted-foreground">
                                 Loading warehouses...
                             </TableCell>
                         </TableRow>
@@ -78,7 +85,7 @@ export default function WarehouseTable({
 
                     {!isLoading && warehouses.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground">
+                            <TableCell colSpan={showActionColumn ? 6 : 5} className="text-center text-muted-foreground">
                                 No warehouses found.
                             </TableCell>
                         </TableRow>
@@ -86,7 +93,7 @@ export default function WarehouseTable({
 
                     {!isLoading && filtered.length === 0 && warehouses.length > 0 && (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground">
+                            <TableCell colSpan={showActionColumn ? 6 : 5} className="text-center text-muted-foreground">
                                 No warehouses match your search.
                             </TableCell>
                         </TableRow>
@@ -100,49 +107,52 @@ export default function WarehouseTable({
                                 <TableCell>{warehouse.country?.name || '-'}</TableCell>
                                 <TableCell>{warehouse.state?.name || '-'}</TableCell>
                                 <TableCell>{warehouse.fulladress}</TableCell>
+                                {showActionColumn && (
                                 <TableCell>
                                     <div className="flex items-center gap-2">
-                                       
-                                       <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        aria-label={`Edit ${warehouse.name}`}
-                                                        onClick={() => onEdit?.(warehouse.id)}
-                                                    >
-                                                        <Pencil />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="bottom">
-                                                    <p>Edit</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                                        {canUpdate && (
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`Edit ${warehouse.name}`}
+                                                            onClick={() => onEdit?.(warehouse.id)}
+                                                        >
+                                                            <Pencil />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                        <p>Edit</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        )}
 
-                                         <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                   <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        aria-label={`Delete ${warehouse.name}`}
-                                                        onClick={() => onRequestDelete?.(warehouse)}
-                                                        disabled={deletingId === warehouse.id}
-                                                    >
-                                                        <Trash2 className="text-destructive" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="bottom">
-                                                    <p>Delete</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                        
-                                        
+                                        {canDelete && (
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                    <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`Delete ${warehouse.name}`}
+                                                            onClick={() => onRequestDelete?.(warehouse)}
+                                                            disabled={deletingId === warehouse.id}
+                                                        >
+                                                            <Trash2 className="text-destructive" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                        <p>Delete</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        )}
                                     </div>
                                 </TableCell>
+                                )}
                             </TableRow>
                         ))}
                 </TableBody>

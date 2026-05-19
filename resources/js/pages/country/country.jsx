@@ -19,7 +19,7 @@ import { deleteCountry, fetchCountries, fetchTrashedCountries, restoreCountry } 
 
 export default function Countries() {
   const navigate = useNavigate();
-  const { setPageTitle, user } = useAppContext();
+  const { setPageTitle, user, can } = useAppContext();
   const [countries, setCountries] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -29,6 +29,9 @@ export default function Countries() {
   const [restoringId, setRestoringId] = useState(null);
 
   const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
+  const canCreate = can('create', 'countries');
+  const canUpdate = can('update', 'countries');
+  const canDelete = can('delete', 'countries');
 
     useEffect(() => {
     setPageTitle('Countries');
@@ -130,6 +133,9 @@ export default function Countries() {
           isLoading={isLoading}
           isShowingDeleted={showDeleted}
           isSuperAdmin={isSuperAdmin}
+          canCreate={canCreate}
+          canUpdate={canUpdate}
+          canDelete={canDelete}
         />
       </div>
 

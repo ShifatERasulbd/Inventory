@@ -12,14 +12,46 @@ export default function AddForm({
     onSubmit,
     onCancel,
     permissions = [],
+    permissionsByCategory = [],
     isSubmitting = false,
     errors = {},
 }) {
+    // Group permissions by category if not already grouped
+    const grouped = permissionsByCategory.length > 0 
+        ? permissionsByCategory 
+        : permissions.reduce((acc, perm) => {
+            const existing = acc.find(g => g.category === perm.category);
+            if (existing) {
+                existing.permissions.push(perm);
+            } else {
+                acc.push({
+                    category: perm.category || 'other',
+                    permissions: [perm],
+                });
+            }
+            return acc;
+        }, []);
+
+    const formatCategoryName = (category) => {
+        return category
+            .split('-')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    };
+
+    const formatActionName = (slug) => {
+        const match = slug.match(/^(create|read|update|delete)-/);
+        if (match) {
+            return match[1].charAt(0).toUpperCase() + match[1].slice(1);
+        }
+        return 'View';
+    };
+
     return (
         <Card>
             <CardHeader>
                 <CardTitle>Add Role</CardTitle>
-                <CardDescription>Create a new role and assign permissions.</CardDescription>
+                <CardDescription>Create a new role and assign detailed access permissions.</CardDescription>
             </CardHeader>
             <Separator />
 
@@ -37,22 +69,49 @@ export default function AddForm({
                         {errors.name && <p className="text-xs text-destructive">{errors.name[0]}</p>}
                     </div>
 
-                    <div className="space-y-4">
-                        <Label>Assign Permissions</Label>
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                            {permissions.map((permission) => (
-                                <div key={permission.id} className="flex items-center space-x-2">
-                                    <Checkbox
-                                        id={`permission-${permission.id}`}
-                                        checked={form.permissions?.includes(permission.id) || false}
-                                        onCheckedChange={() => onPermissionToggle(permission.id)}
-                                    />
-                                    <Label htmlFor={`permission-${permission.id}`} className="font-normal cursor-pointer">
-                                        {permission.name}
-                                    </Label>
-                                </div>
-                            ))}
-                        </div>
+                    <div className="space-y-6">
+                        <Label className="text-base font-semibold">Assign Detailed Access Permissions</Label>
+                        
+                        {grouped && grouped.length > 0 ? (
+                            <div className="space-y-6">
+                                {grouped.map((group) => (
+                                    <div key={group.category} className="border rounded-lg p-4 space-y-3">
+                                        <h3 className="font-semibold text-sm text-slate-700">
+                                            {formatCategoryName(group.category)}
+                                        </h3>
+                                        
+                                        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 ml-2">
+                                            {['create', 'read', 'update', 'delete'].map((action) => {
+                                                const permission = group.permissions.find(p => 
+                                                    p.slug === `${action}-${group.category}`
+                                                );
+                                                
+                                                return permission ? (
+                                                    <div key={permission.id} className="flex items-center space-x-2">
+                                                        <Checkbox
+                                                            id={`permission-${permission.id}`}
+                                                            checked={form.permissions?.includes(permission.id) || false}
+                                                            onCheckedChange={() => onPermissionToggle(permission.id)}
+                                                        />
+                                                        <Label 
+                                                            htmlFor={`permission-${permission.id}`} 
+                                                            className="font-normal cursor-pointer text-sm"
+                                                        >
+                                                            {formatActionName(permission.slug)}
+                                                        </Label>
+                                                    </div>
+                                                ) : null;
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-sm text-slate-500 py-4">
+                                No permissions available
+                            </div>
+                        )}
+                        
                         {errors.permissions && <p className="text-xs text-destructive">{errors.permissions[0]}</p>}
                     </div>
                 </CardContent>

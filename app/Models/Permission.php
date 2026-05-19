@@ -14,10 +14,27 @@ class Permission extends Model
     protected $fillable = [
         'name',
         'slug',
+        'category',
     ];
 
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'permission_role');
+    }
+
+    /**
+     * Get permissions grouped by category
+     */
+    public static function groupedByCategory()
+    {
+        return self::all()->groupBy('category');
+    }
+
+    /**
+     * Get all unique categories
+     */
+    public static function categories()
+    {
+        return self::distinct('category')->pluck('category')->sort();
     }
 }

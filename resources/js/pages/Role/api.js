@@ -48,6 +48,11 @@ export async function fetchPermissions() {
     return Array.isArray(payload) ? payload : [];
 }
 
+export async function fetchPermissionsByCategory() {
+    const payload = await requestJson('/api/permissions/by-category');
+    return Array.isArray(payload) ? payload : [];
+}
+
 export async function createRole(data) {
     await ensureCsrfCookie();
     return requestJson('/api/roles', {
