@@ -63,6 +63,10 @@ const RetailItems=[
     {title: 'Retail POS', icon: ScanBarcode, path:'/retail', permission:'manage-storage'},
 ]
 
+const PackagingItems=[
+      {title:'Cartoon', icon: Circle, path:'/cartoons', permission:'manage-packaging'},
+]
+
 const ProductionItems=[
     {title:'Brand', icon:Tag, path:'/brands',permission:'manage-Production'},
     {title:'Category', icon:Tag, path:'/categories',permission:'manage-Production'},
@@ -73,7 +77,7 @@ const ProductionItems=[
     {title:'Size', icon: FileBarChart2, path:'/sizes', permission:'manage-Production'},
     {title: 'Products For', icon: FolderKanban, path: '/productsfor', permission: 'manage-Production'},
     {title:'Product', icon: MoreHorizontal, path:'/products', permission:'manage-Production'},
-    {title:'Cartoon', icon: Circle, path:'/cartoons', permission:'manage-Production'},
+  
     {title:'Tracking', icon: Circle, path:'/cartoon-tracking', permission:'manage-Production'},
 ]
 
@@ -105,6 +109,7 @@ export function AppSidebar(props) {
     const visibleuserAccessItems=userAccessItems.filter((item)=>canAccess(item.permission) && (!item.superAdminOnly || isSuperAdmin));
     const visibleProductionItems=ProductionItems.filter((item)=>canAccess(item.permission));
     const visibleRetailItems=RetailItems.filter((item)=>canAccess(item.permission));
+    const visiblePackagingItems=PackagingItems.filter((item)=>canAccess(item.permission));
     
 
     const handleLogout = async () => {
@@ -246,6 +251,31 @@ export function AppSidebar(props) {
                         </SidebarGroupContent>
                     </SidebarGroup>
                 )}
+                {/* packaging */}
+                  {visiblePackagingItems.length > 0 && (
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Packaging</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {visiblePackagingItems.map((item) => (
+                                    <SidebarMenuItem key={item.title}>
+                                        <SidebarMenuButton
+                                            asChild
+                                            tooltip={item.title}
+                                            isActive={location.pathname === item.path}
+                                        >
+                                            <Link to={item.path}>
+                                                <item.icon />
+                                                <span>{item.title}</span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                ))}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                )}
+
 
                 {/* retail */}
                 {visibleRetailItems.length > 0 && (
