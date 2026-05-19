@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import AddPurchaseForm from '@/components/purchase/addForm';
 import { useAppContext } from '@/context/AppContext';
 
-import { createPurchase, fetchProducts, fetchWarehouses } from './api';
+import { createPurchase, fetchPurchaseFormOptions } from './api';
 
 const emptyProductRow = () => ({ product_id: '', quantity: '', purchase_price: '', selling_price: '' });
 
@@ -129,15 +129,14 @@ export default function AddPurchase() {
             setRequestError('');
 
             try {
-                const [warehouseData, productData, currentUser] = await Promise.all([
-                    fetchWarehouses(),
-                    fetchProducts(),
+                const [options, currentUser] = await Promise.all([
+                    fetchPurchaseFormOptions(),
                     user ? Promise.resolve(user) : fetchCurrentUser(),
                 ]);
 
                 if (!ignore) {
-                    setWarehouses(Array.isArray(warehouseData) ? warehouseData : []);
-                    setProducts(Array.isArray(productData) ? productData : []);
+                    setWarehouses(Array.isArray(options?.warehouses) ? options.warehouses : []);
+                    setProducts(Array.isArray(options?.products) ? options.products : []);
                     if (!user && currentUser) {
                         setUser(currentUser);
                     }

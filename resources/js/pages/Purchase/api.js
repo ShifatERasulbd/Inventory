@@ -43,6 +43,10 @@ export async function fetchPurchase(id) {
     return requestJson(`/api/purchases/${id}`);
 }
 
+export async function fetchPurchaseFormOptions() {
+    return requestJson('/api/purchases/options');
+}
+
 export async function createPurchase(data) {
     await ensureCsrfCookie();
     return requestJson('/api/purchases', {

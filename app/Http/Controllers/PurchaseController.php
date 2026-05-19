@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\Sell;
 use App\Models\Stock;
+use App\Models\WareHouse;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -319,6 +320,33 @@ class PurchaseController extends Controller
         return response()->json(
             $purchases->map(fn (Purchase $purchase) => $this->formatPurchase($purchase, $productMap))
         );
+    }
+
+    public function getFormOptions(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->hasRole('super-admin') || $user->hasPermission('read-warehouses')) {
+            $warehouses = WareHouse::query()->orderBy('name')->get(['id', 'name']);
+        } else {
+            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+            $warehouses = empty($warehouseIds)
+                ? collect()
+                : WareHouse::query()->whereIn('id', $warehouseIds)->orderBy('name')->get(['id', 'name']);
+        }
+
+        $products = Product::query()
+            ->with([
+                'color:id,name,color_code',
+                'size:id,size',
+            ])
+            ->orderBy('name')
+            ->get(['id', 'name', 'color_id', 'size_id']);
+
+        return response()->json([
+            'warehouses' => $warehouses,
+            'products' => $products,
+        ]);
     }
 
     public function getPurchaseRequests(Request $request): JsonResponse

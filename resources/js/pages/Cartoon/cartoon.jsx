@@ -234,6 +234,7 @@ export default function Cartoon() {
 
     const cartoonNumber = cleanBarcodeValue(barcodeCartoon.cartoon_number);
     const poNumber = cleanBarcodeValue(barcodeCartoon.purchase?.po_number ?? barcodeCartoon.p_o_number);
+    const productBarcode = cleanBarcodeValue(Array.isArray(barcodeCartoon.product_code) ? barcodeCartoon.product_code[0] : barcodeCartoon.product_code);
     const quantity = cleanBarcodeValue(String(barcodeCartoon.quantity ?? 0));
 
     const barcodeMarkup = barcodePrintSourceRef.current.innerHTML;
@@ -330,6 +331,7 @@ export default function Cartoon() {
               <div class="barcode-wrap">${barcodeMarkup}</div>
               <div class="barcode-value">Cartoon: ${escapeHtml(cartoonNumber)}</div>
               <div class="barcode-value">PO: ${escapeHtml(poNumber)}</div>
+              <div class="barcode-value">Product Barcode: ${escapeHtml(productBarcode)}</div>
               <div class="barcode-value">Quantity: ${escapeHtml(quantity)}</div>
             </div>
           </div>
@@ -558,6 +560,24 @@ export default function Cartoon() {
                       </div>
 
                       <div className="rounded-md border p-3">
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Product Barcode</p>
+                        <div className="mx-auto flex justify-center overflow-hidden bg-white">
+                          <Barcode
+                            value={cleanBarcodeValue(Array.isArray(barcodeCartoon.product_code) ? barcodeCartoon.product_code[0] : barcodeCartoon.product_code)}
+                            format="CODE128"
+                            width={getBarcodeWidth(cleanBarcodeValue(Array.isArray(barcodeCartoon.product_code) ? barcodeCartoon.product_code[0] : barcodeCartoon.product_code))}
+                            height={72}
+                            fontSize={14}
+                            margin={0}
+                            displayValue
+                          />
+                        </div>
+                        <p className="mt-2 text-xs text-muted-foreground break-all">
+                          {cleanBarcodeValue(Array.isArray(barcodeCartoon.product_code) ? barcodeCartoon.product_code[0] : barcodeCartoon.product_code)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-md border p-3">
                         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Quantity</p>
                         <div className="mx-auto flex justify-center overflow-hidden bg-white">
                           <Barcode
@@ -704,6 +724,19 @@ export default function Cartoon() {
                         value={cleanBarcodeValue(barcodeCartoon.purchase?.po_number ?? barcodeCartoon.p_o_number)}
                         format="CODE128"
                         width={getPrintBarcodeWidth(cleanBarcodeValue(barcodeCartoon.purchase?.po_number ?? barcodeCartoon.p_o_number))}
+                        height={96}
+                        fontSize={16}
+                        margin={0}
+                        displayValue
+                      />
+                    </div>
+
+                    <div style={{ margin: '20px 0 10px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: '#52525b' }}>Product Barcode</div>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <Barcode
+                        value={cleanBarcodeValue(Array.isArray(barcodeCartoon.product_code) ? barcodeCartoon.product_code[0] : barcodeCartoon.product_code)}
+                        format="CODE128"
+                        width={getPrintBarcodeWidth(cleanBarcodeValue(Array.isArray(barcodeCartoon.product_code) ? barcodeCartoon.product_code[0] : barcodeCartoon.product_code))}
                         height={96}
                         fontSize={16}
                         margin={0}

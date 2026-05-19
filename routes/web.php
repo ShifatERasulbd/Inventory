@@ -102,6 +102,7 @@ Route::prefix('api')->group(function () {
         Route::apiResource('/stocks', StockController::class)->middleware('resource.permission:stocks');
 
         // Purchase Controller
+        Route::get('/purchases/options', [PurchaseController::class, 'getFormOptions'])->middleware('resource.permission:purchases');
         Route::apiResource('/purchases', PurchaseController::class)->middleware('resource.permission:purchases');
         Route::get('/purchase-requests', [PurchaseController::class, 'getPurchaseRequests'])->middleware('resource.permission:purchases');
         Route::patch('/purchases/{purchase}/status', [PurchaseController::class, 'updateRequestStatus'])->middleware('resource.permission:purchases');

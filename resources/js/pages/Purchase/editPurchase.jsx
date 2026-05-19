@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import EditPurchaseForm from '@/components/purchase/editForm';
 import { useAppContext } from '@/context/AppContext';
 
-import { fetchProducts, fetchPurchase, fetchWarehouses, updatePurchase } from './api';
+import { fetchPurchase, fetchPurchaseFormOptions, updatePurchase } from './api';
 
 const emptyProductRow = () => ({ product_id: '', quantity: '', purchase_price: '', selling_price: '' });
 
@@ -82,10 +82,9 @@ export default function EditPurchase() {
             setLoadError('');
 
             try {
-                const [purchase, warehouseData, productData, currentUser] = await Promise.all([
+                const [purchase, options, currentUser] = await Promise.all([
                     fetchPurchase(id),
-                    fetchWarehouses(),
-                    fetchProducts(),
+                    fetchPurchaseFormOptions(),
                     user ? Promise.resolve(user) : fetchCurrentUser(),
                 ]);
 
@@ -109,8 +108,8 @@ export default function EditPurchase() {
                         note:          purchase.note || '',
                         products:      loadedProducts,
                     });
-                    setWarehouses(Array.isArray(warehouseData) ? warehouseData : []);
-                    setProducts(Array.isArray(productData) ? productData : []);
+                    setWarehouses(Array.isArray(options?.warehouses) ? options.warehouses : []);
+                    setProducts(Array.isArray(options?.products) ? options.products : []);
                     if (!user && currentUser) {
                         setUser(currentUser);
                     }

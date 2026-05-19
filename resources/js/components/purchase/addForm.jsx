@@ -36,19 +36,9 @@ export default function AddPurchaseForm({
         const size = product?.size?.size || product?.size || product?.size_name;
         const color = product?.color?.color_code || product?.color?.name || product?.color_name;
 
-        if (size && color) {
-            return `${name} (${size} - ${color})`;
-        }
-
-        if (size) {
-            return `${name} (${size})`;
-        }
-
-        if (color) {
-            return `${name} (${color})`;
-        }
-
-        return name;
+        return [name, color, size]
+            .filter(Boolean)
+            .join(' - ');
     };
 
     return (
