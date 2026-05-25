@@ -79,6 +79,35 @@ function cleanBarcodeValue(value) {
   return normalized === '' ? 'NA' : normalized;
 }
 
+function extractApiErrorMessage(error, fallbackMessage) {
+  const detail = error?.payload?.errors;
+
+  if (detail?.product_code?.[0]) {
+    return String(detail.product_code[0]);
+  }
+
+  if (detail?.barcode?.[0]) {
+    return String(detail.barcode[0]);
+  }
+
+  return error?.message || fallbackMessage;
+}
+
+function extractInvalidBarcodesFromMessage(message) {
+  const text = String(message || '');
+  const separatorIndex = text.indexOf(':');
+
+  if (separatorIndex < 0) {
+    return [];
+  }
+
+  const listText = text.slice(separatorIndex + 1);
+  return listText
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export default function Cartoon() {
   const navigate = useNavigate();
   const { setPageTitle } = useAppContext();
@@ -176,6 +205,22 @@ export default function Cartoon() {
   const handleCodeScan = () => {
     const normalized = codeInput.trim();
     if (!normalized) return;
+
+    const allowedBarcodes = Array.isArray(adjustCartoonTarget?.purchase?.products)
+      ? adjustCartoonTarget.purchase.products
+          .map((item) => String(item?.barcode ?? '').trim())
+          .filter(Boolean)
+      : [];
+
+    if (allowedBarcodes.length > 0 && !allowedBarcodes.includes(normalized)) {
+      const message = 'Some scanned barcodes are not available in the purchase from warehouse stock.';
+      setErrorMessage(message);
+      toast.error(message, { style: { color: '#dc2626' } });
+      setCodeInput('');
+      return;
+    }
+
+    setErrorMessage('');
     setScannedCodes((previous) => [...previous, normalized]);
     setCodeInput('');
   };
@@ -219,8 +264,15 @@ export default function Cartoon() {
       setScannedCodes([]);
       setCodeInput('');
     } catch (error) {
-      const message = error.message || 'Failed to update quantity.';
+      const message = extractApiErrorMessage(error, 'Failed to update quantity.');
       setErrorMessage(message);
+
+      const invalidCodes = extractInvalidBarcodesFromMessage(message);
+      if (invalidCodes.length > 0) {
+        const invalidSet = new Set(invalidCodes.map((code) => code.trim()));
+        setScannedCodes((previous) => previous.filter((code) => !invalidSet.has(String(code).trim())));
+      }
+
       toast.error(message, { style: { color: '#dc2626' } });
     } finally {
       setIsAdjusting(false);

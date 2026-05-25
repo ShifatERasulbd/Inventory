@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import AddForm from '@/components/cartoon/addForm';
@@ -13,8 +13,6 @@ const initialForm = {
     cartoon_number: '',
     p_o_number: '',
     warehouse_id: '',
-    rack_id: '',
-    rack_row_id: '',
 };
 
 async function fetchCurrentUser() {
@@ -51,6 +49,7 @@ function validateForm(form) {
 
 export default function AddCartoons() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { setPageTitle, user, setUser } = useAppContext();
     const [form, setForm] = useState(initialForm);
     const [errors, setErrors] = useState({});
@@ -58,9 +57,8 @@ export default function AddCartoons() {
     const [requestError, setRequestError] = useState('');
     const [purchases, setPurchases] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
-    const [racks, setRacks] = useState([]);
-    const [rackRows, setRackRows] = useState([]);
     const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
+    const purchaseIdFromQuery = searchParams.get('purchase_id') || '';
 
     useEffect(() => {
         let ignore = false;
@@ -79,6 +77,17 @@ export default function AddCartoons() {
                         return ['approve', 'approved', 'active'].includes(status);
                     });
                     setPurchases(approvedOnly);
+
+                    if (purchaseIdFromQuery) {
+                        const hasPurchase = approvedOnly.some((purchase) => String(purchase.id) === String(purchaseIdFromQuery));
+                        if (hasPurchase) {
+                            setForm((previous) => ({
+                                ...previous,
+                                p_o_number: String(purchaseIdFromQuery),
+                            }));
+                        }
+                    }
+
                     setWarehouses(Array.isArray(warehouseData) ? warehouseData : []);
 
                     if (!user && currentUser) {
@@ -98,37 +107,7 @@ export default function AddCartoons() {
         return () => {
             ignore = true;
         };
-    }, [setUser, user]);
-
-    useEffect(() => {
-        // Fetch all racks
-        fetch('/api/racks')
-            .then((response) => response.json())
-            .then((data) => {
-                setRacks(Array.isArray(data) ? data : []);
-            })
-            .catch((error) => {
-                console.error('Failed to fetch racks:', error);
-                setRacks([]);
-            });
-    }, []);
-
-    useEffect(() => {
-        // Fetch rack rows when rack is selected
-        if (form.rack_id) {
-            fetch(`/api/racks/${form.rack_id}/rows`)
-                .then((response) => response.json())
-                .then((data) => {
-                    setRackRows(Array.isArray(data) ? data : []);
-                })
-                .catch((error) => {
-                    console.error('Failed to fetch rack rows:', error);
-                    setRackRows([]);
-                });
-        } else {
-            setRackRows([]);
-        }
-    }, [form.rack_id]);
+    }, [purchaseIdFromQuery, setUser, user]);
 
     useEffect(() => {
         setPageTitle('Add Cartoon');
@@ -180,21 +159,6 @@ export default function AddCartoons() {
         });
     };
 
-    const handleRackChange = (value) => {
-        setForm((previous) => ({
-            ...previous,
-            rack_id: value,
-            rack_row_id: '', // Reset rack row when rack changes
-        }));
-    };
-
-    const handleRackRowChange = (value) => {
-        setForm((previous) => ({
-            ...previous,
-            rack_row_id: value,
-        }));
-    };
-
     const handleWarehouseChange = (value) => {
         setForm((previous) => ({
             ...previous,
@@ -221,8 +185,6 @@ export default function AddCartoons() {
                 cartoon_number: form.cartoon_number.trim(),
                 p_o_number: Number(form.p_o_number),
                 ...(form.warehouse_id ? { warehouse_id: Number(form.warehouse_id) } : {}),
-                ...(form.rack_id && { rack_id: Number(form.rack_id) }),
-                ...(form.rack_row_id && { rack_row_id: Number(form.rack_row_id) }),
             });
 
             toast.success('Cartoon created successfully.', {
@@ -271,10 +233,6 @@ export default function AddCartoons() {
                     errors={errors}
                     onPurchaseChange={handlePurchaseChange}
                     purchases={purchases}
-                    racks={racks}
-                    rackRows={rackRows}
-                    onRackChange={handleRackChange}
-                    onRackRowChange={handleRackRowChange}
                     warehouses={warehouses}
                     isSuperAdmin={isSuperAdmin}
                     warehouseLabel={warehouseLabel}

@@ -61,11 +61,8 @@ export default function EditCartoon() {
                 ]);
 
                 if (!ignore) {
-                    const approvedOnly = (Array.isArray(purchaseData) ? purchaseData : []).filter((purchase) => {
-                        const status = String(purchase?.status ?? '').toLowerCase();
-                        return ['approve', 'approved', 'active'].includes(status);
-                    });
-                    setPurchases(approvedOnly);
+                    const allPurchases = Array.isArray(purchaseData) ? purchaseData : [];
+                    setPurchases(allPurchases);
                     setWarehouses(Array.isArray(warehouseData) ? warehouseData : []);
 
                     if (!user && currentUser) {

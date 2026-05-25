@@ -16,6 +16,12 @@ class Purchase extends Model
         'purchase_form',
         'purchase_to',
         'products',
+        'subtotal',
+        'total_amount',
+        'paid_amount',
+        'due_amount',
+        'payment_status',
+        'payment_method',
         'po_number',
         'status',
         'shipping_date',
@@ -25,8 +31,14 @@ class Purchase extends Model
 
     protected $casts = [
         'products' => 'array',
+        'subtotal' => 'decimal:2',
+        'total_amount' => 'decimal:2',
+        'paid_amount' => 'decimal:2',
+        'due_amount' => 'decimal:2',
         'shipping_date' => 'date',
         'received_date' => 'date',
+        'purchase_form' => 'integer',
+        'purchase_to' => 'integer',
     ];
 
     public function purchaseFromWarehouse(): BelongsTo

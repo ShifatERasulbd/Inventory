@@ -6,6 +6,7 @@ use App\Models\Cartoon;
 use App\Models\RetailSale;
 use App\Models\Sell;
 use App\Models\Stock;
+use App\Services\AccountingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,21 +20,15 @@ class RetailController extends Controller
     public function lookupBarcode(Request $request): JsonResponse
     {
         $barcode = trim((string) $request->query('barcode', ''));
-        $warehouseId = (int) $request->query('warehouse_id', 0);
+        $requestedWarehouseId = (int) $request->query('warehouse_id', 0);
+        $warehouseId = $this->resolveRetailWarehouseId($request, $requestedWarehouseId);
 
         if ($barcode === '') {
             return response()->json(['message' => 'Barcode is required.'], 422);
         }
 
-        if ($warehouseId <= 0) {
-            return response()->json(['message' => 'Warehouse ID is required.'], 422);
-        }
-
-        $user = $request->user();
-        $warehouseIds = $this->resolveWarehouseIds($user);
-
-        if ($warehouseIds !== null && ! in_array($warehouseId, $warehouseIds, true)) {
-            return response()->json(['message' => 'You do not have access to this warehouse.'], 403);
+        if (! $warehouseId || $warehouseId <= 0) {
+            return response()->json(['message' => 'No warehouse is assigned to your user account.'], 422);
         }
 
         // Search stocks where the barcode JSON array contains this value
@@ -47,10 +42,6 @@ class RetailController extends Controller
             ->where('warehouse_id', $warehouseId)
             ->where('stocks', '>', 0)
             ->whereJsonContains('barcode', $barcode);
-
-        if ($warehouseIds !== null) {
-            $query->whereIn('warehouse_id', $warehouseIds);
-        }
 
         $stock = $query->first();
 
@@ -66,10 +57,6 @@ class RetailController extends Controller
                 ->where('warehouse_id', $warehouseId)
                 ->where('stocks', '>', 0)
                 ->whereHas('product', fn ($q) => $q->where('barCode', $barcode));
-
-            if ($warehouseIds !== null) {
-                $productQuery->whereIn('warehouse_id', $warehouseIds);
-            }
 
             $stock = $productQuery->first();
         }
@@ -129,8 +116,8 @@ class RetailController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'warehouse_id'           => ['required', 'integer', 'exists:warehouses,id'],
+        $rules = [
+            'warehouse_id'           => ['nullable', 'integer', 'exists:warehouses,id'],
             'payment_method'         => ['required', 'string', 'in:cash,card,transfer,other'],
             'note'                   => ['nullable', 'string', 'max:1000'],
             'items'                  => ['required', 'array', 'min:1'],
@@ -141,10 +128,20 @@ class RetailController extends Controller
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
             'items.*.unit_price'     => ['required', 'numeric', 'min:0'],
             'items.*.cartoon_id'     => ['nullable', 'integer', 'exists:cartoons,id'],
-        ]);
+        ];
+
+        if ($request->user()?->hasRole('super-admin')) {
+            $rules['warehouse_id'][0] = 'required';
+        }
+
+        $validated = $request->validate($rules);
 
         $user = $request->user();
-        $warehouseIds = $this->resolveWarehouseIds($user);
+        $warehouseId = $this->resolveRetailWarehouseId($request, (int) ($validated['warehouse_id'] ?? 0));
+
+        if (! $warehouseId || $warehouseId <= 0) {
+            return response()->json(['message' => 'No warehouse is assigned to your user account.'], 422);
+        }
 
         DB::beginTransaction();
 
@@ -165,9 +162,9 @@ class RetailController extends Controller
                     return response()->json(['message' => "Stock #{$item['stock_id']} not found."], 422);
                 }
 
-                if ($warehouseIds !== null && ! in_array($stock->warehouse_id, $warehouseIds, true)) {
+                if ((int) $stock->warehouse_id !== (int) $warehouseId) {
                     DB::rollBack();
-                    return response()->json(['message' => 'You do not have access to this warehouse.'], 403);
+                    return response()->json(['message' => 'Selected stock does not belong to your warehouse.'], 422);
                 }
 
                 if ((int) $stock->stocks < (int) $item['quantity']) {
@@ -223,7 +220,7 @@ class RetailController extends Controller
                         return response()->json(['message' => "Cartoon #{$cid} was not found."], 422);
                     }
 
-                    if ((int) $cartoon->warehouse_id !== (int) $validated['warehouse_id']) {
+                    if ((int) $cartoon->warehouse_id !== (int) $warehouseId) {
                         DB::rollBack();
                         return response()->json(['message' => "Cartoon \"{$cartoon->cartoon_number}\" does not belong to the selected warehouse."], 422);
                     }
@@ -278,13 +275,15 @@ class RetailController extends Controller
 
             $sale = RetailSale::query()->create([
                 'reference_number' => $reference,
-                'warehouse_id'     => $validated['warehouse_id'],
+                'warehouse_id'     => $warehouseId,
                 'sold_by'          => $user->id,
                 'items'            => $lineItems,
                 'total_amount'     => round($totalAmount, 2),
                 'payment_method'   => $validated['payment_method'],
                 'note'             => $validated['note'] ?? null,
             ]);
+
+            app(AccountingService::class)->syncRetailSaleAccount($sale->fresh());
 
             DB::commit();
 
@@ -341,7 +340,36 @@ class RetailController extends Controller
             return null; // no restriction
         }
 
-        $ids = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
-        return $ids === [] ? [] : $ids;
+        $ids = is_array($user->warehouse_ids)
+            ? array_values(array_unique(array_filter(array_map('intval', $user->warehouse_ids), fn (int $id) => $id > 0)))
+            : [];
+
+        // If user has no explicit warehouse_ids but has a default warehouse, include it
+        if (empty($ids) && ! empty($user->warehouse_id)) {
+            $ids = [(int) $user->warehouse_id];
+        }
+
+        return $ids;
+    }
+
+    private function resolveRetailWarehouseId(Request $request, int $requestedWarehouseId = 0): ?int
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return null;
+        }
+
+        if ($user->hasRole('super-admin')) {
+            return $requestedWarehouseId > 0 ? $requestedWarehouseId : null;
+        }
+
+        $warehouseIds = $this->resolveWarehouseIds($user);
+
+        if (is_array($warehouseIds) && $warehouseIds !== []) {
+            return (int) $warehouseIds[0];
+        }
+
+        return null;
     }
 }

@@ -1,4 +1,4 @@
-import { Pencil, Search, FileText, Trash2 } from 'lucide-react';
+import { Pencil, Search, FileText, Trash2, DollarSign } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { useState } from 'react';
 import {
@@ -38,10 +38,54 @@ export function PurchaseTable({
     updatingStatusId = null,
     onStatusDraftChange,
     onUpdateStatus,
+    onPayRemaining,
     userWarehouseIds = [],
     isSuperAdmin = false,
 }) {
     const [search, setSearch] = useState('');
+    const [activeStatus, setActiveStatus] = useState('all');
+
+    const normalizeStatus = (value) => {
+        const normalized = String(value || '').trim().toLowerCase();
+        if (normalized === 'canceled') {
+            return 'cancelled';
+        }
+
+        return normalized;
+    };
+
+    const preferredStatusOrder = ['pending', 'approved', 'shipped', 'received', 'cancelled', 'rejected'];
+    const requiredStatusTabs = ['pending', 'approved', 'shipped', 'received', 'cancelled'];
+
+    const statusCounts = purchases.reduce((accumulator, purchase) => {
+        const key = normalizeStatus(purchase.status);
+        if (!key) {
+            return accumulator;
+        }
+
+        accumulator[key] = (accumulator[key] || 0) + 1;
+        return accumulator;
+    }, {});
+
+    const dynamicStatuses = Array.from(new Set([
+        ...Object.keys(statusCounts),
+        ...requiredStatusTabs,
+    ]));
+    const orderedStatuses = [
+        ...preferredStatusOrder.filter((status) => dynamicStatuses.includes(status)),
+        ...dynamicStatuses
+            .filter((status) => !preferredStatusOrder.includes(status))
+            .sort((a, b) => a.localeCompare(b)),
+    ];
+
+    const statusTabs = [
+        { value: 'all', label: 'All', count: purchases.length },
+        ...orderedStatuses.map((status) => ({
+            value: status,
+            label: status.charAt(0).toUpperCase() + status.slice(1),
+            count: statusCounts[status] || 0,
+        })),
+    ];
 
     const filtered = purchases.filter((purchase) => {
         const query = search.toLowerCase();
@@ -50,6 +94,12 @@ export function PurchaseTable({
             .map((item) => String(item.product_name || `Product #${item.product_id || ''}`).toLowerCase())
             .join(' ');
         const status = String(purchase.status || '').toLowerCase();
+
+        const matchesStatus = activeStatus === 'all' || normalizeStatus(purchase.status) === activeStatus;
+
+        if (!matchesStatus) {
+            return false;
+        }
 
         return poNumber.includes(query) || productName.includes(query) || status.includes(query);
     });
@@ -68,6 +118,27 @@ export function PurchaseTable({
                 </div>
 
                 <Button type="button" onClick={onAddNew}>Add Purchase</Button>
+            </div>
+
+            <div className="overflow-x-auto">
+                <div className="inline-flex min-w-full gap-2 pb-1">
+                    {statusTabs.map((tab) => {
+                        const isActive = activeStatus === tab.value;
+
+                        return (
+                            <Button
+                                key={tab.value}
+                                type="button"
+                                variant={isActive ? 'default' : 'outline'}
+                                size="sm"
+                                className="whitespace-nowrap"
+                                onClick={() => setActiveStatus(tab.value)}
+                            >
+                                {tab.label} ({tab.count})
+                            </Button>
+                        );
+                    })}
+                </div>
             </div>
 
             <Card>
@@ -108,7 +179,7 @@ export function PurchaseTable({
                         {!isLoading && filtered.length === 0 && purchases.length > 0 && (
                             <TableRow>
                                 <TableCell colSpan={11} className="text-center text-muted-foreground">
-                                    No purchases match your search.
+                                    No purchases match your current status tab/search.
                                 </TableCell>
                             </TableRow>
                         )}
@@ -123,9 +194,13 @@ export function PurchaseTable({
                                             isSuperAdmin || userWarehouseIds.includes(purchaseToId)
                                         );
                                         const canShip = normalizedStatus === 'approved';
-                                        const showStatusAction = canShip || canReceive;
+                                        const canHandlePendingRequest = normalizedStatus === 'pending';
+                                        const showStatusAction = canShip || canReceive || canHandlePendingRequest;
 
                                         let statusOptions = [];
+                                        if (canHandlePendingRequest) {
+                                            statusOptions = ['pending', 'approved', 'rejected', 'completed'];
+                                        }
                                         if (canShip) {
                                             statusOptions = ['approved', 'shipped'];
                                         }
@@ -193,6 +268,26 @@ export function PurchaseTable({
                                     <TableCell>{purchase.note || 'No note'}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
+                                            {String(purchase.payment_status || '').toLowerCase() !== 'paid' && Number(purchase.due_amount ?? 0) > 0 && (
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                aria-label={`Pay due amount for purchase ${purchase.po_number}`}
+                                                                onClick={() => onPayRemaining?.(purchase)}
+                                                            >
+                                                                <DollarSign />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="bottom">
+                                                            <p>Pay Due</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            )}
+
                                             <TooltipProvider>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>

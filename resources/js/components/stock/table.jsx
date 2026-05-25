@@ -23,9 +23,6 @@ export function StockTable({
     stocks = [],
     onAddStock,
     onDeductStock,
-    onEdit,
-    onRequestDelete,
-    deletingId,
     isLoading,
     sellingPriceDrafts = {},
     savingSellingPriceIds = [],
@@ -110,15 +107,22 @@ export function StockTable({
                                     <TableCell>{stock.size || 'N/A'}</TableCell>
                                     {isSuperAdmin && <TableCell>{stock.warehouse_name || `Warehouse #${stock.warehouse_id ?? 'N/A'}`}</TableCell>}
                                     <TableCell>{Number(stock.available_stock ?? 0)}</TableCell>
-                                    <TableCell>{Number(stock.buying_price ?? 0).toFixed(2)}</TableCell>
-                                    <TableCell>
+                                    <TableCell>$ {Number(stock.buying_price ?? 0).toFixed(2)}</TableCell>
+                                   <TableCell>
                                         <div className="flex items-center gap-2">
-                                            <Input
-                                                className="h-8 w-24"
-                                                inputMode="decimal"
-                                                value={String(sellingPriceDrafts[stock.id] ?? stock.selling_price ?? 0)}
-                                                onChange={(event) => onSellingPriceChange?.(stock.id, event.target.value)}
-                                            />
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                                    $
+                                                </span>
+
+                                                <Input
+                                                    className="h-8 w-24 pl-7"
+                                                    inputMode="decimal"
+                                                    value={String(sellingPriceDrafts[stock.id] ?? stock.selling_price ?? 0)}
+                                                    onChange={(event) => onSellingPriceChange?.(stock.id, event.target.value)}
+                                                />
+                                            </div>
+
                                             <Button
                                                 type="button"
                                                 size="sm"

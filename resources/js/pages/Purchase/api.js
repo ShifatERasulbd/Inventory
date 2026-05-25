@@ -78,6 +78,14 @@ export async function deletePurchase(id) {
     });
 }
 
+export async function createRecurringPayment(data) {
+    await ensureCsrfCookie();
+    return requestJson('/api/recurring-payments', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}
+
 export async function fetchWarehouses() {
     const payload = await requestJson('/api/warehouses');
     return Array.isArray(payload) ? payload : [];

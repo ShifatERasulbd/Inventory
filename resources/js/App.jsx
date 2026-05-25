@@ -114,14 +114,12 @@ const Purchase = lazyWithRetry(() => import('@/pages/Purchase/purchase'), 'purch
 const AddPurchase = lazyWithRetry(() => import('@/pages/Purchase/addPurchase'), 'purchase-add');
 const EditPurchase = lazyWithRetry(() => import('@/pages/Purchase/editPurchase'), 'purchase-edit');
 
-// Purchase Request
-const PurchaseRequest = lazyWithRetry(() => import('@/pages/PurchaseRequest/purchaseRequest'), 'purchase-request');
-
 // Sell
 const Sell = lazyWithRetry(() => import('@/pages/Sell/sell'), 'sell');
 
 // Retail POS
 const RetailPOS = lazyWithRetry(() => import('@/pages/Retail/retail'), 'retail');
+const RetailSales = lazyWithRetry(() => import('@/pages/Retail/retailSales'), 'retail-sales');
 
 // Season
 const Season =lazyWithRetry(()=>import ('@/pages/Season/season'),'season');
@@ -240,14 +238,12 @@ export default function App() {
                              <Route path="/purchases/add" element={<AddPurchase/>}/>
                              <Route path="/purchases/:id/edit" element={<EditPurchase/>}/>
 
-                            {/* Purchase Requests */}
-                            <Route path="/purchase-requests" element={<PurchaseRequest/>}/>
-
                             {/* Sells */}
                             <Route path="/sells" element={<Sell/>}/>
 
                             {/* Retail POS */}
                             <Route path="/retail" element={<RetailPOS/>}/>
+                            <Route path="/retail-sales" element={<RetailSales/>}/>
 
 
                             {/* seasons */}

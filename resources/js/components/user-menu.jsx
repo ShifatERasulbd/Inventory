@@ -161,6 +161,7 @@ export function UserMenu({ user, warehouseName }) {
                                     ? 'warning'
                                     : 'info',
                             path: '/purchases',
+                            sort_value: Number(purchase.id) || 0,
                         };
                     });
 
@@ -187,6 +188,7 @@ export function UserMenu({ user, warehouseName }) {
                             seen: false,
                             severity: quantity <= 0 ? 'danger' : 'warning',
                             path: '/stocks',
+                            sort_value: Number(stock.id) || 0,
                         };
                     });
 
@@ -214,7 +216,17 @@ export function UserMenu({ user, warehouseName }) {
                     });
                 });
 
-                const mergedNotifications = Array.from(mergedMap.values()).slice(0, 50);
+                const mergedNotifications = Array.from(mergedMap.values())
+                    .sort((a, b) => {
+                        const aSort = Number(a?.sort_value ?? 0);
+                        const bSort = Number(b?.sort_value ?? 0);
+                        if (aSort !== bSort) {
+                            return bSort - aSort;
+                        }
+
+                        return String(b?.id ?? '').localeCompare(String(a?.id ?? ''));
+                    })
+                    .slice(0, 50);
                 saveStoredNotifications(mergedNotifications);
                 setNotifications(mergedNotifications);
             } catch {

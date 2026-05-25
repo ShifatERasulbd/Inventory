@@ -3,13 +3,47 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cartoon;
+use App\Models\Product;
 use App\Models\Stock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class StockController extends Controller
 {
+    private function validateBarcodesForProduct(array $barcodes, int $productId): void
+    {
+        if ($barcodes === []) {
+            return;
+        }
+
+        $productBarcode = Product::query()
+            ->whereKey($productId)
+            ->value('barCode');
+
+        $normalizedProductBarcode = is_string($productBarcode)
+            ? trim($productBarcode)
+            : '';
+
+        if ($normalizedProductBarcode === '') {
+            throw ValidationException::withMessages([
+                'barcode' => ['This product has no configured barcode. Set a product barcode before adding stock by scan.'],
+            ]);
+        }
+
+        $invalidBarcodes = array_values(array_filter(
+            $barcodes,
+            fn (string $barcode) => $barcode !== $normalizedProductBarcode
+        ));
+
+        if ($invalidBarcodes !== []) {
+            throw ValidationException::withMessages([
+                'barcode' => ['Scanned barcode does not match the selected product barcode.'],
+            ]);
+        }
+    }
+
     private function normalizeBarcodes(mixed $value): array
     {
         if ($value === null) {
@@ -46,16 +80,37 @@ class StockController extends Controller
         return [];
     }
 
+    /**
+     * Resolve warehouse IDs accessible to a user, including default warehouse if no explicit warehouses set.
+     */
+    private function resolveUserWarehouseIds($user): array
+    {
+        if ($user->hasRole('super-admin')) {
+            return []; // Super-admin has no restrictions
+        }
+
+        $ids = is_array($user->warehouse_ids)
+            ? array_values(array_unique(array_filter(array_map('intval', $user->warehouse_ids), fn (int $id) => $id > 0)))
+            : [];
+
+        // If user has no explicit warehouse_ids but has a default warehouse, include it
+        if (empty($ids) && ! empty($user->warehouse_id)) {
+            $ids = [(int) $user->warehouse_id];
+        }
+
+        return $ids;
+    }
+
     public function index(Request $request): JsonResponse
     {
         $query = Stock::query()
-            ->with(['product:id,name,size_id,color_id', 'product.size:id,size', 'product.color:id,name,color_code', 'warehouse:id,name'])
+            ->with(['product:id,name,size_id,color_id,barCode', 'product.size:id,size', 'product.color:id,name,color_code', 'warehouse:id,name'])
             ->orderBy('id');
 
         $user = $request->user();
 
         if ($user && ! $user->hasRole('super-admin')) {
-            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+            $warehouseIds = $this->resolveUserWarehouseIds($user);
 
             if ($warehouseIds === []) {
                 return response()->json([]);
@@ -73,6 +128,7 @@ class StockController extends Controller
                 'warehouse_name' => $stock->warehouse?->name,
                 'cartoon_id' => $stock->cartoon_id,
                 'barcode' => $stock->barcode,
+                'product_barcode' => $stock->product?->barCode,
                 'stocks' => (int) ($stock->stocks ?? 0),
                 'available_stock' => (int) ($stock->stocks ?? 0),
                 'buying_price' => (float) ($stock->buying_price ?? 0),
@@ -100,6 +156,8 @@ class StockController extends Controller
         ]);
 
         $barcodes = $this->normalizeBarcodes($validated['barcode'] ?? null);
+        $this->validateBarcodesForProduct($barcodes, (int) $validated['product_id']);
+
         $stockCount = count($barcodes) > 0
             ? count($barcodes)
             : (int) ($validated['stocks'] ?? $validated['available_stock'] ?? 0);
@@ -113,7 +171,7 @@ class StockController extends Controller
             'cartoon_id' => $validated['cartoon_id'] ?? null,
             'barcode' => count($barcodes) > 0 ? $barcodes : null,
         ]);
-        $stock->load(['product:id,name,size_id,color_id', 'product.size:id,size', 'product.color:id,name,color_code']);
+        $stock->load(['product:id,name,size_id,color_id,barCode', 'product.size:id,size', 'product.color:id,name,color_code']);
 
         return response()->json([
             'id' => $stock->id,
@@ -121,6 +179,7 @@ class StockController extends Controller
             'warehouse_id' => $stock->warehouse_id,
             'cartoon_id' => $stock->cartoon_id,
             'barcode' => $stock->barcode,
+            'product_barcode' => $stock->product?->barCode,
             'stocks' => (int) ($stock->stocks ?? 0),
             'available_stock' => (int) ($stock->stocks ?? 0),
             'buying_price' => (float) ($stock->buying_price ?? 0),
@@ -134,7 +193,7 @@ class StockController extends Controller
 
     public function show(Stock $stock): JsonResponse
     {
-        $stock->load(['product:id,name,size_id,color_id', 'product.size:id,size', 'product.color:id,name,color_code']);
+        $stock->load(['product:id,name,size_id,color_id,barCode', 'product.size:id,size', 'product.color:id,name,color_code']);
 
         return response()->json([
             'id' => $stock->id,
@@ -142,6 +201,7 @@ class StockController extends Controller
             'warehouse_id' => $stock->warehouse_id,
             'cartoon_id' => $stock->cartoon_id,
             'barcode' => $stock->barcode,
+            'product_barcode' => $stock->product?->barCode,
             'stocks' => (int) ($stock->stocks ?? 0),
             'available_stock' => (int) ($stock->stocks ?? 0),
             'buying_price' => (float) ($stock->buying_price ?? 0),
@@ -181,6 +241,14 @@ class StockController extends Controller
                 $incomingBarcodes = $this->normalizeBarcodes($validated['barcode']);
                 $adjustMode       = $validated['adjust_mode'] ?? 'add';
                 $isAdd            = $adjustMode === 'add';
+
+                $targetProductId = (int) (array_key_exists('product_id', $validated)
+                    ? $validated['product_id']
+                    : $stock->product_id);
+
+                if ($isAdd) {
+                    $this->validateBarcodesForProduct($incomingBarcodes, $targetProductId);
+                }
 
                 if (! $isAdd) {
                     // Deduct mode — remove scanned barcodes from existing stock.
@@ -265,7 +333,7 @@ class StockController extends Controller
             throw $e;
         }
 
-        $stock->load(['product:id,name,size_id,color_id', 'product.size:id,size', 'product.color:id,name,color_code']);
+        $stock->load(['product:id,name,size_id,color_id,barCode', 'product.size:id,size', 'product.color:id,name,color_code']);
 
         return response()->json([
             'id' => $stock->id,
@@ -273,6 +341,7 @@ class StockController extends Controller
             'warehouse_id' => $stock->warehouse_id,
             'cartoon_id' => $stock->cartoon_id,
             'barcode' => $stock->barcode,
+            'product_barcode' => $stock->product?->barCode,
             'stocks' => (int) ($stock->stocks ?? 0),
             'available_stock' => (int) ($stock->stocks ?? 0),
             'buying_price' => (float) ($stock->buying_price ?? 0),

@@ -19,9 +19,12 @@ import { useAppContext } from '@/context/AppContext';
 
 import {
     deletePurchase,
+    createRecurringPayment,
     fetchPurchases,
     updatePurchaseStatus,
 } from './api';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 async function fetchCurrentUser() {
     const response = await fetch('/api/user', {
@@ -51,6 +54,9 @@ export default function Purchase() {
     const [invoicePurchase, setInvoicePurchase] = useState(null);
     const [statusDrafts, setStatusDrafts] = useState({});
     const [updatingStatusId, setUpdatingStatusId] = useState(null);
+    const [paymentPurchase, setPaymentPurchase] = useState(null);
+    const [paymentAmount, setPaymentAmount] = useState('');
+    const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
     useEffect(() => {
         setPageTitle('Purchases');
@@ -146,6 +152,9 @@ export default function Purchase() {
 
     const handleUpdateStatus = async (id, currentStatus) => {
         const nextStatus = statusDrafts[id] ?? currentStatus;
+        const isPendingToApproved =
+            String(currentStatus).toLowerCase() === 'pending' &&
+            String(nextStatus).toLowerCase() === 'approved';
         const isShippedToReceived =
             String(currentStatus).toLowerCase() === 'shipped' &&
             String(nextStatus).toLowerCase() === 'received';
@@ -172,6 +181,11 @@ export default function Purchase() {
 
             if (isShippedToReceived) {
                 navigate(`/received-cartoons?purchase_id=${id}`);
+                return;
+            }
+
+            if (isPendingToApproved) {
+                navigate(`/cartoons/add?purchase_id=${id}`);
             }
         } catch (error) {
             toast.error(error.message || 'Failed to update purchase status.', {
@@ -187,6 +201,60 @@ export default function Purchase() {
         : [];
 
     const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
+
+    const handleOpenPayRemaining = (purchase) => {
+        setPaymentPurchase(purchase);
+        setPaymentAmount(String(Number(purchase?.due_amount ?? 0).toFixed(2)));
+    };
+
+    const handleSubmitRemainingPayment = async () => {
+        if (!paymentPurchase) {
+            return;
+        }
+
+        const dueAmount = Number(paymentPurchase.due_amount ?? 0);
+        const amount = Number(paymentAmount);
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+            toast.error('Please enter a valid payment amount greater than 0.', {
+                style: { color: '#dc2626' },
+            });
+            return;
+        }
+
+        if (amount > dueAmount) {
+            toast.error('Payment amount cannot be greater than due amount.', {
+                style: { color: '#dc2626' },
+            });
+            return;
+        }
+
+        try {
+            setIsSubmittingPayment(true);
+
+            await createRecurringPayment({
+                purchase_id: paymentPurchase.id,
+                amount,
+                frequency: 'manual',
+            });
+
+            const updatedPurchases = await fetchPurchases();
+            setPurchases(Array.isArray(updatedPurchases) ? updatedPurchases : []);
+            setPaymentPurchase(null);
+            setPaymentAmount('');
+
+            toast.success('Payment added successfully.', {
+                style: { color: '#16a34a' },
+            });
+        } catch (error) {
+            const message = error?.payload?.errors?.amount?.[0] || error.message || 'Failed to add payment.';
+            toast.error(message, {
+                style: { color: '#dc2626' },
+            });
+        } finally {
+            setIsSubmittingPayment(false);
+        }
+    };
 
     return (
         <div className="space-y-5">
@@ -204,6 +272,7 @@ export default function Purchase() {
                 updatingStatusId={updatingStatusId}
                 onStatusDraftChange={handleStatusDraftChange}
                 onUpdateStatus={handleUpdateStatus}
+                onPayRemaining={handleOpenPayRemaining}
                 userWarehouseIds={userWarehouseIds}
                 isSuperAdmin={isSuperAdmin}
             />
@@ -231,6 +300,65 @@ export default function Purchase() {
                         >
                             {deletingId !== null ? 'Deleting...' : 'Delete'}
                         </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog
+                open={Boolean(paymentPurchase)}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPaymentPurchase(null);
+                        setPaymentAmount('');
+                    }
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Pay Remaining Amount</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Add payment for purchase {paymentPurchase?.po_number}. You can pay the full due amount or part of it.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    <div className="space-y-3">
+                        <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-sm text-muted-foreground">
+                            <p>Total: {Number(paymentPurchase?.total_amount ?? 0).toFixed(2)}</p>
+                            <p>Paid: {Number(paymentPurchase?.paid_amount ?? 0).toFixed(2)}</p>
+                            <p className="font-semibold text-foreground">Due: {Number(paymentPurchase?.due_amount ?? 0).toFixed(2)}</p>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="remaining_payment_amount">Payment Amount</Label>
+                            <Input
+                                id="remaining_payment_amount"
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                value={paymentAmount}
+                                onChange={(event) => setPaymentAmount(event.target.value)}
+                                placeholder="Enter amount"
+                            />
+                        </div>
+                    </div>
+
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isSubmittingPayment}>Cancel</AlertDialogCancel>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={isSubmittingPayment}
+                            onClick={() => setPaymentAmount(String(Number(paymentPurchase?.due_amount ?? 0).toFixed(2)))}
+                        >
+                            Use Full Due
+                        </Button>
+                        <Button
+                            type="button"
+                            disabled={isSubmittingPayment}
+                            onClick={handleSubmitRemainingPayment}
+                        >
+                            {isSubmittingPayment ? 'Saving...' : 'Save Payment'}
+                        </Button>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

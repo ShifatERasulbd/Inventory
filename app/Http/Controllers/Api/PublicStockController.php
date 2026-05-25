@@ -65,7 +65,7 @@ class PublicStockController extends Controller
 
         $query = Stock::query()
             ->with([
-                'product:id,name,size_id,color_id,cover_image',
+                'product:id,name,style_number,size_id,color_id,cover_image',
                 'product.size:id,size',
                 'product.color:id,name,color_code',
                 'warehouse:id,name',
@@ -90,21 +90,25 @@ class PublicStockController extends Controller
             'id' => $stock->id,
             'product_id' => $stock->product_id,
             'product_name' => $stock->product?->name,
-            'product_color_name' => $stock->product?->color?->name,
-            'product_size' => $stock->product?->size?->size,
             'cover_image_url' => $stock->product?->cover_image_url
                 ? (str_starts_with($stock->product->cover_image_url, 'http') ? $stock->product->cover_image_url : rtrim(config('app.url'), '/') . $stock->product->cover_image_url)
                 : null,
             'warehouse_id' => $stock->warehouse_id,
             'warehouse_name' => $stock->warehouse?->name,
-            'size' => $stock->product?->size?->size,
-            'color_variant' => $stock->product?->color?->color_code ?? $stock->product?->color?->name,
-            
+            'sku' => $stock->product?->style_number,
             'selling_price' => (float) ($stock->selling_price ?? 0),
-            
             'stocks' => (int) ($stock->stocks ?? 0),
             'available_stock' => (int) ($stock->stocks ?? 0),
             'barcode' => $stock->barcode,
+            'color_variant' => [
+                'id' => $stock->product?->color?->id,
+                'name' => $stock->product?->color?->name,
+                'color_code' => $stock->product?->color?->color_code,
+            ],
+            'size_variant' => [
+                'id' => $stock->product?->size?->id,
+                'size' => $stock->product?->size?->size,
+            ],
             'updated_at' => $stock->updated_at,
         ]);
 

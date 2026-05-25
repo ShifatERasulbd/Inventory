@@ -7,6 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+    AlertDialog,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
     Table,
     TableBody,
     TableCell,
@@ -16,7 +25,12 @@ import {
 } from '@/components/ui/table';
 import { useAppContext } from '@/context/AppContext';
 
-import { fetchReceivedCartoons, receiveCartoonByScan } from './api';
+import {
+    createReceivedCartoonIssue,
+    fetchReceivedCartoonIssues,
+    fetchReceivedCartoons,
+    receiveCartoonByScan,
+} from './api';
 
 function formatProducts(products) {
     if (!Array.isArray(products) || products.length === 0) {
@@ -39,6 +53,12 @@ export default function ReceivedCartoons() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [scanValue, setScanValue] = useState('');
+    const [issues, setIssues] = useState([]);
+    const [isLoadingIssues, setIsLoadingIssues] = useState(false);
+    const [issueTargetRow, setIssueTargetRow] = useState(null);
+    const [issueTitle, setIssueTitle] = useState('');
+    const [issueDescription, setIssueDescription] = useState('');
+    const [isSubmittingIssue, setIsSubmittingIssue] = useState(false);
 
     useEffect(() => {
         setPageTitle('Received Cartoons');
@@ -60,6 +80,23 @@ export default function ReceivedCartoons() {
 
     useEffect(() => {
         loadRows();
+    }, [purchaseId]);
+
+    const loadIssues = async () => {
+        setIsLoadingIssues(true);
+
+        try {
+            const data = await fetchReceivedCartoonIssues(purchaseId);
+            setIssues(Array.isArray(data) ? data : []);
+        } catch {
+            setIssues([]);
+        } finally {
+            setIsLoadingIssues(false);
+        }
+    };
+
+    useEffect(() => {
+        loadIssues();
     }, [purchaseId]);
 
     const pendingCount = useMemo(() => rows.length, [rows]);
@@ -90,6 +127,52 @@ export default function ReceivedCartoons() {
             });
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const openIssueModal = (row) => {
+        setIssueTargetRow(row);
+        setIssueTitle(`Issue for PO ${row?.purchase?.po_number || row?.p_o_number || ''}`.trim());
+        setIssueDescription('');
+    };
+
+    const handleSubmitIssue = async () => {
+        if (!issueTargetRow) {
+            return;
+        }
+
+        const normalizedTitle = issueTitle.trim();
+        if (!normalizedTitle) {
+            toast.error('Issue title is required.', {
+                style: { color: '#dc2626' },
+            });
+            return;
+        }
+
+        try {
+            setIsSubmittingIssue(true);
+
+            await createReceivedCartoonIssue({
+                purchase_id: Number(issueTargetRow?.purchase?.id ?? issueTargetRow?.p_o_number),
+                cartoon_id: Number(issueTargetRow?.id),
+                title: normalizedTitle,
+                description: issueDescription.trim() || null,
+            });
+
+            toast.success('Issue raised successfully.', {
+                style: { color: '#16a34a' },
+            });
+
+            setIssueTargetRow(null);
+            setIssueTitle('');
+            setIssueDescription('');
+            await loadIssues();
+        } catch (error) {
+            toast.error(error.message || 'Failed to raise issue.', {
+                style: { color: '#dc2626' },
+            });
+        } finally {
+            setIsSubmittingIssue(false);
         }
     };
 
@@ -142,12 +225,13 @@ export default function ReceivedCartoons() {
                                 <TableHead>Warehouse</TableHead>
                                 <TableHead>Quantity</TableHead>
                                 <TableHead>Products</TableHead>
+                                <TableHead>Issue</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoading && (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                    <TableCell colSpan={6} className="text-center text-muted-foreground">
                                         Loading received cartoons...
                                     </TableCell>
                                 </TableRow>
@@ -155,7 +239,7 @@ export default function ReceivedCartoons() {
 
                             {!isLoading && rows.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                    <TableCell colSpan={6} className="text-center text-muted-foreground">
                                         No pending cartoons found.
                                     </TableCell>
                                 </TableRow>
@@ -168,12 +252,120 @@ export default function ReceivedCartoons() {
                                     <TableCell>{row.warehouse?.name || 'N/A'}</TableCell>
                                     <TableCell>{row.quantity ?? 0}</TableCell>
                                     <TableCell>{formatProducts(row.purchase?.products)}</TableCell>
+                                    <TableCell>
+                                        <Button type="button" size="sm" variant="outline" onClick={() => openIssueModal(row)}>
+                                            Raise Issue
+                                        </Button>
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
                 </CardContent>
             </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Raised Receive Issues</CardTitle>
+                    <CardDescription>
+                        Accessible only to concerned warehouse users and super-admin.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>PO</TableHead>
+                                <TableHead>Cartoon</TableHead>
+                                <TableHead>Warehouse</TableHead>
+                                <TableHead>Title</TableHead>
+                                <TableHead>Raised By</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Date</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoadingIssues && (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                                        Loading issues...
+                                    </TableCell>
+                                </TableRow>
+                            )}
+
+                            {!isLoadingIssues && issues.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                                        No issues found.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+
+                            {!isLoadingIssues && issues.map((issue) => (
+                                <TableRow key={issue.id}>
+                                    <TableCell>{issue.po_number || `PO #${issue.purchase_id}`}</TableCell>
+                                    <TableCell>{issue.cartoon_number || 'N/A'}</TableCell>
+                                    <TableCell>{issue.concern_warehouse_name || 'N/A'}</TableCell>
+                                    <TableCell>{issue.title}</TableCell>
+                                    <TableCell>{issue.raised_by_name || 'N/A'}</TableCell>
+                                    <TableCell className="capitalize">{issue.status || 'open'}</TableCell>
+                                    <TableCell>{issue.created_at || 'N/A'}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+
+            <AlertDialog
+                open={Boolean(issueTargetRow)}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setIssueTargetRow(null);
+                        setIssueTitle('');
+                        setIssueDescription('');
+                    }
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Raise Receive Issue</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Raise issue for PO {issueTargetRow?.purchase?.po_number || issueTargetRow?.p_o_number || 'N/A'}.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    <div className="space-y-3">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="issue_title">Title</Label>
+                            <Input
+                                id="issue_title"
+                                value={issueTitle}
+                                onChange={(event) => setIssueTitle(event.target.value)}
+                                placeholder="Issue title"
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="issue_description">Description (optional)</Label>
+                            <textarea
+                                id="issue_description"
+                                value={issueDescription}
+                                onChange={(event) => setIssueDescription(event.target.value)}
+                                placeholder="Describe the issue"
+                                className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            />
+                        </div>
+                    </div>
+
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isSubmittingIssue}>Cancel</AlertDialogCancel>
+                        <Button type="button" disabled={isSubmittingIssue} onClick={handleSubmitIssue}>
+                            {isSubmittingIssue ? 'Saving...' : 'Raise Issue'}
+                        </Button>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

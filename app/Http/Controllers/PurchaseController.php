@@ -8,6 +8,7 @@ use App\Models\Purchase;
 use App\Models\Sell;
 use App\Models\Stock;
 use App\Models\WareHouse;
+use App\Services\AccountingService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,48 @@ use Illuminate\Support\Facades\DB;
 
 class PurchaseController extends Controller
 {
+    private function normalizePurchaseProducts(array $items): array
+    {
+        return array_values(array_map(function (array $item): array {
+            $quantity = max(0, (int) ($item['quantity'] ?? 0));
+            $purchasePrice = max(0, (float) ($item['purchase_price'] ?? 0));
+            $sellingPrice = is_numeric($item['selling_price'] ?? null)
+                ? max(0, (float) $item['selling_price'])
+                : $purchasePrice;
+
+            return [
+                'product_id' => (int) ($item['product_id'] ?? 0),
+                'quantity' => $quantity,
+                'purchase_price' => $purchasePrice,
+                'selling_price' => $sellingPrice,
+                'line_total' => $quantity * $purchasePrice,
+            ];
+        }, $items));
+    }
+
+    private function calculatePurchaseFinancials(array $products, mixed $paidAmountInput = null): array
+    {
+        $subtotal = array_reduce($products, function (float $carry, array $item): float {
+            return $carry + ((float) ($item['line_total'] ?? 0));
+        }, 0.0);
+
+        $totalAmount = $subtotal;
+        $paidAmount = is_numeric($paidAmountInput) ? max(0, (float) $paidAmountInput) : 0.0;
+        $dueAmount = max(0, $totalAmount - $paidAmount);
+
+        $paymentStatus = $paidAmount <= 0
+            ? 'unpaid'
+            : ($dueAmount <= 0 ? 'paid' : 'partial');
+
+        return [
+            'subtotal' => $subtotal,
+            'total_amount' => $totalAmount,
+            'paid_amount' => min($paidAmount, $totalAmount),
+            'due_amount' => $dueAmount,
+            'payment_status' => $paymentStatus,
+        ];
+    }
+
     private function isApprovedStatus(string $status): bool
     {
         return in_array(strtolower($status), ['approve', 'approved', 'active'], true);
@@ -187,6 +230,8 @@ class PurchaseController extends Controller
                 ]
             );
 
+            app(AccountingService::class)->syncSellAccount($sell);
+
             if (! $sell->wasRecentlyCreated) {
                 continue;
             }
@@ -219,6 +264,27 @@ class PurchaseController extends Controller
         return is_int($warehouseId) || ctype_digit((string) $warehouseId)
             ? (int) $warehouseId
             : null;
+    }
+
+    /**
+     * Resolve warehouse IDs accessible to a user, including default warehouse if no explicit warehouses set.
+     */
+    private function resolveUserWarehouseIds($user): array
+    {
+        if ($user->hasRole('super-admin')) {
+            return []; // Super-admin has no restrictions
+        }
+
+        $ids = is_array($user->warehouse_ids)
+            ? array_values(array_unique(array_filter(array_map('intval', $user->warehouse_ids), fn (int $id) => $id > 0)))
+            : [];
+
+        // If user has no explicit warehouse_ids but has a default warehouse, include it
+        if (empty($ids) && ! empty($user->warehouse_id)) {
+            $ids = [(int) $user->warehouse_id];
+        }
+
+        return $ids;
     }
 
     private function buildProductMap(array $purchases): array
@@ -259,23 +325,59 @@ class PurchaseController extends Controller
         $formattedProducts = array_values(array_map(function ($item) use ($productMap) {
             $productId = (int) ($item['product_id'] ?? 0);
             $productData = $productMap[$productId] ?? null;
+            $quantity = (int) ($item['quantity'] ?? 0);
+            $purchasePrice = (float) ($item['purchase_price'] ?? 0);
 
             return [
                 'product_id'     => $productId,
-                'quantity'       => (int) ($item['quantity'] ?? 0),
-                'purchase_price' => (float) ($item['purchase_price'] ?? 0),
+                'quantity'       => $quantity,
+                'purchase_price' => $purchasePrice,
                 'selling_price'  => (float) ($item['selling_price'] ?? 0),
+                'line_total'     => (float) ($item['line_total'] ?? ($quantity * $purchasePrice)),
                 'product_name'   => is_array($productData) ? ($productData['name'] ?? null) : null,
                 'size'           => is_array($productData) ? ($productData['size'] ?? null) : null,
                 'color'          => is_array($productData) ? ($productData['color'] ?? null) : null,
             ];
         }, $products));
 
+        $computedSubtotal = array_reduce($formattedProducts, function (float $carry, array $item): float {
+            return $carry + ((float) ($item['line_total'] ?? 0));
+        }, 0.0);
+
+        $subtotal = (float) ($purchase->subtotal ?? 0);
+        if ($subtotal <= 0 && $computedSubtotal > 0) {
+            $subtotal = $computedSubtotal;
+        }
+
+        $totalAmount = (float) ($purchase->total_amount ?? 0);
+        if ($totalAmount <= 0 && $subtotal > 0) {
+            $totalAmount = $subtotal;
+        }
+
+        $paidAmount = (float) ($purchase->paid_amount ?? 0);
+        $dueAmount = (float) ($purchase->due_amount ?? max(0, $totalAmount - $paidAmount));
+        if ($totalAmount > 0 && $dueAmount <= 0 && $paidAmount < $totalAmount) {
+            $dueAmount = max(0, $totalAmount - $paidAmount);
+        }
+
+        $paymentStatus = (string) ($purchase->payment_status ?? '');
+        if ($paymentStatus === '' || strtolower($paymentStatus) === 'pending') {
+            $paymentStatus = $paidAmount > 0
+                ? ($dueAmount <= 0 ? 'paid' : 'partial')
+                : 'unpaid';
+        }
+
         return [
             'id'                 => $purchase->id,
             'purchase_form'      => $purchase->purchase_form,
             'purchase_to'        => $purchase->purchase_to,
             'products'           => $formattedProducts,
+            'subtotal'           => $subtotal,
+            'total_amount'       => $totalAmount,
+            'paid_amount'        => $paidAmount,
+            'due_amount'         => $dueAmount,
+            'payment_status'     => $paymentStatus,
+            'payment_method'     => $purchase->payment_method,
             'po_number'          => $purchase->po_number,
             'po_date'            => $purchase->created_at?->format('Y-m-d'),
             'status'             => $purchase->status,
@@ -298,7 +400,7 @@ class PurchaseController extends Controller
 
         // Filter by permission: only super-admins see all purchases
         if (! $user->hasRole('super-admin')) {
-            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+            $warehouseIds = $this->resolveUserWarehouseIds($user);
 
             if ($warehouseIds !== []) {
                 $query->where(function ($q) use ($warehouseIds) {
@@ -329,7 +431,7 @@ class PurchaseController extends Controller
         if ($user->hasRole('super-admin') || $user->hasPermission('read-warehouses')) {
             $warehouses = WareHouse::query()->orderBy('name')->get(['id', 'name']);
         } else {
-            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+            $warehouseIds = $this->resolveUserWarehouseIds($user);
             $warehouses = empty($warehouseIds)
                 ? collect()
                 : WareHouse::query()->whereIn('id', $warehouseIds)->orderBy('name')->get(['id', 'name']);
@@ -343,9 +445,36 @@ class PurchaseController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'color_id', 'size_id']);
 
+        $stockSellingPrices = [];
+        $stockQuantities = [];
+        $stocks = Stock::query()
+            ->whereNull('cartoon_id')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->get(['warehouse_id', 'product_id', 'stocks', 'selling_price']);
+
+        foreach ($stocks as $stock) {
+            $warehouseId = (int) ($stock->warehouse_id ?? 0);
+            $productId = (int) ($stock->product_id ?? 0);
+
+            if ($warehouseId <= 0 || $productId <= 0) {
+                continue;
+            }
+
+            $key = $warehouseId.':'.$productId;
+
+            if (! array_key_exists($key, $stockSellingPrices)) {
+                $stockSellingPrices[$key] = (float) ($stock->selling_price ?? 0);
+            }
+
+            $stockQuantities[$key] = (int) ($stockQuantities[$key] ?? 0) + max(0, (int) ($stock->stocks ?? 0));
+        }
+
         return response()->json([
             'warehouses' => $warehouses,
             'products' => $products,
+            'stock_selling_prices' => $stockSellingPrices,
+            'stock_quantities' => $stockQuantities,
         ]);
     }
 
@@ -360,7 +489,7 @@ class PurchaseController extends Controller
             ]);
 
         if (! $user->hasRole('super-admin')) {
-            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+            $warehouseIds = $this->resolveUserWarehouseIds($user);
 
             if ($warehouseIds === []) {
                 return response()->json([]);
@@ -386,7 +515,7 @@ class PurchaseController extends Controller
         $previousStatus = (string) $purchase->status;
 
         if (! $user->hasRole('super-admin')) {
-            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+            $warehouseIds = $this->resolveUserWarehouseIds($user);
 
             $hasAccess = in_array($purchase->purchase_to, $warehouseIds, true) ||
                 in_array($purchase->purchase_form, $warehouseIds, true);
@@ -420,6 +549,8 @@ class PurchaseController extends Controller
 
         $purchase->update($updatePayload);
 
+        app(AccountingService::class)->syncPurchaseAccount($purchase->fresh());
+
         $this->syncApprovedPurchaseToSellAndStock($purchase);
         $this->syncReceivedPurchaseToCartoonWarehouse($purchase);
 
@@ -441,11 +572,13 @@ class PurchaseController extends Controller
             'products.*.product_id'            => ['required', 'integer', 'exists:products,id'],
             'products.*.quantity'              => ['required', 'integer', 'min:1'],
             'products.*.purchase_price'        => ['required', 'numeric', 'min:0'],
-            'products.*.selling_price'         => ['required', 'numeric', 'min:0'],
+            'products.*.selling_price'         => ['nullable', 'numeric', 'min:0'],
             'po_number'                        => ['required', 'string', 'max:100'],
             'status'                           => ['required', 'string', 'max:50'],
             'shipping_date'                    => ['nullable', 'date'],
             'received_date'                    => ['nullable', 'date'],
+            'paid_amount'                      => ['nullable', 'numeric', 'min:0'],
+            'payment_method'                   => ['nullable', 'string', 'max:50'],
         ];
 
         if ($request->user()?->hasRole('super-admin')) {
@@ -454,6 +587,17 @@ class PurchaseController extends Controller
 
         $validated = $request->validate($rules);
         $validated = $this->normalizeStatusDates($validated);
+        $validated['products'] = $this->normalizePurchaseProducts($validated['products'] ?? []);
+        $financials = $this->calculatePurchaseFinancials($validated['products'], $validated['paid_amount'] ?? null);
+
+        if (is_numeric($validated['paid_amount'] ?? null) && (float) $validated['paid_amount'] > (float) $financials['total_amount']) {
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => [
+                    'paid_amount' => ['Paid amount cannot exceed total PO amount.'],
+                ],
+            ], 422);
+        }
 
         $purchaseTo = $this->resolvePurchaseTo($request, $validated);
         if (! $purchaseTo) {
@@ -462,15 +606,54 @@ class PurchaseController extends Controller
             ], 422);
         }
 
+        $productIds = collect($validated['products'])
+            ->map(fn (array $item) => (int) ($item['product_id'] ?? 0))
+            ->filter(fn (int $productId) => $productId > 0)
+            ->unique()
+            ->values();
+
+        $availableStockByProduct = Stock::query()
+            ->where('warehouse_id', (int) $validated['purchase_form'])
+            ->whereNull('cartoon_id')
+            ->whereIn('product_id', $productIds)
+            ->select('product_id', DB::raw('SUM(stocks) as total_stocks'))
+            ->groupBy('product_id')
+            ->pluck('total_stocks', 'product_id');
+
+        $stockValidationErrors = [];
+        foreach ($validated['products'] as $index => $item) {
+            $productId = (int) ($item['product_id'] ?? 0);
+            $availableQty = max(0, (int) ($availableStockByProduct[$productId] ?? 0));
+
+            if ($availableQty <= 0) {
+                $stockValidationErrors["products.{$index}.product_id"] = ['Selected product is not available in the selected purchase warehouse.'];
+            }
+        }
+
+        if ($stockValidationErrors !== []) {
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => $stockValidationErrors,
+            ], 422);
+        }
+
         $purchase = Purchase::query()->create([
             'purchase_form' => $validated['purchase_form'],
             'purchase_to'   => $purchaseTo,
             'products'      => $validated['products'],
+            'subtotal'      => $financials['subtotal'],
+            'total_amount'  => $financials['total_amount'],
+            'paid_amount'   => $financials['paid_amount'],
+            'due_amount'    => $financials['due_amount'],
+            'payment_status'=> $financials['payment_status'],
+            'payment_method'=> $validated['payment_method'] ?? null,
             'po_number'     => $validated['po_number'],
             'status'        => $validated['status'],
             'shipping_date' => $validated['shipping_date'] ?? null,
             'received_date' => $validated['received_date'] ?? null,
         ]);
+
+        app(AccountingService::class)->syncPurchaseAccount($purchase->fresh());
 
         $this->syncApprovedPurchaseToSellAndStock($purchase);
         $this->syncReceivedPurchaseToCartoonWarehouse($purchase);
@@ -491,7 +674,7 @@ class PurchaseController extends Controller
 
         // Check permission: super-admin or user's warehouse involved
         if (! $user->hasRole('super-admin')) {
-            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+            $warehouseIds = $this->resolveUserWarehouseIds($user);
 
             $hasAccess = in_array($purchase->purchase_to, $warehouseIds, true) ||
                         in_array($purchase->purchase_form, $warehouseIds, true);
@@ -520,7 +703,7 @@ class PurchaseController extends Controller
 
         // Check permission: super-admin or user's warehouse involved
         if (! $user->hasRole('super-admin')) {
-            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+            $warehouseIds = $this->resolveUserWarehouseIds($user);
 
             $hasAccess = in_array($purchase->purchase_to, $warehouseIds, true) ||
                         in_array($purchase->purchase_form, $warehouseIds, true);
@@ -539,12 +722,14 @@ class PurchaseController extends Controller
             'products.*.product_id'     => ['required', 'integer', 'exists:products,id'],
             'products.*.quantity'       => ['required', 'integer', 'min:1'],
             'products.*.purchase_price' => ['required', 'numeric', 'min:0'],
-            'products.*.selling_price'  => ['required', 'numeric', 'min:0'],
+            'products.*.selling_price'  => ['nullable', 'numeric', 'min:0'],
             'po_number'                 => ['required', 'string', 'max:100'],
             'status'                    => ['required', 'string', 'max:50'],
             'shipping_date'             => ['nullable', 'date'],
             'received_date'             => ['nullable', 'date'],
             'note'                      => ['nullable', 'string', 'max:2000'],
+            'paid_amount'               => ['nullable', 'numeric', 'min:0'],
+            'payment_method'            => ['nullable', 'string', 'max:50'],
         ];
 
       
@@ -552,17 +737,36 @@ class PurchaseController extends Controller
         $validated = $request->validate($rules);
         $validated = $this->normalizeStatusDates($validated, $purchase);
         $validated = $this->applyTransitionStatusDates($validated, $previousStatus);
+        $validated['products'] = $this->normalizePurchaseProducts($validated['products'] ?? []);
+        $financials = $this->calculatePurchaseFinancials($validated['products'], $validated['paid_amount'] ?? null);
+
+        if (is_numeric($validated['paid_amount'] ?? null) && (float) $validated['paid_amount'] > (float) $financials['total_amount']) {
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => [
+                    'paid_amount' => ['Paid amount cannot exceed total PO amount.'],
+                ],
+            ], 422);
+        }
 
         $purchase->update([
             'purchase_form' => $validated['purchase_form'],
             'purchase_to'   => $validated['purchase_to'],
             'products'      => $validated['products'],
+            'subtotal'      => $financials['subtotal'],
+            'total_amount'  => $financials['total_amount'],
+            'paid_amount'   => $financials['paid_amount'],
+            'due_amount'    => $financials['due_amount'],
+            'payment_status'=> $financials['payment_status'],
+            'payment_method'=> $validated['payment_method'] ?? null,
             'po_number'     => $validated['po_number'],
             'status'        => $validated['status'],
             'shipping_date' => $validated['shipping_date'] ?? null,
             'received_date' => $validated['received_date'] ?? null,
             'note'          => $validated['note'] ?? null,
         ]);
+
+        app(AccountingService::class)->syncPurchaseAccount($purchase->fresh());
 
         $this->syncApprovedPurchaseToSellAndStock($purchase);
         $this->syncReceivedPurchaseToCartoonWarehouse($purchase);
@@ -583,7 +787,7 @@ class PurchaseController extends Controller
 
         // Check permission: super-admin or user's warehouse involved
         if (! $user->hasRole('super-admin')) {
-            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+            $warehouseIds = $this->resolveUserWarehouseIds($user);
 
             $hasAccess = in_array($purchase->purchase_to, $warehouseIds, true) ||
                         in_array($purchase->purchase_form, $warehouseIds, true);
@@ -596,6 +800,8 @@ class PurchaseController extends Controller
         }
 
         $purchase->delete();
+
+        app(AccountingService::class)->deleteSourceAccount('purchase', (int) $purchase->id);
 
         return response()->json([
             'message' => 'Purchase deleted successfully.',

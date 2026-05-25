@@ -24,6 +24,9 @@ use App\Http\Controllers\CartoonController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\SellController;
 use App\Http\Controllers\StockController;
+use App\Http\Controllers\AccountController;
+use App\Http\Controllers\RecurringPaymentController;
+use App\Http\Controllers\ReceivedCartoonIssueController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -95,6 +98,8 @@ Route::prefix('api')->group(function () {
         // Cartoon Controller
         Route::get('/cartoon-tracking', [CartoonController::class, 'tracking'])->middleware('resource.permission:cartoons');
         Route::get('/received-cartoons', [CartoonController::class, 'receivedQueue'])->middleware('resource.permission:cartoons');
+        Route::get('/received-cartoons/issues', [ReceivedCartoonIssueController::class, 'index'])->middleware('resource.permission:cartoons');
+        Route::post('/received-cartoons/issues', [ReceivedCartoonIssueController::class, 'store'])->middleware('resource.permission:cartoons');
         Route::post('/received-cartoons/scan', [CartoonController::class, 'receiveByScan'])->middleware('resource.permission:stocks');
         Route::apiResource('/cartoons', CartoonController::class)->middleware('resource.permission:cartoons');
         Route::post('/cartoons/{cartoon}/adjust-quantity', [CartoonController::class, 'adjustQuantity'])->middleware('resource.permission:cartoons');
@@ -108,6 +113,9 @@ Route::prefix('api')->group(function () {
         Route::apiResource('/purchases', PurchaseController::class)->middleware('resource.permission:purchases');
         Route::get('/purchase-requests', [PurchaseController::class, 'getPurchaseRequests'])->middleware('resource.permission:purchases');
         Route::patch('/purchases/{purchase}/status', [PurchaseController::class, 'updateRequestStatus'])->middleware('resource.permission:purchases');
+        Route::get('/accounts', [AccountController::class, 'index'])->middleware('resource.permission:purchases');
+        Route::get('/recurring-payments', [RecurringPaymentController::class, 'index'])->middleware('resource.permission:purchases');
+        Route::post('/recurring-payments', [RecurringPaymentController::class, 'store'])->middleware('resource.permission:purchases');
 
         // Sell Controller
         Route::apiResource('/sells', SellController::class)->middleware('resource.permission:sales');

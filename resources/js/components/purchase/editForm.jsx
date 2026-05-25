@@ -31,6 +31,10 @@ export default function EditPurchaseForm({
     isSuperAdmin = false,
     purchaseToLabel,
     availableStatuses = ['pending', 'approved', 'shipped', 'received', 'cancelled'],
+    orderSubtotal = 0,
+    orderTotal = 0,
+    dueAmount = 0,
+    paymentStatus = 'unpaid',
 }) {
     const getProductOptionLabel = (product) => {
         const name = product?.name || `Product #${product?.id}`;
@@ -40,6 +44,17 @@ export default function EditPurchaseForm({
         return [name, color, size]
             .filter(Boolean)
             .join(' - ');
+    };
+
+    const getLineTotal = (row) => {
+        const quantity = Number(row?.quantity ?? 0);
+        const purchasePrice = Number(row?.purchase_price ?? 0);
+
+        if (!Number.isFinite(quantity) || !Number.isFinite(purchasePrice)) {
+            return 0;
+        }
+
+        return Math.max(0, quantity) * Math.max(0, purchasePrice);
     };
 
     return (
@@ -235,24 +250,62 @@ export default function EditPurchaseForm({
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label>Selling Price</Label>
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                value={row.selling_price}
-                                                onChange={(e) => onProductChange(index, 'selling_price', e.target.value)}
-                                                placeholder="e.g. 420.00"
-                                            />
-                                            {errors[`products.${index}.selling_price`] && (
-                                                <p className="text-xs text-destructive">
-                                                    {errors[`products.${index}.selling_price`][0]}
-                                                </p>
-                                            )}
+                                            <Label>Line Total</Label>
+                                            <Input value={getLineTotal(row).toFixed(2)} disabled />
                                         </div>
+
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-5 rounded-lg border bg-muted/20 p-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label>Total PO Amount</Label>
+                            <Input value={Number(orderTotal ?? 0).toFixed(2)} disabled />
+                            <p className="text-xs text-muted-foreground">Subtotal: {Number(orderSubtotal ?? 0).toFixed(2)}</p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="payment_method">Payment Method</Label>
+                            <Select value={form.payment_method || ''} onValueChange={(value) => onSelectChange('payment_method', value)}>
+                                <SelectTrigger id="payment_method" className="w-full">
+                                    <SelectValue placeholder="Select payment method" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="cash">Cash</SelectItem>
+                                    <SelectItem value="bank">Bank</SelectItem>
+                                    <SelectItem value="card">Card</SelectItem>
+                                    <SelectItem value="mobile">Mobile Banking</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="paid_amount">Paid Amount</Label>
+                            <Input
+                                id="paid_amount"
+                                name="paid_amount"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={form.paid_amount ?? '0'}
+                                onChange={onChange}
+                                placeholder="0.00"
+                            />
+                            {errors.paid_amount && <p className="text-xs text-destructive">{errors.paid_amount[0]}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Payment Status</Label>
+                            <Input value={String(paymentStatus || 'unpaid').toUpperCase()} disabled />
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                            <Label>Due Amount</Label>
+                            <Input value={Number(dueAmount ?? 0).toFixed(2)} disabled />
                         </div>
                     </div>
                 </CardContent>

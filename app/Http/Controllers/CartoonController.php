@@ -36,10 +36,11 @@ class CartoonController extends Controller
         return Product::query()
             ->with(['size:id,size', 'color:id,name'])
             ->whereIn('id', array_values(array_unique($productIds)))
-            ->get(['id', 'name', 'size_id', 'color_id'])
+            ->get(['id', 'name', 'barCode', 'size_id', 'color_id'])
             ->mapWithKeys(fn (Product $product) => [
                 $product->id => [
                     'name' => $product->name,
+                    'barcode' => $product->barCode,
                     'size' => $product->size?->size,
                     'color' => $product->color?->name,
                 ],
@@ -57,6 +58,7 @@ class CartoonController extends Controller
                 'product_id' => $productId,
                 'quantity' => (int) ($item['quantity'] ?? 0),
                 'product_name' => $productData['name'] ?? null,
+                'barcode' => $productData['barcode'] ?? null,
                 'color' => $productData['color'] ?? null,
                 'size' => $productData['size'] ?? null,
             ];

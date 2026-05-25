@@ -32,6 +32,7 @@ export default function Stock() {
     const [adjustStockTarget, setAdjustStockTarget] = useState(null);
     const [barcodeInput, setBarcodeInput] = useState('');
     const [scannedBarcodes, setScannedBarcodes] = useState([]);
+    const [adjustErrorMessage, setAdjustErrorMessage] = useState('');
     const [isAdjusting, setIsAdjusting] = useState(false);
     const [sellingPriceDrafts, setSellingPriceDrafts] = useState({});
     const [savingSellingPriceIds, setSavingSellingPriceIds] = useState([]);
@@ -110,13 +111,34 @@ export default function Stock() {
         setAdjustStockTarget(stock);
         setBarcodeInput('');
         setScannedBarcodes([]);
+        setAdjustErrorMessage('');
         setErrorMessage('');
         setIsAdjustDialogOpen(true);
     };
 
     const handleBarcodeScan = () => {
         const normalized = barcodeInput.trim();
-        if (!normalized) return;
+
+        if (!normalized) {
+            return;
+        }
+
+        if (adjustMode === 'add') {
+            const expectedBarcode = String(adjustStockTarget?.product_barcode ?? '').trim();
+
+            if (!expectedBarcode) {
+                setAdjustErrorMessage('This product has no configured barcode. Set a product barcode before adding stock by scan.');
+                return;
+            }
+
+            if (normalized !== expectedBarcode) {
+                setAdjustErrorMessage('Scanned barcode does not match the selected product barcode.');
+                setBarcodeInput('');
+                return;
+            }
+        }
+
+        setAdjustErrorMessage('');
         setScannedBarcodes((previous) => [...previous, normalized]);
         setBarcodeInput('');
     };
@@ -125,23 +147,23 @@ export default function Stock() {
         const quantity = scannedBarcodes.length;
 
         if (quantity <= 0) {
-            setErrorMessage(adjustMode === 'add' ? 'Scan at least one barcode before adding.' : 'Scan at least one barcode before deducting.');
+            setAdjustErrorMessage(adjustMode === 'add' ? 'Scan at least one barcode before adding.' : 'Scan at least one barcode before deducting.');
             return;
         }
 
         const targetStock = stocks.find((stock) => stock.id === adjustStockTarget?.id);
         if (!targetStock) {
-            setErrorMessage('Product not found. Please try again.');
+            setAdjustErrorMessage('Product not found. Please try again.');
             return;
         }
 
         if (adjustMode === 'deduct' && quantity > Number(targetStock.available_stock ?? 0)) {
-            setErrorMessage('Deducted quantity cannot make stock negative.');
+            setAdjustErrorMessage('Deducted quantity cannot make stock negative.');
             return;
         }
 
         setIsAdjusting(true);
-        setErrorMessage('');
+        setAdjustErrorMessage('');
 
         try {
             const updated = await updateStock(targetStock.id, {
@@ -160,9 +182,10 @@ export default function Stock() {
             setAdjustStockTarget(null);
             setScannedBarcodes([]);
             setBarcodeInput('');
+            setAdjustErrorMessage('');
         } catch (error) {
             const message = error.message || 'Failed to update stock.';
-            setErrorMessage(message);
+            setAdjustErrorMessage(message);
             toast.error(message, {
                 style: { color: '#dc2626' },
             });
@@ -263,7 +286,12 @@ export default function Stock() {
                                 <Input
                                     id="barcode_input"
                                     value={barcodeInput}
-                                    onChange={(event) => setBarcodeInput(event.target.value)}
+                                    onChange={(event) => {
+                                        setBarcodeInput(event.target.value);
+                                        if (adjustErrorMessage) {
+                                            setAdjustErrorMessage('');
+                                        }
+                                    }}
                                     onKeyDown={(event) => {
                                         if (event.key === 'Enter') {
                                             event.preventDefault();
@@ -284,6 +312,9 @@ export default function Stock() {
                             <p className="text-sm text-muted-foreground">
                                 Scanned: <span className="font-semibold text-foreground">{scannedBarcodes.length}</span>
                             </p>
+                            {adjustErrorMessage && (
+                                <p className="text-sm text-destructive">{adjustErrorMessage}</p>
+                            )}
                         </div>
                     </div>
 

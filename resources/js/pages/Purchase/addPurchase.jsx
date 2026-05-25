@@ -3,23 +3,61 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import AddPurchaseForm from '@/components/purchase/addForm';
+import WarehouseStockModal from '@/components/purchase/warehouseStockModal';
 import { useAppContext } from '@/context/AppContext';
 
 import { createPurchase, fetchPurchaseFormOptions } from './api';
 
-const emptyProductRow = () => ({ product_id: '', quantity: '', purchase_price: '', selling_price: '' });
+const emptyProductRow = () => ({ product_id: '', quantity: '', purchase_price: '' });
 
 const initialForm = {
     purchase_form: '',
     purchase_to: '',
     po_number: '',
     status: 'pending',
+    payment_method: '',
+    paid_amount: '0',
     shipping_date: '',
     received_date: '',
     products: [emptyProductRow()],
 };
 
 const ALL_STATUS_OPTIONS = ['pending', 'approved', 'shipped', 'received', 'cancelled'];
+
+function getStockSellingPrice(stockSellingPrices, warehouseId, productId) {
+    const sourceWarehouseId = Number(warehouseId);
+    const selectedProductId = Number(productId);
+
+    if (!Number.isInteger(sourceWarehouseId) || sourceWarehouseId <= 0) {
+        return null;
+    }
+
+    if (!Number.isInteger(selectedProductId) || selectedProductId <= 0) {
+        return null;
+    }
+
+    const key = `${sourceWarehouseId}:${selectedProductId}`;
+    const value = stockSellingPrices?.[key];
+
+    return value == null ? null : Number(value);
+}
+
+function getStockQuantity(stockQuantities, warehouseId, productId) {
+    const sourceWarehouseId = Number(warehouseId);
+    const selectedProductId = Number(productId);
+
+    if (!Number.isInteger(sourceWarehouseId) || sourceWarehouseId <= 0) {
+        return 0;
+    }
+
+    if (!Number.isInteger(selectedProductId) || selectedProductId <= 0) {
+        return 0;
+    }
+
+    const key = `${sourceWarehouseId}:${selectedProductId}`;
+    const value = stockQuantities?.[key];
+    return Math.max(0, Number(value ?? 0));
+}
 
 function getAvailableStatuses(isSuperAdmin, userWarehouseId, selectedPurchaseToWarehouseId) {
     // Super admins can use all statuses
@@ -39,11 +77,28 @@ function getAvailableStatuses(isSuperAdmin, userWarehouseId, selectedPurchaseToW
     return ALL_STATUS_OPTIONS.filter((status) => status !== 'approved');
 }
 
-function validateForm(form, isSuperAdmin) {
+function getLineTotal(quantity, purchasePrice) {
+    const qty = Number(quantity ?? 0);
+    const unit = Number(purchasePrice ?? 0);
+
+    if (!Number.isFinite(qty) || !Number.isFinite(unit)) {
+        return 0;
+    }
+
+    return Math.max(0, qty) * Math.max(0, unit);
+}
+
+function getOrderSubtotal(rows) {
+    return (rows ?? []).reduce((total, row) => total + getLineTotal(row.quantity, row.purchase_price), 0);
+}
+
+function validateForm(form, isSuperAdmin, stockQuantities, hasProductsInWarehouse) {
     const validationErrors = {};
 
     if (!Number.isInteger(Number(form.purchase_form)) || Number(form.purchase_form) <= 0) {
         validationErrors.purchase_form = ['Purchase from warehouse is required.'];
+    } else if (!hasProductsInWarehouse) {
+        validationErrors.purchase_form = ['No product in stock.'];
     }
 
     if (isSuperAdmin && (!Number.isInteger(Number(form.purchase_to)) || Number(form.purchase_to) <= 0)) {
@@ -70,19 +125,36 @@ function validateForm(form, isSuperAdmin) {
         validationErrors.products = ['At least one product is required.'];
     } else {
         form.products.forEach((row, i) => {
-            if (!Number.isInteger(Number(row.product_id)) || Number(row.product_id) <= 0) {
+            const productId = Number(row.product_id);
+            if (!Number.isInteger(productId) || productId <= 0) {
                 validationErrors[`products.${i}.product_id`] = ['Product is required.'];
             }
-            if (!Number.isInteger(Number(row.quantity)) || Number(row.quantity) <= 0) {
+
+            const quantity = Number(row.quantity);
+            if (!Number.isInteger(quantity) || quantity <= 0) {
                 validationErrors[`products.${i}.quantity`] = ['Quantity must be a positive integer.'];
             }
-            if (Number.isNaN(Number(row.purchase_price)) || Number(row.purchase_price) < 0) {
-                validationErrors[`products.${i}.purchase_price`] = ['Purchase price must be 0 or greater.'];
+
+            const availableStock = getStockQuantity(stockQuantities, form.purchase_form, row.product_id);
+            if (productId > 0 && availableStock <= 0) {
+                validationErrors[`products.${i}.product_id`] = ['Selected product is not available in the selected purchase warehouse.'];
             }
-            if (Number.isNaN(Number(row.selling_price)) || Number(row.selling_price) < 0) {
-                validationErrors[`products.${i}.selling_price`] = ['Selling price must be 0 or greater.'];
+
+            const purchasePrice = String(row.purchase_price ?? '').trim();
+            if (purchasePrice === '' || Number.isNaN(Number(purchasePrice)) || Number(purchasePrice) < 0) {
+                validationErrors[`products.${i}.purchase_price`] = ['Purchase price must be auto-filled from source warehouse stock selling price.'];
             }
+
         });
+    }
+
+    const subtotal = getOrderSubtotal(form.products);
+    const paidAmount = Number(form.paid_amount ?? 0);
+
+    if (!Number.isFinite(paidAmount) || paidAmount < 0) {
+        validationErrors.paid_amount = ['Paid amount must be 0 or greater.'];
+    } else if (paidAmount > subtotal) {
+        validationErrors.paid_amount = ['Paid amount cannot exceed total PO amount.'];
     }
 
     return validationErrors;
@@ -111,10 +183,13 @@ export default function AddPurchase() {
     const [form, setForm] = useState(initialForm);
     const [warehouses, setWarehouses] = useState([]);
     const [products, setProducts] = useState([]);
+    const [stockSellingPrices, setStockSellingPrices] = useState({});
+    const [stockQuantities, setStockQuantities] = useState({});
     const [errors, setErrors] = useState({});
     const [requestError, setRequestError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoadingOptions, setIsLoadingOptions] = useState(true);
+    const [isWarehouseStockModalOpen, setIsWarehouseStockModalOpen] = useState(false);
     const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
 
     useEffect(() => {
@@ -137,6 +212,12 @@ export default function AddPurchase() {
                 if (!ignore) {
                     setWarehouses(Array.isArray(options?.warehouses) ? options.warehouses : []);
                     setProducts(Array.isArray(options?.products) ? options.products : []);
+                    setStockSellingPrices(options?.stock_selling_prices && typeof options.stock_selling_prices === 'object'
+                        ? options.stock_selling_prices
+                        : {});
+                    setStockQuantities(options?.stock_quantities && typeof options.stock_quantities === 'object'
+                        ? options.stock_quantities
+                        : {});
                     if (!user && currentUser) {
                         setUser(currentUser);
                     }
@@ -186,6 +267,63 @@ export default function AddPurchase() {
         return getAvailableStatuses(isSuperAdmin, getUserWarehouseId, form.purchase_to);
     }, [isSuperAdmin, getUserWarehouseId, form.purchase_to]);
 
+    const filteredProductOptions = useMemo(() => {
+        if (!Number.isInteger(Number(form.purchase_form)) || Number(form.purchase_form) <= 0) {
+            return [];
+        }
+
+        return products.filter((product) =>
+            getStockQuantity(stockQuantities, form.purchase_form, product.id) > 0
+        );
+    }, [form.purchase_form, products, stockQuantities]);
+
+    const selectedWarehouse = useMemo(() => {
+        const selectedWarehouseId = Number(form.purchase_form);
+        return warehouses.find((warehouse) => Number(warehouse.id) === selectedWarehouseId) || null;
+    }, [form.purchase_form, warehouses]);
+
+    const hasProductsInSelectedWarehouse = useMemo(() => {
+        if (!Number.isInteger(Number(form.purchase_form)) || Number(form.purchase_form) <= 0) {
+            return true;
+        }
+
+        return filteredProductOptions.length > 0;
+    }, [filteredProductOptions.length, form.purchase_form]);
+
+    const warehouseStockRows = useMemo(() => {
+        return filteredProductOptions
+            .map((product) => ({
+                product_id: product.id,
+                name: product?.name || `Product #${product?.id}`,
+                color: product?.color?.color_code || product?.color?.name || product?.color_name,
+                size: product?.size?.size || product?.size || product?.size_name,
+                available_stock: getStockQuantity(stockQuantities, form.purchase_form, product.id),
+                unit_price: getStockSellingPrice(stockSellingPrices, form.purchase_form, product.id) ?? 0,
+            }))
+            .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    }, [filteredProductOptions, form.purchase_form, stockQuantities, stockSellingPrices]);
+
+    const orderSubtotal = useMemo(() => getOrderSubtotal(form.products), [form.products]);
+    const paidAmount = useMemo(() => {
+        const numeric = Number(form.paid_amount ?? 0);
+        if (!Number.isFinite(numeric) || numeric < 0) {
+            return 0;
+        }
+        return numeric;
+    }, [form.paid_amount]);
+    const dueAmount = useMemo(() => Math.max(0, orderSubtotal - paidAmount), [orderSubtotal, paidAmount]);
+    const paymentStatus = useMemo(() => {
+        if (paidAmount <= 0) {
+            return 'unpaid';
+        }
+
+        if (dueAmount <= 0) {
+            return 'paid';
+        }
+
+        return 'partial';
+    }, [dueAmount, paidAmount]);
+
     const handleChange = (event) => {
         const { name, value } = event.target;
         setForm((previous) => ({
@@ -195,10 +333,40 @@ export default function AddPurchase() {
     };
 
     const handleSelectChange = (name, value) => {
-        setForm((previous) => ({
-            ...previous,
-            [name]: value,
-        }));
+        setForm((previous) => {
+            if (name !== 'purchase_form') {
+                return {
+                    ...previous,
+                    [name]: value,
+                };
+            }
+
+            const updatedProducts = previous.products.map((row) => {
+                const autoPrice = getStockSellingPrice(stockSellingPrices, value, row.product_id);
+                const availableStock = getStockQuantity(stockQuantities, value, row.product_id);
+
+                if (availableStock <= 0) {
+                    return {
+                        ...row,
+                        product_id: '',
+                        quantity: '',
+                        purchase_price: '',
+                    };
+                }
+
+                return {
+                    ...row,
+                    purchase_price: autoPrice == null ? '' : String(autoPrice),
+                    quantity: row.quantity,
+                };
+            });
+
+            return {
+                ...previous,
+                [name]: value,
+                products: updatedProducts,
+            };
+        });
     };
 
     const handleProductChange = (index, field, value) => {
@@ -211,7 +379,25 @@ export default function AddPurchase() {
     };
 
     const handleProductSelectChange = (index, value) => {
-        handleProductChange(index, 'product_id', value);
+        setForm((previous) => {
+            const autoPrice = getStockSellingPrice(stockSellingPrices, previous.purchase_form, value);
+            const updated = previous.products.map((row, i) => {
+                if (i !== index) {
+                    return row;
+                }
+
+                return {
+                    ...row,
+                    product_id: value,
+                    purchase_price: autoPrice == null ? '' : String(autoPrice),
+                };
+            });
+
+            return {
+                ...previous,
+                products: updated,
+            };
+        });
     };
 
     const addProductRow = () => {
@@ -231,7 +417,7 @@ export default function AddPurchase() {
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        const validationErrors = validateForm(form, isSuperAdmin);
+        const validationErrors = validateForm(form, isSuperAdmin, stockQuantities, hasProductsInSelectedWarehouse);
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
             setRequestError('');
@@ -250,8 +436,9 @@ export default function AddPurchase() {
                     product_id:     Number(row.product_id),
                     quantity:       Number(row.quantity),
                     purchase_price: Number(row.purchase_price),
-                    selling_price:  Number(row.selling_price),
                 })),
+                payment_method: form.payment_method || null,
+                paid_amount: paidAmount,
                 po_number: form.po_number.trim(),
                 status: form.status.trim(),
                 shipping_date: form.shipping_date || null,
@@ -297,10 +484,28 @@ export default function AddPurchase() {
                 isSubmitting={isSubmitting}
                 errors={errors}
                 warehouses={warehouses}
-                productOptions={products}
+                productOptions={filteredProductOptions}
                 isSuperAdmin={isSuperAdmin}
                 purchaseToLabel={purchaseToLabel}
                 availableStatuses={availableStatuses}
+                isPurchasePriceLocked
+                selectedPurchaseFromWarehouseId={form.purchase_form}
+                stockQuantities={stockQuantities}
+                orderSubtotal={orderSubtotal}
+                orderTotal={orderSubtotal}
+                paidAmount={paidAmount}
+                dueAmount={dueAmount}
+                paymentStatus={paymentStatus}
+                noProductInStock={!hasProductsInSelectedWarehouse}
+                canViewWarehouseStock={Boolean(Number(form.purchase_form) > 0)}
+                onViewWarehouseStock={() => setIsWarehouseStockModalOpen(true)}
+            />
+
+            <WarehouseStockModal
+                open={isWarehouseStockModalOpen}
+                onOpenChange={setIsWarehouseStockModalOpen}
+                warehouseName={selectedWarehouse?.name || ''}
+                rows={warehouseStockRows}
             />
         </div>
     );

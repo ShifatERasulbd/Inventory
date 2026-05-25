@@ -7,7 +7,6 @@ import {
     Boxes ,
     CreditCard,
     Banknote,
-    ClipboardPlus ,
     Globe,
     LifeBuoy,
     LogOut,
@@ -54,16 +53,16 @@ const StrorageItems = [
     { title: 'Stock', icon: Boxes, path: '/stocks', permission: 'read-stocks' },
     { title: 'Purchase Order', icon: CreditCard, path: '/purchases', permission: 'read-purchases' },
     { title: 'Received Cartoons', icon: ScanBarcode, path: '/received-cartoons', permission: 'read-cartoons' },
-    { title: 'Purchase Request', icon: ClipboardPlus, path: '/purchase-requests', permission: 'read-purchases' },
-    { title: 'Sell', icon: Banknote, path: '/sells', permission: 'read-sales' },
+    { title: 'PO Sell', icon: Banknote, path: '/sells', permission: 'read-sales' },
 ];
 
 const RetailItems = [
     { title: 'Retail POS', icon: ScanBarcode, path: '/retail', permission: 'read-sales' },
+    { title: 'Retail Sell', icon: Banknote, path: '/retail-sales', permission: 'read-sales' },
 ];
 
 const PackagingItems = [
-    { title: 'Cartoon', icon: Circle, path: '/cartoons', permission: 'read-cartoons' },
+    { title: 'Carton', icon: Circle, path: '/cartoons', permission: 'read-cartoons' },
 ];
 
 const ProductionItems = [

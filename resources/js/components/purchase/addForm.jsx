@@ -30,6 +30,17 @@ export default function AddPurchaseForm({
     isSuperAdmin = false,
     purchaseToLabel,
     availableStatuses = ['pending', 'approved', 'shipped', 'received', 'cancelled'],
+    isPurchasePriceLocked = false,
+    selectedPurchaseFromWarehouseId = '',
+    stockQuantities = {},
+    orderSubtotal = 0,
+    orderTotal = 0,
+    paidAmount = 0,
+    dueAmount = 0,
+    paymentStatus = 'unpaid',
+    noProductInStock = false,
+    canViewWarehouseStock = false,
+    onViewWarehouseStock,
 }) {
     const getProductOptionLabel = (product) => {
         const name = product?.name || `Product #${product?.id}`;
@@ -39,6 +50,33 @@ export default function AddPurchaseForm({
         return [name, color, size]
             .filter(Boolean)
             .join(' - ');
+    };
+
+    const getAvailableStock = (productId) => {
+        const warehouseId = Number(selectedPurchaseFromWarehouseId);
+        const selectedProductId = Number(productId);
+
+        if (!Number.isInteger(warehouseId) || warehouseId <= 0) {
+            return 0;
+        }
+
+        if (!Number.isInteger(selectedProductId) || selectedProductId <= 0) {
+            return 0;
+        }
+
+        const key = `${warehouseId}:${selectedProductId}`;
+        return Math.max(0, Number(stockQuantities?.[key] ?? 0));
+    };
+
+    const getLineTotal = (row) => {
+        const quantity = Number(row?.quantity ?? 0);
+        const purchasePrice = Number(row?.purchase_price ?? 0);
+
+        if (!Number.isFinite(quantity) || !Number.isFinite(purchasePrice)) {
+            return 0;
+        }
+
+        return Math.max(0, quantity) * Math.max(0, purchasePrice);
     };
 
     return (
@@ -69,6 +107,9 @@ export default function AddPurchaseForm({
                                 </SelectContent>
                             </Select>
                             {errors.purchase_form && <p className="text-xs text-destructive">{errors.purchase_form[0]}</p>}
+                            {!errors.purchase_form && noProductInStock && (
+                                <p className="text-xs text-destructive">No product in stock.</p>
+                            )}
                         </div>
 
                         <div className="space-y-2">
@@ -132,10 +173,17 @@ export default function AddPurchaseForm({
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <Label className="text-base font-semibold">Products</Label>
-                            <Button type="button" variant="outline" size="sm" onClick={onAddProduct}>
-                                <Plus className="mr-1 h-4 w-4" />
-                                Add Product
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                {canViewWarehouseStock && (
+                                    <Button type="button" variant="secondary" size="sm" onClick={onViewWarehouseStock}>
+                                        View Warehouse Stock
+                                    </Button>
+                                )}
+                                <Button type="button" variant="outline" size="sm" onClick={onAddProduct}>
+                                    <Plus className="mr-1 h-4 w-4" />
+                                    Add Product
+                                </Button>
+                            </div>
                         </div>
 
                         {errors.products && typeof errors.products === 'string' && (
@@ -147,6 +195,20 @@ export default function AddPurchaseForm({
 
                         <div className="space-y-3">
                             {(form.products ?? []).map((row, index) => (
+                                (() => {
+                                    const selectedInOtherRows = new Set(
+                                        (form.products ?? [])
+                                            .map((item, itemIndex) => (itemIndex === index ? null : String(item?.product_id ?? '').trim()))
+                                            .filter(Boolean)
+                                    );
+
+                                    const availableProductOptions = productOptions.filter((product) => {
+                                        const productId = String(product?.id ?? '');
+                                        return productId === String(row?.product_id ?? '') || !selectedInOtherRows.has(productId);
+                                    });
+                                    const availableStock = getAvailableStock(row?.product_id);
+
+                                    return (
                                 <div
                                     key={index}
                                     className="relative rounded-lg border bg-muted/30 p-4"
@@ -180,7 +242,7 @@ export default function AddPurchaseForm({
                                                     <SelectValue placeholder="Select product" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {productOptions.map((product) => (
+                                                    {availableProductOptions.map((product) => (
                                                         <SelectItem key={product.id} value={String(product.id)}>
                                                             {getProductOptionLabel(product)}
                                                         </SelectItem>
@@ -203,6 +265,9 @@ export default function AddPurchaseForm({
                                                 onChange={(e) => onProductChange(index, 'quantity', e.target.value)}
                                                 placeholder="e.g. 100"
                                             />
+                                            {row.product_id && (
+                                                <p className="text-xs text-muted-foreground">Available stock: {availableStock}</p>
+                                            )}
                                             {errors[`products.${index}.quantity`] && (
                                                 <p className="text-xs text-destructive">
                                                     {errors[`products.${index}.quantity`][0]}
@@ -218,8 +283,12 @@ export default function AddPurchaseForm({
                                                 step="0.01"
                                                 value={row.purchase_price}
                                                 onChange={(e) => onProductChange(index, 'purchase_price', e.target.value)}
+                                                disabled={isPurchasePriceLocked}
                                                 placeholder="e.g. 350.00"
                                             />
+                                            {isPurchasePriceLocked && (
+                                                <p className="text-xs text-muted-foreground">Auto from selected warehouse stock selling price.</p>
+                                            )}
                                             {errors[`products.${index}.purchase_price`] && (
                                                 <p className="text-xs text-destructive">
                                                     {errors[`products.${index}.purchase_price`][0]}
@@ -228,24 +297,82 @@ export default function AddPurchaseForm({
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label>Selling Price</Label>
+                                            <Label>Line Total</Label>
                                             <Input
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                value={row.selling_price}
-                                                onChange={(e) => onProductChange(index, 'selling_price', e.target.value)}
-                                                placeholder="e.g. 420.00"
+                                                value={getLineTotal(row).toFixed(2)}
+                                                disabled
                                             />
-                                            {errors[`products.${index}.selling_price`] && (
-                                                <p className="text-xs text-destructive">
-                                                    {errors[`products.${index}.selling_price`][0]}
-                                                </p>
-                                            )}
                                         </div>
+
                                     </div>
                                 </div>
+                                    );
+                                })()
                             ))}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-5 rounded-lg border bg-muted/20 p-4 lg:grid-cols-3">
+                        <div className="space-y-5 lg:col-span-2">
+                            <div className="space-y-2">
+                                <Label htmlFor="payment_method">Payment Method</Label>
+                                <Select value={form.payment_method || ''} onValueChange={(value) => onSelectChange('payment_method', value)}>
+                                    <SelectTrigger id="payment_method" className="w-full">
+                                        <SelectValue placeholder="Select payment method" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="cash">Cash</SelectItem>
+                                        <SelectItem value="bank">Bank</SelectItem>
+                                        <SelectItem value="card">Card</SelectItem>
+                                        <SelectItem value="mobile">Mobile Banking</SelectItem>
+                                        <SelectItem value="other">Other</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                                <div className="space-y-2">
+                                    <Label htmlFor="paid_amount">Paid Amount</Label>
+                                    <Input
+                                        id="paid_amount"
+                                        name="paid_amount"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={form.paid_amount ?? '0'}
+                                        onChange={onChange}
+                                        placeholder="0.00"
+                                    />
+                                    {errors.paid_amount && <p className="text-xs text-destructive">{errors.paid_amount[0]}</p>}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>Payment Status</Label>
+                                    <Input value={String(paymentStatus || 'unpaid').toUpperCase()} disabled />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-md border bg-background p-4 lg:col-span-1">
+                            <p className="text-sm font-semibold">Order Summary</p>
+                            <div className="mt-4 space-y-3 text-sm">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Subtotal</span>
+                                    <span className="font-medium">{Number(orderSubtotal ?? 0).toFixed(2)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Total PO Amount</span>
+                                    <span className="font-semibold">{Number(orderTotal ?? 0).toFixed(2)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Paid</span>
+                                    <span>{Number(paidAmount ?? 0).toFixed(2)}</span>
+                                </div>
+                                <div className="flex items-center justify-between border-t pt-3">
+                                    <span className="font-medium">Due</span>
+                                    <span className="text-base font-bold">{Number(dueAmount ?? 0).toFixed(2)}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </CardContent>

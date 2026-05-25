@@ -47,3 +47,17 @@ export async function receiveCartoonByScan(cartoonNumber) {
         body: JSON.stringify({ cartoon_number: cartoonNumber }),
     });
 }
+
+export async function fetchReceivedCartoonIssues(purchaseId) {
+    const query = purchaseId ? `?purchase_id=${encodeURIComponent(purchaseId)}` : '';
+    const payload = await requestJson(`/api/received-cartoons/issues${query}`);
+    return Array.isArray(payload) ? payload : [];
+}
+
+export async function createReceivedCartoonIssue(data) {
+    await ensureCsrfCookie();
+    return requestJson('/api/received-cartoons/issues', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}

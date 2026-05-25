@@ -15,6 +15,11 @@ import {
 import { useAppContext } from '@/context/AppContext';
 import { createRetailSale, fetchAvailableCartoonsByWarehouse, fetchWarehouses, lookupBarcode } from './api';
 
+function formatCurrency(value) {
+    const amount = Number(value ?? 0);
+    return `$${(Number.isFinite(amount) ? amount : 0).toFixed(2)}`;
+}
+
 export default function RetailPOS() {
     const { setPageTitle, user } = useAppContext();
 
@@ -369,14 +374,17 @@ export default function RetailPOS() {
                                                 <p className="font-mono text-xs text-muted-foreground">{item.barcode}</p>
                                             </div>
 
-                                            <div className="w-24">
+                                            <div className="relative w-24">
+                                                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                                    $
+                                                </span>
                                                 <Input
                                                     type="number"
                                                     min="0"
                                                     step="0.01"
                                                     value={item.unit_price}
                                                     onChange={(e) => updatePrice(item.cartKey, e.target.value)}
-                                                    className="h-8 text-right text-sm"
+                                                    className="h-8 pl-5 text-right text-sm"
                                                 />
                                             </div>
 
@@ -390,8 +398,8 @@ export default function RetailPOS() {
                                                 </Button>
                                             </div>
 
-                                            <div className="w-20 text-right text-sm font-semibold">
-                                                {(item.unit_price * item.quantity).toFixed(2)}
+                                            <div className="w-24 text-right text-sm font-semibold">
+                                                {formatCurrency(item.unit_price * item.quantity)}
                                             </div>
 
                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeItem(item.cartKey)}>
@@ -427,14 +435,38 @@ export default function RetailPOS() {
                     <CardTitle className="text-base">Summary</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="flex justify-between border-b pb-2 text-sm">
-                        <span>Items</span>
-                        <span>{cart.length}</span>
+                    <div className="space-y-2 border-b pb-3">
+                        <div className="grid grid-cols-12 gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            <span className="col-span-5">Product</span>
+                            <span className="col-span-3 text-right">Unit</span>
+                            <span className="col-span-2 text-right">Qty</span>
+                            <span className="col-span-2 text-right">Total</span>
+                        </div>
+
+                        {cart.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">No items yet.</p>
+                        ) : (
+                            <div className="space-y-1.5">
+                                {cart.map((item) => (
+                                    <div key={`summary-${item.cartKey}`} className="grid grid-cols-12 gap-2 text-sm">
+                                        <span className="col-span-5 truncate" title={item.product_name}>{item.product_name}</span>
+                                        <span className="col-span-3 text-right">{formatCurrency(item.unit_price)}</span>
+                                        <span className="col-span-2 text-right">{item.quantity}</span>
+                                        <span className="col-span-2 text-right font-semibold">{formatCurrency(item.unit_price * item.quantity)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="flex justify-between pt-1 text-xs text-muted-foreground">
+                            <span>Items</span>
+                            <span>{cart.length}</span>
+                        </div>
                     </div>
 
                     <div className="flex justify-between text-lg font-bold">
                         <span>Total</span>
-                        <span>{subtotal.toFixed(2)}</span>
+                        <span>{formatCurrency(subtotal)}</span>
                     </div>
 
                     <div className="space-y-1.5">
@@ -480,7 +512,7 @@ export default function RetailPOS() {
                     </div>
 
                     <Button className="w-full" size="lg" disabled={cart.length === 0 || !selectedWarehouse || isSubmitting} onClick={handleCheckout}>
-                        {isSubmitting ? 'Processing...' : `Checkout ${subtotal.toFixed(2)}`}
+                        {isSubmitting ? 'Processing...' : `Checkout ${formatCurrency(subtotal)}`}
                     </Button>
                 </CardContent>
             </Card>

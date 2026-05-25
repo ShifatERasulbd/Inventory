@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Sell;
+use App\Services\AccountingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,6 +22,27 @@ class SellController extends Controller
         return is_int($warehouseId) || ctype_digit((string) $warehouseId)
             ? (int) $warehouseId
             : null;
+    }
+
+    /**
+     * Resolve warehouse IDs accessible to a user, including default warehouse if no explicit warehouses set.
+     */
+    private function resolveUserWarehouseIds($user): array
+    {
+        if ($user->hasRole('super-admin')) {
+            return []; // Super-admin has no restrictions
+        }
+
+        $ids = is_array($user->warehouse_ids)
+            ? array_values(array_unique(array_filter(array_map('intval', $user->warehouse_ids), fn (int $id) => $id > 0)))
+            : [];
+
+        // If user has no explicit warehouse_ids but has a default warehouse, include it
+        if (empty($ids) && ! empty($user->warehouse_id)) {
+            $ids = [(int) $user->warehouse_id];
+        }
+
+        return $ids;
     }
 
     private function formatSell(Sell $sell): array
@@ -52,7 +74,7 @@ class SellController extends Controller
             ]);
 
         if (! $user->hasRole('super-admin')) {
-            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+            $warehouseIds = $this->resolveUserWarehouseIds($user);
 
             if ($warehouseIds !== []) {
                 $query->where(function ($q) use ($warehouseIds) {
@@ -96,6 +118,8 @@ class SellController extends Controller
             'sold_to' => $soldTo,
         ]);
 
+        app(AccountingService::class)->syncSellAccount($sell->fresh());
+
         $sell->load([
             'sellingFromWarehouse:id,name',
             'soldToWarehouse:id,name',
@@ -110,7 +134,7 @@ class SellController extends Controller
         $user = $request->user();
 
         if (! $user->hasRole('super-admin')) {
-            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+            $warehouseIds = $this->resolveUserWarehouseIds($user);
 
             $hasAccess = in_array($sell->sold_to, $warehouseIds, true) ||
                 in_array($sell->selling_from, $warehouseIds, true);
@@ -136,7 +160,7 @@ class SellController extends Controller
         $user = $request->user();
 
         if (! $user->hasRole('super-admin')) {
-            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+            $warehouseIds = $this->resolveUserWarehouseIds($user);
 
             $hasAccess = in_array($sell->sold_to, $warehouseIds, true) ||
                 in_array($sell->selling_from, $warehouseIds, true);
@@ -170,6 +194,8 @@ class SellController extends Controller
             'sold_to' => $soldTo,
         ]);
 
+        app(AccountingService::class)->syncSellAccount($sell->fresh());
+
         $sell->load([
             'sellingFromWarehouse:id,name',
             'soldToWarehouse:id,name',
@@ -184,7 +210,7 @@ class SellController extends Controller
         $user = $request->user();
 
         if (! $user->hasRole('super-admin')) {
-            $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
+            $warehouseIds = $this->resolveUserWarehouseIds($user);
 
             $hasAccess = in_array($sell->sold_to, $warehouseIds, true) ||
                 in_array($sell->selling_from, $warehouseIds, true);
@@ -197,6 +223,8 @@ class SellController extends Controller
         }
 
         $sell->delete();
+
+        app(AccountingService::class)->deleteSourceAccount('sell', (int) $sell->id);
 
         return response()->json([
             'message' => 'Sell deleted successfully.',

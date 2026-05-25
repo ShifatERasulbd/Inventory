@@ -15,7 +15,7 @@ export function WarehouseLowStockAlertTable() {
     const [stocks, setStocks] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 25;
+    const itemsPerPage = 10;
 
     useEffect(() => {
         let ignore = false;

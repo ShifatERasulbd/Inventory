@@ -7,13 +7,15 @@ import { useAppContext } from '@/context/AppContext';
 
 import { fetchPurchase, fetchPurchaseFormOptions, updatePurchase } from './api';
 
-const emptyProductRow = () => ({ product_id: '', quantity: '', purchase_price: '', selling_price: '' });
+const emptyProductRow = () => ({ product_id: '', quantity: '', purchase_price: '' });
 
 const initialForm = {
     purchase_form: '',
     purchase_to: '',
     po_number: '',
     status: 'pending',
+    payment_method: '',
+    paid_amount: '0',
     shipping_date: '',
     received_date: '',
     note: '',
@@ -38,6 +40,21 @@ function getAvailableStatuses(isSuperAdmin, userWarehouseId, selectedPurchaseToW
 
     // If warehouse doesn't match, exclude 'approved'
     return ALL_STATUS_OPTIONS.filter((status) => status !== 'approved');
+}
+
+function getLineTotal(quantity, purchasePrice) {
+    const qty = Number(quantity ?? 0);
+    const unit = Number(purchasePrice ?? 0);
+
+    if (!Number.isFinite(qty) || !Number.isFinite(unit)) {
+        return 0;
+    }
+
+    return Math.max(0, qty) * Math.max(0, unit);
+}
+
+function getOrderSubtotal(rows) {
+    return (rows ?? []).reduce((total, row) => total + getLineTotal(row.quantity, row.purchase_price), 0);
 }
 
 async function fetchCurrentUser() {
@@ -94,7 +111,6 @@ export default function EditPurchase() {
                             product_id:     String(item.product_id ?? ''),
                             quantity:       String(item.quantity ?? ''),
                             purchase_price: String(item.purchase_price ?? ''),
-                            selling_price:  String(item.selling_price ?? ''),
                           }))
                         : [emptyProductRow()];
 
@@ -103,6 +119,8 @@ export default function EditPurchase() {
                         purchase_to:   String(purchase.purchase_to ?? ''),
                         po_number:     purchase.po_number || '',
                         status:        purchase.status || 'pending',
+                        payment_method: purchase.payment_method || '',
+                        paid_amount: String(purchase.paid_amount ?? 0),
                         shipping_date: purchase.shipping_date || '',
                         received_date: purchase.received_date || '',
                         note:          purchase.note || '',
@@ -159,6 +177,27 @@ export default function EditPurchase() {
         return getAvailableStatuses(isSuperAdmin, getUserWarehouseId, form.purchase_to);
     }, [isSuperAdmin, getUserWarehouseId, form.purchase_to]);
 
+    const orderSubtotal = useMemo(() => getOrderSubtotal(form.products), [form.products]);
+    const paidAmount = useMemo(() => {
+        const numeric = Number(form.paid_amount ?? 0);
+        if (!Number.isFinite(numeric) || numeric < 0) {
+            return 0;
+        }
+        return numeric;
+    }, [form.paid_amount]);
+    const dueAmount = useMemo(() => Math.max(0, orderSubtotal - paidAmount), [orderSubtotal, paidAmount]);
+    const paymentStatus = useMemo(() => {
+        if (paidAmount <= 0) {
+            return 'unpaid';
+        }
+
+        if (dueAmount <= 0) {
+            return 'paid';
+        }
+
+        return 'partial';
+    }, [dueAmount, paidAmount]);
+
     const handleChange = (event) => {
         const { name, value } = event.target;
         setForm((previous) => ({
@@ -210,13 +249,14 @@ export default function EditPurchase() {
         try {
             await updatePurchase(id, {
                 purchase_form: Number(form.purchase_form),
-                ...(isSuperAdmin ? { purchase_to: Number(form.purchase_to) } : {}),
+                purchase_to: Number(form.purchase_to),
                 products: form.products.map((row) => ({
                     product_id:     Number(row.product_id),
                     quantity:       Number(row.quantity),
                     purchase_price: Number(row.purchase_price),
-                    selling_price:  Number(row.selling_price),
                 })),
+                payment_method: form.payment_method || null,
+                paid_amount: paidAmount,
                 po_number: form.po_number.trim(),
                 status: form.status.trim(),
                 shipping_date: form.shipping_date || null,
@@ -267,6 +307,10 @@ export default function EditPurchase() {
                 isSuperAdmin={isSuperAdmin}
                 purchaseToLabel={purchaseToLabel}
                 availableStatuses={availableStatuses}
+                orderSubtotal={orderSubtotal}
+                orderTotal={orderSubtotal}
+                dueAmount={dueAmount}
+                paymentStatus={paymentStatus}
             />
         </div>
     );
