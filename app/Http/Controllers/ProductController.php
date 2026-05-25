@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
@@ -25,6 +26,27 @@ class ProductController extends Controller
         $normalized = preg_replace('#^/?storage/#', '', $normalized) ?? $normalized;
 
         return $normalized;
+    }
+
+    private function deleteImageByPath(string $path): void
+    {
+        $normalizedPath = $this->normalizeStoredPath($path);
+
+        if (! $normalizedPath) {
+            return;
+        }
+
+        if (str_starts_with($normalizedPath, 'uploads/')) {
+            $fullPath = public_path($normalizedPath);
+
+            if (File::exists($fullPath)) {
+                File::delete($fullPath);
+            }
+
+            return;
+        }
+
+        Storage::disk('public')->delete($normalizedPath);
     }
 
     private function productWithRelations(Product $product): Product
@@ -43,7 +65,16 @@ class ProductController extends Controller
 
     private function storeImage(UploadedFile $file): string
     {
-        return $this->normalizeStoredPath($file->store('products', 'public'));
+        $uploadDirectory = public_path('uploads/products');
+
+        if (! File::exists($uploadDirectory)) {
+            File::makeDirectory($uploadDirectory, 0755, true);
+        }
+
+        $fileName = $file->hashName();
+        $file->move($uploadDirectory, $fileName);
+
+        return 'uploads/products/' . $fileName;
     }
 
     private function storeGalleryImages(array $files): array
@@ -64,8 +95,8 @@ class ProductController extends Controller
             ->values()
             ->all();
 
-        if ($paths !== []) {
-            Storage::disk('public')->delete($paths);
+        foreach ($paths as $path) {
+            $this->deleteImageByPath($path);
         }
     }
 
@@ -99,8 +130,8 @@ class ProductController extends Controller
             ->values()
             ->all();
 
-        if ($pathsToDelete !== []) {
-            Storage::disk('public')->delete($pathsToDelete);
+        foreach ($pathsToDelete as $path) {
+            $this->deleteImageByPath($path);
         }
     }
 

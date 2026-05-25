@@ -104,6 +104,10 @@ class Product extends Model
           return $path;
         }
 
+        if (str_starts_with($path, 'uploads/')) {
+          return '/' . ltrim($path, '/');
+        }
+
         return '/storage/' . ltrim($path, '/');
       }
 
@@ -120,6 +124,10 @@ class Product extends Model
 
             if (str_starts_with($normalized, 'http://') || str_starts_with($normalized, 'https://') || str_starts_with($normalized, '/')) {
               return $normalized;
+            }
+
+            if (str_starts_with($normalized, 'uploads/')) {
+              return '/' . ltrim($normalized, '/');
             }
 
             return '/storage/' . ltrim($normalized, '/');
