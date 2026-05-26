@@ -24,7 +24,7 @@ export default function EditForm({ form, onChange, onSubmit, onCancel, isSubmitt
                                 name="name"
                                 value={form.name}
                                 onChange={onChange}
-                                placeholder="e.g. Bangladesh"
+                                placeholder="e.g. Season"
                                 required
                             />
                             {errors.name && <p className="text-xs text-destructive">{errors.name[0]}</p>}
