@@ -606,37 +606,6 @@ class PurchaseController extends Controller
             ], 422);
         }
 
-        $productIds = collect($validated['products'])
-            ->map(fn (array $item) => (int) ($item['product_id'] ?? 0))
-            ->filter(fn (int $productId) => $productId > 0)
-            ->unique()
-            ->values();
-
-        $availableStockByProduct = Stock::query()
-            ->where('warehouse_id', (int) $validated['purchase_form'])
-            ->whereNull('cartoon_id')
-            ->whereIn('product_id', $productIds)
-            ->select('product_id', DB::raw('SUM(stocks) as total_stocks'))
-            ->groupBy('product_id')
-            ->pluck('total_stocks', 'product_id');
-
-        $stockValidationErrors = [];
-        foreach ($validated['products'] as $index => $item) {
-            $productId = (int) ($item['product_id'] ?? 0);
-            $availableQty = max(0, (int) ($availableStockByProduct[$productId] ?? 0));
-
-            if ($availableQty <= 0) {
-                $stockValidationErrors["products.{$index}.product_id"] = ['Selected product is not available in the selected purchase warehouse.'];
-            }
-        }
-
-        if ($stockValidationErrors !== []) {
-            return response()->json([
-                'message' => 'The given data was invalid.',
-                'errors' => $stockValidationErrors,
-            ], 422);
-        }
-
         $purchase = Purchase::query()->create([
             'purchase_form' => $validated['purchase_form'],
             'purchase_to'   => $purchaseTo,
