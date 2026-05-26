@@ -69,6 +69,7 @@ const PackagingItems = [
 const ProductionItems = [
     { title: 'Brand', icon: Tag, path: '/brands', permission: 'read-brands' },
     { title: 'Category', icon: Tag, path: '/categories', permission: 'read-categories' },
+    { title: 'Style', icon: Tag, path: '/styles', permission: 'read-products' },
     { title: 'Color', icon: Palette, path: '/colors', permission: 'read-colors' },
     { title: 'Supplier(Fabrics)', icon: Palette, path: '/suppliers', permission: 'read-suppliers' },
     { title: 'Fabric', icon: Shirt, path: '/fabrics', permission: 'read-fabrics' },

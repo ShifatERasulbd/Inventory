@@ -41,6 +41,11 @@ export function ProductTable({
     const [expandedStyleKeys, setExpandedStyleKeys] = useState([]);
 
     const getStyleGroupKey = (product) => {
+        const styleId = Number(product?.style_id || 0);
+        if (Number.isInteger(styleId) && styleId > 0) {
+            return `style_${styleId}`;
+        }
+
         const normalizedStyle = (product?.style_number || '').trim().toLowerCase();
         return normalizedStyle || `__product_${product?.id}`;
     };
@@ -50,6 +55,7 @@ export function ProductTable({
 
         return products.filter((product) => (
             product.name?.toLowerCase().includes(q) ||
+            product.style?.name?.toLowerCase().includes(q) ||
             product.style_number?.toLowerCase().includes(q) ||
             product.barCode?.toLowerCase().includes(q) ||
             product.brand?.name?.toLowerCase().includes(q) ||
@@ -203,6 +209,7 @@ export function ProductTable({
                                 const selectedVariantCount = variantIds.filter((id) => selectedSet.has(id)).length;
                                 const parentChecked = selectedVariantCount === variantIds.length;
                                 const parentIndeterminate = selectedVariantCount > 0 && selectedVariantCount < variantIds.length;
+                                const styleName = product?.style?.name || product?.name || 'N/A';
 
                                 return (
                                 <Fragment key={styleKey}>
@@ -248,8 +255,8 @@ export function ProductTable({
                                         </TableCell>
                                         <TableCell>
                                             <div className="space-y-1">
-                                                <p>{product.name}</p>
-                                                <p className="text-xs text-muted-foreground">{product.barCode}</p>
+                                                <p>{styleName}</p>
+                                                <p className="text-xs text-muted-foreground">{variants.length} product variant(s)</p>
                                             </div>
                                         </TableCell>
                                         <TableCell>{product.brand?.name || 'N/A'}</TableCell>

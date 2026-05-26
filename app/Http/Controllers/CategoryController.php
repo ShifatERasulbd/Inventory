@@ -10,7 +10,7 @@ class CategoryController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(Category::query()->orderBy('name')->get());
+        return response()->json(Category::query()->orderBy('id')->get());
     }
 
     public function store(Request $request): JsonResponse

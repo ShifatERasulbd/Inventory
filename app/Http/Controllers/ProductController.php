@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\Style;
 use App\Models\Stock;
 use App\Models\WareHouse;
 use Illuminate\Database\Eloquent\Builder;
@@ -52,6 +53,7 @@ class ProductController extends Controller
     private function productWithRelations(Product $product): Product
     {
         return $product->load([
+            'style:id,name',
             'brand:id,name',
             'category:id,name',
             'color:id,name',
@@ -137,6 +139,10 @@ class ProductController extends Controller
 
     private function styleGroupQuery(Product $product): Builder
     {
+        if ((int) ($product->style_id ?? 0) > 0) {
+            return Product::query()->where('style_id', (int) $product->style_id);
+        }
+
         return Product::query()
             ->where('style_number', $product->style_number)
             ->where('brand_id', $product->brand_id)
@@ -159,11 +165,47 @@ class ProductController extends Controller
             });
     }
 
+    private function upsertStyleFromProductName(string $name): Style
+    {
+        $styleName = trim($name);
+
+        if ($styleName === '') {
+            $styleName = 'Unnamed Style';
+        }
+
+        $style = Style::query()->where('name', $styleName)->first();
+
+        if (! $style) {
+            return Style::query()->create(['name' => $styleName]);
+        }
+
+        $style->update(['name' => $styleName]);
+
+        return $style;
+    }
+
+    private function deleteStyleIfUnused(?int $styleId): void
+    {
+        $styleId = (int) ($styleId ?? 0);
+
+        if ($styleId <= 0) {
+            return;
+        }
+
+        $isUsed = Product::query()->where('style_id', $styleId)->exists();
+        if ($isUsed) {
+            return;
+        }
+
+        Style::query()->whereKey($styleId)->delete();
+    }
+
     public function index(): JsonResponse
     {
         return response()->json(
             Product::query()
                 ->with([
+                    'style:id,name',
                     'brand:id,name',
                     'category:id,name',
                     'color:id,name,color_code',
@@ -236,12 +278,14 @@ class ProductController extends Controller
                 $stockRows = [];
                 $warehouseIds = WareHouse::query()->pluck('id')->all();
                 $now = now();
+                $style = $this->upsertStyleFromProductName((string) ($validated['name'] ?? ''));
 
                 foreach ($colorIds as $colorId) {
                     foreach ($sizeIds as $sizeId) {
                         $product = Product::query()->create([
                             'brand_id' => $validated['brand_id'],
                             'category_id' => $validated['category_id'] ?? null,
+                            'style_id' => $style->id,
                             'style_number' => $validated['style_number'],
                             'hs_number' => $validated['hs_number'] ?? null,
                             'ref_number' => $validated['ref_number'] ?? null,
@@ -458,9 +502,19 @@ class ProductController extends Controller
         );
 
         DB::transaction(function () use ($variantOnly, $product, $targetProductIds, $sharedAttributes, $primaryColorId, $primarySizeId, $barcodesMap, $primaryBarcodeKey, $colorIds, $sizeIds) {
+            $newStyle = $this->upsertStyleFromProductName((string) ($sharedAttributes['name'] ?? ''));
+
             $productsToUpdate = Product::query()
                 ->whereIn('id', $targetProductIds)
                 ->get();
+
+            $oldStyleIds = $productsToUpdate
+                ->pluck('style_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
 
             foreach ($productsToUpdate as $item) {
                 $colorId = $variantOnly ? $primaryColorId : (int) ($item->color_id ?? 0);
@@ -468,10 +522,19 @@ class ProductController extends Controller
                 $pairKey = "{$colorId}_{$sizeId}";
 
                 $item->update(array_merge($sharedAttributes, [
+                    'style_id' => $newStyle->id,
                     'color_id' => $colorId > 0 ? $colorId : $primaryColorId,
                     'size_id' => $sizeId > 0 ? $sizeId : $primarySizeId,
                     'barCode' => $barcodesMap[$pairKey] ?? $item->barCode ?? ($barcodesMap[$primaryBarcodeKey] ?? null),
                 ]));
+            }
+
+            foreach ($oldStyleIds as $oldStyleId) {
+                if ($oldStyleId === (int) $newStyle->id) {
+                    continue;
+                }
+
+                $this->deleteStyleIfUnused($oldStyleId);
             }
 
             if ($variantOnly) {
@@ -517,6 +580,7 @@ class ProductController extends Controller
                     }
 
                     $created = Product::query()->create(array_merge($sharedAttributes, [
+                        'style_id' => $newStyle->id,
                         'color_id' => $colorId,
                         'size_id' => $sizeId,
                         'barCode' => $barcodesMap[$pairKey] ?? null,
@@ -552,8 +616,10 @@ class ProductController extends Controller
     {
         $imagesToDelete = array_merge([$product->cover_image], $product->gallery_images ?? []);
         $productId = $product->id;
+        $styleId = (int) ($product->style_id ?? 0);
         $product->delete();
         $this->deleteImagesIfUnreferenced($imagesToDelete, $productId);
+        $this->deleteStyleIfUnused($styleId);
 
         return response()->json(['message' => 'Product deleted']);
     }
@@ -567,20 +633,27 @@ class ProductController extends Controller
 
         $ids = collect($validated['ids'])->unique()->values()->all();
         $imagesToDelete = [];
+        $styleIds = [];
 
-        DB::transaction(function () use ($ids, &$imagesToDelete) {
+        DB::transaction(function () use ($ids, &$imagesToDelete, &$styleIds) {
             $products = Product::query()
                 ->whereIn('id', $ids)
                 ->get();
 
             foreach ($products as $product) {
                 $imagesToDelete = array_merge($imagesToDelete, [$product->cover_image], $product->gallery_images ?? []);
+                $styleIds[] = (int) ($product->style_id ?? 0);
             }
 
             Product::query()->whereIn('id', $ids)->delete();
         });
 
         $this->deleteImagesIfUnreferenced($imagesToDelete);
+
+        collect($styleIds)
+            ->filter(fn ($id) => (int) $id > 0)
+            ->unique()
+            ->each(fn ($styleId) => $this->deleteStyleIfUnused((int) $styleId));
 
         return response()->json([
             'message' => 'Products deleted successfully.',

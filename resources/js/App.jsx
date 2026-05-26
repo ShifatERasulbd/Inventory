@@ -127,6 +127,11 @@ const Season =lazyWithRetry(()=>import ('@/pages/Season/season'),'season');
 const AddSeason = lazyWithRetry(() => import('@/pages/Season/addSeason'), 'season-add');
 const EditSeason = lazyWithRetry(() => import('@/pages/Season/editSeasons'), 'season-edit');
 
+// Style
+const Style = lazyWithRetry(() => import('@/pages/Style/style'), 'styles');
+const AddStyle = lazyWithRetry(() => import('@/pages/Style/addStyle'), 'styles-add');
+const EditStyle = lazyWithRetry(() => import('@/pages/Style/editStyle'), 'styles-edit');
+
 // Supplier
 const Suppliers = lazyWithRetry(() => import('@/pages/Suppliers/suppliers'), 'suppliers');
 const AddSupplier = lazyWithRetry(() => import('@/pages/Suppliers/addSuppliers'), 'suppliers-add');
@@ -252,6 +257,11 @@ export default function App() {
                             <Route path="/seasons" element={<Season/>}/>
                             <Route path="/seasons/add" element={<AddSeason/>}/>
                             <Route path="/seasons/:id/edit" element={<EditSeason/>}/>
+
+                            {/* styles */}
+                            <Route path="/styles" element={<Style/>}/>
+                            <Route path="/styles/add" element={<AddStyle/>}/>
+                            <Route path="/styles/:id/edit" element={<EditStyle/>}/>
 
                             {/* Suppliers */}
                             <Route path="/suppliers" element={<Suppliers/>}/>

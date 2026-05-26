@@ -7,6 +7,7 @@ use App\Models\Color;
 use App\Models\Fabric;
 use App\Models\ProductFor;
 use App\Models\Season;
+use App\Models\Style;
 use App\Models\Size;
 use App\Models\WareHouse;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,6 +24,7 @@ class Product extends Model
       protected $fillable=[
         'brand_id',
         'category_id',
+        'style_id',
         'style_number',
         'hs_number',
         'ref_number',
@@ -58,6 +60,11 @@ class Product extends Model
       public function category(): BelongsTo
       {
         return $this->belongsTo(Category::class);
+      }
+
+      public function style(): BelongsTo
+      {
+        return $this->belongsTo(Style::class);
       }
 
       public function color(): BelongsTo
