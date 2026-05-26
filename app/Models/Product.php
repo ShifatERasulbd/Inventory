@@ -1,23 +1,24 @@
 <?php
 
 namespace App\Models;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
-
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Color;
 use App\Models\Fabric;
 use App\Models\ProductFor;
+use App\Models\Season;
 use App\Models\Size;
 use App\Models\WareHouse;
-use App\Models\Season;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Product extends Model
 {
-      use HasFactory, SoftDeletes;
+  use HasFactory, SoftDeletes, LogsActivity;
 
       protected $fillable=[
         'brand_id',
@@ -150,4 +151,19 @@ class Product extends Model
         return $normalized;
         }
 
+
+         public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('product')
+          ->logFillable()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
+
 }
+
+
+
+
+

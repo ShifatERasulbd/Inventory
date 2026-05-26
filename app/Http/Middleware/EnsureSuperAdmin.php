@@ -16,6 +16,16 @@ class EnsureSuperAdmin
             abort(403, 'Forbidden');
         }
 
+        activity('super-admin-access')
+            ->causedBy($user)
+            ->event('access')
+            ->withProperties([
+                'method' => $request->method(),
+                'path' => $request->path(),
+                'ip' => $request->ip(),
+            ])
+            ->log('Super admin route accessed');
+
         return $next($request);
     }
 }

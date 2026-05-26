@@ -47,6 +47,7 @@ const AddUser = lazyWithRetry(() => import('@/pages/User/addUser'), 'users-add')
 const EditUser = lazyWithRetry(() => import('@/pages/User/editUser'), 'users-edit');
 const ApiUsers = lazyWithRetry(() => import('@/pages/ApiUsers/apiUsers'), 'api-user');
 const ApiUserDetails = lazyWithRetry(() => import('@/pages/ApiUsers/apiUserDetails'), 'api-user-details');
+const ActivityLog = lazyWithRetry(() => import('@/pages/ActivityLog/activityLog'), 'activity-log');
 // role route
 const Roles = lazyWithRetry(() => import('@/pages/Role/roles'), 'roles');
 const AddRole = lazyWithRetry(() => import('@/pages/Role/addRole'), 'roles-add');
@@ -170,6 +171,7 @@ export default function App() {
                             <Route path="/users/:id/edit" element={<EditUser />} />
                             <Route path="/api-user" element={<ApiUsers />} />
                             <Route path="/api-user/:userId" element={<ApiUserDetails />} />
+                            <Route path="/activity-log" element={<ActivityLog />} />
 
                             {/* roles */}
                             <Route path="/roles" element={<Roles/>}/>

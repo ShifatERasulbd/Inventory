@@ -1,12 +1,15 @@
 <?php
 
 namespace App\Models;
-
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class RetailSale extends Model
 {
+    use LogsActivity;
+
     protected $fillable = [
         'reference_number',
         'warehouse_id',
@@ -31,4 +34,17 @@ class RetailSale extends Model
     {
         return $this->belongsTo(User::class, 'sold_by');
     }
+     public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('retailSale')
+          ->logFillable()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
 }
+
+
+
+
+

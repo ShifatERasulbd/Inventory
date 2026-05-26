@@ -26,6 +26,7 @@ use App\Http\Controllers\SellController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\RecurringPaymentController;
+use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ReceivedCartoonIssueController;
 use Illuminate\Support\Facades\Route;
 
@@ -133,6 +134,7 @@ Route::prefix('api')->group(function () {
             Route::get('/permissions/by-category', [RoleController::class, 'getPermissionsByCategory']);
             Route::apiResource('/roles', RoleController::class);
             Route::put('/users/{user}/roles', [UserController::class, 'syncRoles']);
+            Route::get('/activity-logs', [ActivityLogController::class, 'index']);
         });
     });
 });

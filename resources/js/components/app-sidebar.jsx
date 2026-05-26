@@ -20,6 +20,7 @@ import {
     ChartBarDecreasing,
     ScanBarcode,
     Key,
+    History,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -82,6 +83,7 @@ const userAccessItems = [
     { title: 'User', icon: Users, path: '/users', permission: 'read-users' },
     { title: 'Role', icon: Shield, path: '/roles', permission: 'read-roles' },
     { title: 'API Users', icon: Key, path: '/api-user', permission: 'read-users', superAdminOnly: true },
+    { title: 'Activity Log', icon: History, path: '/activity-log', superAdminOnly: true },
 ];
 
 export function AppSidebar(props) {
