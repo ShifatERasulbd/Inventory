@@ -13,6 +13,7 @@ import { fetchFabrics } from '@/pages/Fabric/api';
 import { fetchProductsFor } from '@/pages/ProductsFor/api';
 import { fetchSeasons } from '@/pages/Season/api';
 import { fetchSizes } from '@/pages/Size/api';
+import { fetchStyles } from '@/pages/Style/api';
 import { fetchWarehouses } from '@/pages/Warehouse/api';
 
 import { createProducts } from './api';
@@ -65,7 +66,7 @@ function validateForm(form) {
     }
 
     if (!form.style_number.trim()) {
-        validationErrors.style_number = ['Please enter the style number.'];
+        validationErrors.style_number = ['Please select a style.'];
     }
 
     if (!form.name.trim()) {
@@ -129,6 +130,7 @@ export default function AddProduct() {
     const [colors, setColors] = useState([]);
     const [fabrics, setFabrics] = useState([]);
     const [sizes, setSizes] = useState([]);
+    const [styles, setStyles] = useState([]);
     const [productFors, setProductFors] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
     const [seasons, setSeasons] = useState([]);
@@ -142,12 +144,13 @@ export default function AddProduct() {
 
         async function loadOptions() {
             try {
-                const [brandData, categoryData, colorData, fabricData, sizeData, productForData, warehouseData, seasonData] = await Promise.all([
+                const [brandData, categoryData, colorData, fabricData, sizeData, styleData, productForData, warehouseData, seasonData] = await Promise.all([
                     fetchBrands(),
                     fetchCategories(),
                     fetchColors(),
                     fetchFabrics(),
                     fetchSizes(),
+                    fetchStyles(),
                     fetchProductsFor(),
                     fetchWarehouses(),
                     fetchSeasons(),
@@ -162,6 +165,7 @@ export default function AddProduct() {
                 setColors(Array.isArray(colorData) ? colorData : []);
                 setFabrics(Array.isArray(fabricData) ? fabricData : []);
                 setSizes(Array.isArray(sizeData) ? sizeData : []);
+                setStyles(Array.isArray(styleData) ? styleData : []);
                 setProductFors(Array.isArray(productForData) ? productForData : []);
                 setWarehouses(Array.isArray(warehouseData) ? warehouseData : []);
                 setSeasons(Array.isArray(seasonData) ? seasonData : []);
@@ -445,6 +449,7 @@ export default function AddProduct() {
                     colors={colors}
                     fabrics={fabrics}
                     sizes={sizes}
+                    styles={styles}
                     productFors={productFors}
                     warehouses={warehouses}
                     seasons={seasons}

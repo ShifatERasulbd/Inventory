@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Sell;
 use App\Models\Stock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -86,7 +87,43 @@ class PublicStockController extends Controller
             $query->where('warehouse_id', $validated['warehouse_id']);
         }
 
-        $stocks = $query->get()->map(fn (Stock $stock): array => [
+        $stockRows = $query->get();
+
+        $sellPriceByProductWarehouse = [];
+        $productIds = $stockRows
+            ->pluck('product_id')
+            ->filter(fn (mixed $id): bool => $id !== null && $id !== '')
+            ->unique()
+            ->values();
+
+        if ($productIds->isNotEmpty()) {
+            $sellQuery = Sell::query()
+                ->select(['product_id', 'selling_from', 'selling_price', 'id'])
+                ->whereIn('product_id', $productIds)
+                ->whereNotNull('selling_from')
+                ->orderByDesc('id');
+
+            if ($allowedWarehouseIds !== []) {
+                $sellQuery->whereIn('selling_from', $allowedWarehouseIds);
+            }
+
+            /** @var \Illuminate\Support\Collection<int, \App\Models\Sell> $sellRows */
+            $sellRows = $sellQuery->get();
+
+            foreach ($sellRows as $sellRow) {
+                $price = (float) ($sellRow->selling_price ?? 0);
+                if ($price <= 0) {
+                    continue;
+                }
+
+                $key = $sellRow->product_id . '|' . $sellRow->selling_from;
+                if (! array_key_exists($key, $sellPriceByProductWarehouse)) {
+                    $sellPriceByProductWarehouse[$key] = $price;
+                }
+            }
+        }
+
+        $stocks = $stockRows->map(fn (Stock $stock): array => [
             'id' => $stock->id,
             'product_id' => $stock->product_id,
             'product_name' => $stock->product?->name,
@@ -96,7 +133,10 @@ class PublicStockController extends Controller
             'warehouse_id' => $stock->warehouse_id,
             'warehouse_name' => $stock->warehouse?->name,
             'sku' => $stock->product?->style_number,
-            'selling_price' => (float) ($stock->selling_price ?? 0),
+            'selling_price' => $this->resolveEffectiveSellingPrice($stock, $sellPriceByProductWarehouse),
+            'stock_selling_price' => (float) ($stock->selling_price ?? 0),
+            'effective_selling_price' => $this->resolveEffectiveSellingPrice($stock, $sellPriceByProductWarehouse),
+            'buying_price' => (float) ($stock->buying_price ?? 0),
             'stocks' => (int) ($stock->stocks ?? 0),
             'available_stock' => (int) ($stock->stocks ?? 0),
             'barcode' => $stock->barcode,
@@ -118,5 +158,18 @@ class PublicStockController extends Controller
                 'allowed_warehouse_ids' => $allowedWarehouseIds,
             ],
         ]);
+    }
+
+    private function resolveEffectiveSellingPrice(Stock $stock, array $sellPriceByProductWarehouse): float
+    {
+        $stockSellingPrice = (float) ($stock->selling_price ?? 0);
+        if ($stockSellingPrice > 0) {
+            return $stockSellingPrice;
+        }
+
+        $fallbackKey = $stock->product_id . '|' . $stock->warehouse_id;
+        $fallback = $sellPriceByProductWarehouse[$fallbackKey] ?? null;
+
+        return $fallback !== null ? (float) $fallback : 0.0;
     }
 }
