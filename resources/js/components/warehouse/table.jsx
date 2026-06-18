@@ -70,6 +70,7 @@ export default function WarehouseTable({
                         <TableHead>Name</TableHead>
                         <TableHead>Country</TableHead>
                         <TableHead>State</TableHead>
+                        <TableHead>Brands</TableHead>
                         <TableHead>Full Address</TableHead>
                         {showActionColumn && <TableHead>Action</TableHead>}
                     </TableRow>
@@ -77,7 +78,7 @@ export default function WarehouseTable({
                 <TableBody>
                     {isLoading && (
                         <TableRow>
-                            <TableCell colSpan={showActionColumn ? 6 : 5} className="text-center text-muted-foreground">
+                            <TableCell colSpan={showActionColumn ? 7 : 6} className="text-center text-muted-foreground">
                                 Loading warehouses...
                             </TableCell>
                         </TableRow>
@@ -85,7 +86,7 @@ export default function WarehouseTable({
 
                     {!isLoading && warehouses.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={showActionColumn ? 6 : 5} className="text-center text-muted-foreground">
+                            <TableCell colSpan={showActionColumn ? 7 : 6} className="text-center text-muted-foreground">
                                 No warehouses found.
                             </TableCell>
                         </TableRow>
@@ -93,7 +94,7 @@ export default function WarehouseTable({
 
                     {!isLoading && filtered.length === 0 && warehouses.length > 0 && (
                         <TableRow>
-                            <TableCell colSpan={showActionColumn ? 6 : 5} className="text-center text-muted-foreground">
+                            <TableCell colSpan={showActionColumn ? 7 : 6} className="text-center text-muted-foreground">
                                 No warehouses match your search.
                             </TableCell>
                         </TableRow>
@@ -106,6 +107,11 @@ export default function WarehouseTable({
                                 <TableCell>{warehouse.name}</TableCell>
                                 <TableCell>{warehouse.country?.name || '-'}</TableCell>
                                 <TableCell>{warehouse.state?.name || '-'}</TableCell>
+                                <TableCell>
+                                    {Array.isArray(warehouse.brands) && warehouse.brands.length > 0
+                                        ? warehouse.brands.map((brand) => brand?.name).filter(Boolean).join(', ')
+                                        : '-'}
+                                </TableCell>
                                 <TableCell>{warehouse.fulladress}</TableCell>
                                 {showActionColumn && (
                                 <TableCell>

@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 
 import EditForm from '@/components/warehouse/editForm';
 import { useAppContext } from '@/context/AppContext';
+import { fetchBrands } from '@/pages/Brand/api';
 import { fetchCountries } from '@/pages/Country/api';
 import { fetchStates } from '@/pages/State/api';
 
@@ -14,6 +15,7 @@ const initialForm = {
     country_id: '',
     state_id: '',
     fulladress: '',
+    brand_ids: [''],
 };
 
 export default function EditWarehouse() {
@@ -28,6 +30,7 @@ export default function EditWarehouse() {
     const [loadError, setLoadError] = useState('');
     const [countries, setCountries] = useState([]);
     const [states, setStates] = useState([]);
+    const [brands, setBrands] = useState([]);
 
     useEffect(() => {
         setPageTitle('Edit Warehouse');
@@ -41,21 +44,28 @@ export default function EditWarehouse() {
             setLoadError('');
 
             try {
-                const [warehouse, countriesPayload, statesPayload] = await Promise.all([
+                const [warehouse, countriesPayload, statesPayload, brandsPayload] = await Promise.all([
                     fetchWarehouse(id),
                     fetchCountries(),
                     fetchStates(),
+                    fetchBrands(),
                 ]);
 
                 if (!ignore) {
+                    const selectedBrandIds = Array.isArray(warehouse?.brands)
+                        ? warehouse.brands.map((brand) => String(brand?.id)).filter(Boolean)
+                        : [];
+
                     setForm({
                         name: warehouse?.name || '',
                         country_id: warehouse?.country_id ? String(warehouse.country_id) : '',
                         state_id: warehouse?.state_id ? String(warehouse.state_id) : '',
                         fulladress: warehouse?.fulladress || '',
+                        brand_ids: selectedBrandIds.length > 0 ? selectedBrandIds : [''],
                     });
                     setCountries(Array.isArray(countriesPayload) ? countriesPayload : []);
                     setStates(Array.isArray(statesPayload) ? statesPayload : []);
+                    setBrands(Array.isArray(brandsPayload) ? brandsPayload : []);
                 }
             } catch (error) {
                 if (!ignore) {
@@ -129,6 +139,47 @@ export default function EditWarehouse() {
         }));
     };
 
+    const handleBrandChange = (index, value) => {
+        setForm((previous) => {
+            const current = Array.isArray(previous.brand_ids) && previous.brand_ids.length > 0
+                ? [...previous.brand_ids]
+                : [''];
+
+            current[index] = value || '';
+
+            return {
+                ...previous,
+                brand_ids: current,
+            };
+        });
+    };
+
+    const handleAddBrand = () => {
+        setForm((previous) => ({
+            ...previous,
+            brand_ids: [...(Array.isArray(previous.brand_ids) ? previous.brand_ids : ['']), ''],
+        }));
+    };
+
+    const handleRemoveBrand = (index) => {
+        setForm((previous) => {
+            const current = Array.isArray(previous.brand_ids) && previous.brand_ids.length > 0
+                ? [...previous.brand_ids]
+                : [''];
+
+            if (current.length === 1) {
+                current[0] = '';
+            } else {
+                current.splice(index, 1);
+            }
+
+            return {
+                ...previous,
+                brand_ids: current,
+            };
+        });
+    };
+
     const handleSubmit = async (event) => {
         event.preventDefault();
 
@@ -142,6 +193,9 @@ export default function EditWarehouse() {
                 state_id: Number(form.state_id),
                 name: form.name.trim(),
                 fulladress: form.fulladress.trim(),
+                brand_ids: (Array.isArray(form.brand_ids) ? form.brand_ids : [])
+                    .filter(Boolean)
+                    .map((value) => Number(value)),
             });
 
             toast.success('Warehouse updated successfully.', {
@@ -181,6 +235,10 @@ export default function EditWarehouse() {
                 isSubmitting={isSubmitting}
                 countries={countries}
                 states={filteredStates}
+                brands={brands}
+                onBrandChange={handleBrandChange}
+                onAddBrand={handleAddBrand}
+                onRemoveBrand={handleRemoveBrand}
                 errors={errors}
             />
         </div>

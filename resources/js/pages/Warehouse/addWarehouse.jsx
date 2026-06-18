@@ -4,6 +4,7 @@ import AddForm from '@/components/warehouse/addForm';
 import { useAppContext } from '@/context/AppContext';
 import { fetchCountries } from '@/pages/Country/api';
 import { fetchStates } from '@/pages/State/api';
+import { fetchBrands } from '@/pages/Brand/api';
 import { toast } from 'sonner';
 import { createWarehouse } from './api';
 
@@ -11,7 +12,8 @@ const initialForm={
     name:'',
     country_id:'',
     state_id:'',
-    fulladress:''
+    fulladress:'',
+    brand_ids:['']
 };
 
 function validateForm(form){
@@ -44,6 +46,7 @@ export default function AddWarehouse(){
 
     const [countries, setCountries] = useState([]);
     const [states, setStates] = useState([]);
+    const [brands, setBrands] = useState([]);
 
     useEffect(() => {
         setPageTitle('Add Warehouse');
@@ -52,6 +55,7 @@ export default function AddWarehouse(){
     useEffect(() => {
         fetchCountries().then(setCountries);
         fetchStates().then(setStates);
+        fetchBrands().then(setBrands);
     }, []);
 
     const filteredStates = states.filter((state) => String(state.country_id) === String(form.country_id));
@@ -99,6 +103,47 @@ export default function AddWarehouse(){
         }));
     };
 
+    const handleBrandChange = (index, value) => {
+        setForm((previous) => {
+            const current = Array.isArray(previous.brand_ids) && previous.brand_ids.length > 0
+                ? [...previous.brand_ids]
+                : [''];
+
+            current[index] = value || '';
+
+            return {
+                ...previous,
+                brand_ids: current,
+            };
+        });
+    };
+
+    const handleAddBrand = () => {
+        setForm((previous) => ({
+            ...previous,
+            brand_ids: [...(Array.isArray(previous.brand_ids) ? previous.brand_ids : ['']), ''],
+        }));
+    };
+
+    const handleRemoveBrand = (index) => {
+        setForm((previous) => {
+            const current = Array.isArray(previous.brand_ids) && previous.brand_ids.length > 0
+                ? [...previous.brand_ids]
+                : [''];
+
+            if (current.length === 1) {
+                current[0] = '';
+            } else {
+                current.splice(index, 1);
+            }
+
+            return {
+                ...previous,
+                brand_ids: current,
+            };
+        });
+    };
+
     const handleSubmit = async (event) => {
         event.preventDefault();
 
@@ -117,6 +162,9 @@ export default function AddWarehouse(){
                 state_id: Number(form.state_id),
                 name: form.name.trim(),
                 fulladress: form.fulladress.trim(),
+                brand_ids: (Array.isArray(form.brand_ids) ? form.brand_ids : [])
+                    .filter(Boolean)
+                    .map((value) => Number(value)),
             });
 
             toast.success('Warehouse created successfully.', {
@@ -153,6 +201,10 @@ export default function AddWarehouse(){
                              isSubmitting={isSubmitting}
                              countries={countries}
                              states={filteredStates}
+                                brands={brands}
+                                onBrandChange={handleBrandChange}
+                                onAddBrand={handleAddBrand}
+                                onRemoveBrand={handleRemoveBrand}
                              errors={errors}
                         />
                      </div>  

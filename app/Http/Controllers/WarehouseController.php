@@ -12,7 +12,7 @@ class WarehouseController extends Controller
     {
         return response()->json(
             WareHouse::query()
-                ->with('country:id,name', 'state:id,name')
+                ->with('country:id,name', 'state:id,name', 'brands:id,name')
                 ->orderBy('id')
                 ->get()
         );
@@ -25,16 +25,19 @@ class WarehouseController extends Controller
             'state_id' => ['required', 'integer', 'exists:states,id'],
             'name' => ['required', 'string', 'max:100'],
             'fulladress' => ['required', 'string', 'max:600'],
+            'brand_ids' => ['nullable', 'array'],
+            'brand_ids.*' => ['required', 'integer', 'exists:brands,id'],
         ]);
 
         $warehouse = WareHouse::query()->create($validated);
+        $warehouse->brands()->sync(collect($validated['brand_ids'] ?? [])->unique()->values()->all());
 
-        return response()->json($warehouse->load('country:id,name', 'state:id,name'), 201);
+        return response()->json($warehouse->load('country:id,name', 'state:id,name', 'brands:id,name'), 201);
     }
 
     public function show(WareHouse $warehouse): JsonResponse
     {
-        return response()->json($warehouse->load('country:id,name', 'state:id,name'));
+        return response()->json($warehouse->load('country:id,name', 'state:id,name', 'brands:id,name'));
     }
 
     public function update(Request $request, WareHouse $warehouse): JsonResponse
@@ -44,11 +47,14 @@ class WarehouseController extends Controller
             'state_id' => ['required', 'integer', 'exists:states,id'],
             'name' => ['required', 'string', 'max:100'],
             'fulladress' => ['required', 'string', 'max:600'],
+            'brand_ids' => ['nullable', 'array'],
+            'brand_ids.*' => ['required', 'integer', 'exists:brands,id'],
         ]);
 
         $warehouse->update($validated);
+        $warehouse->brands()->sync(collect($validated['brand_ids'] ?? [])->unique()->values()->all());
 
-        return response()->json($warehouse->fresh()->load('country:id,name', 'state:id,name'));
+        return response()->json($warehouse->fresh()->load('country:id,name', 'state:id,name', 'brands:id,name'));
     }
 
     public function destroy(WareHouse $warehouse): JsonResponse
