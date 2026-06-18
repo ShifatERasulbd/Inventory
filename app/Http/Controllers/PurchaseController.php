@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Brand;
 use App\Models\Cartoon;
 use App\Models\Product;
 use App\Models\Purchase;
@@ -371,6 +372,8 @@ class PurchaseController extends Controller
             'id'                 => $purchase->id,
             'purchase_form'      => $purchase->purchase_form,
             'purchase_to'        => $purchase->purchase_to,
+            'brand_id'           => $purchase->brand_id,
+            'brand_name'         => $purchase->brand?->name,
             'products'           => $formattedProducts,
             'subtotal'           => $subtotal,
             'total_amount'       => $totalAmount,
@@ -396,6 +399,7 @@ class PurchaseController extends Controller
             ->with([
                 'purchaseFromWarehouse:id,name',
                 'purchaseToWarehouse:id,name',
+                'brand:id,name',
             ]);
 
         // Filter by permission: only super-admins see all purchases
@@ -445,6 +449,10 @@ class PurchaseController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'color_id', 'size_id']);
 
+        $brands = Brand::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         $stockSellingPrices = [];
         $stockQuantities = [];
         $stocks = Stock::query()
@@ -473,6 +481,7 @@ class PurchaseController extends Controller
         return response()->json([
             'warehouses' => $warehouses,
             'products' => $products,
+            'brands' => $brands,
             'stock_selling_prices' => $stockSellingPrices,
             'stock_quantities' => $stockQuantities,
         ]);
@@ -486,6 +495,7 @@ class PurchaseController extends Controller
             ->with([
                 'purchaseFromWarehouse:id,name',
                 'purchaseToWarehouse:id,name',
+                'brand:id,name',
             ]);
 
         if (! $user->hasRole('super-admin')) {
@@ -557,6 +567,7 @@ class PurchaseController extends Controller
         $purchase->load([
             'purchaseFromWarehouse:id,name',
             'purchaseToWarehouse:id,name',
+            'brand:id,name',
         ]);
 
         $productMap = $this->buildProductMap([$purchase]);
@@ -568,6 +579,7 @@ class PurchaseController extends Controller
     {
         $rules = [
             'purchase_form'                    => ['required', 'integer', 'exists:warehouses,id'],
+            'brand_id'                         => ['required', 'integer', 'exists:brands,id'],
             'products'                         => ['required', 'array', 'min:1'],
             'products.*.product_id'            => ['required', 'integer', 'exists:products,id'],
             'products.*.quantity'              => ['required', 'integer', 'min:1'],
@@ -606,40 +618,10 @@ class PurchaseController extends Controller
             ], 422);
         }
 
-        $productIds = collect($validated['products'])
-            ->map(fn (array $item) => (int) ($item['product_id'] ?? 0))
-            ->filter(fn (int $productId) => $productId > 0)
-            ->unique()
-            ->values();
-
-        $availableStockByProduct = Stock::query()
-            ->where('warehouse_id', (int) $validated['purchase_form'])
-            ->whereNull('cartoon_id')
-            ->whereIn('product_id', $productIds)
-            ->select('product_id', DB::raw('SUM(stocks) as total_stocks'))
-            ->groupBy('product_id')
-            ->pluck('total_stocks', 'product_id');
-
-        $stockValidationErrors = [];
-        foreach ($validated['products'] as $index => $item) {
-            $productId = (int) ($item['product_id'] ?? 0);
-            $availableQty = max(0, (int) ($availableStockByProduct[$productId] ?? 0));
-
-            if ($availableQty <= 0) {
-                $stockValidationErrors["products.{$index}.product_id"] = ['Selected product is not available in the selected purchase warehouse.'];
-            }
-        }
-
-        if ($stockValidationErrors !== []) {
-            return response()->json([
-                'message' => 'The given data was invalid.',
-                'errors' => $stockValidationErrors,
-            ], 422);
-        }
-
         $purchase = Purchase::query()->create([
             'purchase_form' => $validated['purchase_form'],
             'purchase_to'   => $purchaseTo,
+            'brand_id'      => $validated['brand_id'],
             'products'      => $validated['products'],
             'subtotal'      => $financials['subtotal'],
             'total_amount'  => $financials['total_amount'],
@@ -661,6 +643,7 @@ class PurchaseController extends Controller
         $purchase->load([
             'purchaseFromWarehouse:id,name',
             'purchaseToWarehouse:id,name',
+            'brand:id,name',
         ]);
 
         $productMap = $this->buildProductMap([$purchase]);
@@ -689,6 +672,7 @@ class PurchaseController extends Controller
         $purchase->load([
             'purchaseFromWarehouse:id,name',
             'purchaseToWarehouse:id,name',
+            'brand:id,name',
         ]);
 
         $productMap = $this->buildProductMap([$purchase]);
@@ -718,6 +702,7 @@ class PurchaseController extends Controller
         $rules = [
             'purchase_form'             => ['required', 'integer', 'exists:warehouses,id'],
             'purchase_to'               => ['required', 'integer', 'exists:warehouses,id'],
+            'brand_id'                  => ['required', 'integer', 'exists:brands,id'],
             'products'                  => ['required', 'array', 'min:1'],
             'products.*.product_id'     => ['required', 'integer', 'exists:products,id'],
             'products.*.quantity'       => ['required', 'integer', 'min:1'],
@@ -752,6 +737,7 @@ class PurchaseController extends Controller
         $purchase->update([
             'purchase_form' => $validated['purchase_form'],
             'purchase_to'   => $validated['purchase_to'],
+            'brand_id'      => $validated['brand_id'],
             'products'      => $validated['products'],
             'subtotal'      => $financials['subtotal'],
             'total_amount'  => $financials['total_amount'],
@@ -774,6 +760,7 @@ class PurchaseController extends Controller
         $purchase->load([
             'purchaseFromWarehouse:id,name',
             'purchaseToWarehouse:id,name',
+            'brand:id,name',
         ]);
 
         $productMap = $this->buildProductMap([$purchase]);

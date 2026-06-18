@@ -153,6 +153,7 @@ export default function PurchaseInvoiceModal({ purchase, open, onClose }) {
                             <div style={S.metaRow}>
                                 {[
                                     { label: 'PO Number',    value: purchase?.po_number ?? '—' },
+                                    { label: 'Brand',        value: purchase?.brand_name ?? '—' },
                                     { label: 'Invoice Date', value: invoiceDate },
                                     { label: 'Total Items',  value: products.length },
                                     { label: 'Status',

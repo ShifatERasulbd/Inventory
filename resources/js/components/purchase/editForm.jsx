@@ -27,6 +27,7 @@ export default function EditPurchaseForm({
     isSubmitting,
     errors = {},
     warehouses = [],
+    brands = [],
     productOptions = [],
     isSuperAdmin = false,
     purchaseToLabel,
@@ -119,6 +120,23 @@ export default function EditPurchaseForm({
                                 placeholder="e.g. PO-2026-001"
                             />
                             {errors.po_number && <p className="text-xs text-destructive">{errors.po_number[0]}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="brand_id">Brand</Label>
+                            <Select value={form.brand_id} onValueChange={(value) => onSelectChange('brand_id', value)}>
+                                <SelectTrigger id="brand_id" className="w-full">
+                                    <SelectValue placeholder="Select brand" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {brands.map((brand) => (
+                                        <SelectItem key={brand.id} value={String(brand.id)}>
+                                            {brand.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {errors.brand_id && <p className="text-xs text-destructive">{errors.brand_id[0]}</p>}
                         </div>
 
                         <div className="space-y-2">

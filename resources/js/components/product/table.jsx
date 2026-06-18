@@ -52,7 +52,6 @@ export function ProductTable({
             product.name?.toLowerCase().includes(q) ||
             product.style_number?.toLowerCase().includes(q) ||
             product.barCode?.toLowerCase().includes(q) ||
-            product.brand?.name?.toLowerCase().includes(q) ||
             product.color?.name?.toLowerCase().includes(q) ||
             product.fabric?.name?.toLowerCase().includes(q) ||
             product.size?.size?.toLowerCase().includes(q) ||
@@ -163,7 +162,6 @@ export function ProductTable({
                             <TableHead className="w-[90px]">Image</TableHead>
                             <TableHead>Style No.</TableHead>
                             <TableHead>Product</TableHead>
-                            <TableHead>Brand</TableHead>
                             <TableHead>Warehouse</TableHead>
                             <TableHead className="w-[160px]">Action</TableHead>
                         </TableRow>
@@ -171,7 +169,7 @@ export function ProductTable({
                     <TableBody>
                         {isLoading && (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                                <TableCell colSpan={7} className="text-center text-muted-foreground">
                                     Loading Products...
                                 </TableCell>
                             </TableRow>
@@ -179,7 +177,7 @@ export function ProductTable({
 
                         {!isLoading && products.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                                <TableCell colSpan={7} className="text-center text-muted-foreground">
                                     No Products found.
                                 </TableCell>
                             </TableRow>
@@ -187,7 +185,7 @@ export function ProductTable({
 
                         {!isLoading && uniqueFiltered.length === 0 && products.length > 0 && (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                                <TableCell colSpan={7} className="text-center text-muted-foreground">
                                     No Products match your search.
                                 </TableCell>
                             </TableRow>
@@ -252,7 +250,6 @@ export function ProductTable({
                                                 <p className="text-xs text-muted-foreground">{product.barCode}</p>
                                             </div>
                                         </TableCell>
-                                        <TableCell>{product.brand?.name || 'N/A'}</TableCell>
                                         <TableCell>{product.warehouse?.name || 'N/A'}</TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
@@ -367,7 +364,6 @@ export function ProductTable({
                                                         </div>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell>{variant.brand?.name || 'N/A'}</TableCell>
                                                 <TableCell>{variant.warehouse?.name || 'N/A'}</TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center gap-2">

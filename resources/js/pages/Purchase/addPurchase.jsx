@@ -13,6 +13,7 @@ const emptyProductRow = () => ({ product_id: '', quantity: '', purchase_price: '
 const initialForm = {
     purchase_form: '',
     purchase_to: '',
+    brand_id: '',
     po_number: '',
     status: 'pending',
     payment_method: '',
@@ -92,17 +93,19 @@ function getOrderSubtotal(rows) {
     return (rows ?? []).reduce((total, row) => total + getLineTotal(row.quantity, row.purchase_price), 0);
 }
 
-function validateForm(form, isSuperAdmin, stockQuantities, hasProductsInWarehouse) {
+function validateForm(form, isSuperAdmin) {
     const validationErrors = {};
 
     if (!Number.isInteger(Number(form.purchase_form)) || Number(form.purchase_form) <= 0) {
         validationErrors.purchase_form = ['Purchase from warehouse is required.'];
-    } else if (!hasProductsInWarehouse) {
-        validationErrors.purchase_form = ['No product in stock.'];
     }
 
     if (isSuperAdmin && (!Number.isInteger(Number(form.purchase_to)) || Number(form.purchase_to) <= 0)) {
         validationErrors.purchase_to = ['Purchase to warehouse is required.'];
+    }
+
+    if (!Number.isInteger(Number(form.brand_id)) || Number(form.brand_id) <= 0) {
+        validationErrors.brand_id = ['Brand is required.'];
     }
 
     if (!form.po_number.trim()) {
@@ -135,14 +138,9 @@ function validateForm(form, isSuperAdmin, stockQuantities, hasProductsInWarehous
                 validationErrors[`products.${i}.quantity`] = ['Quantity must be a positive integer.'];
             }
 
-            const availableStock = getStockQuantity(stockQuantities, form.purchase_form, row.product_id);
-            if (productId > 0 && availableStock <= 0) {
-                validationErrors[`products.${i}.product_id`] = ['Selected product is not available in the selected purchase warehouse.'];
-            }
-
             const purchasePrice = String(row.purchase_price ?? '').trim();
             if (purchasePrice === '' || Number.isNaN(Number(purchasePrice)) || Number(purchasePrice) < 0) {
-                validationErrors[`products.${i}.purchase_price`] = ['Purchase price must be auto-filled from source warehouse stock selling price.'];
+                validationErrors[`products.${i}.purchase_price`] = ['Purchase price must be a valid number.'];
             }
 
         });
@@ -182,6 +180,7 @@ export default function AddPurchase() {
 
     const [form, setForm] = useState(initialForm);
     const [warehouses, setWarehouses] = useState([]);
+    const [brands, setBrands] = useState([]);
     const [products, setProducts] = useState([]);
     const [stockSellingPrices, setStockSellingPrices] = useState({});
     const [stockQuantities, setStockQuantities] = useState({});
@@ -211,6 +210,7 @@ export default function AddPurchase() {
 
                 if (!ignore) {
                     setWarehouses(Array.isArray(options?.warehouses) ? options.warehouses : []);
+                    setBrands(Array.isArray(options?.brands) ? options.brands : []);
                     setProducts(Array.isArray(options?.products) ? options.products : []);
                     setStockSellingPrices(options?.stock_selling_prices && typeof options.stock_selling_prices === 'object'
                         ? options.stock_selling_prices
@@ -272,23 +272,13 @@ export default function AddPurchase() {
             return [];
         }
 
-        return products.filter((product) =>
-            getStockQuantity(stockQuantities, form.purchase_form, product.id) > 0
-        );
-    }, [form.purchase_form, products, stockQuantities]);
+        return products;
+    }, [form.purchase_form, products]);
 
     const selectedWarehouse = useMemo(() => {
         const selectedWarehouseId = Number(form.purchase_form);
         return warehouses.find((warehouse) => Number(warehouse.id) === selectedWarehouseId) || null;
     }, [form.purchase_form, warehouses]);
-
-    const hasProductsInSelectedWarehouse = useMemo(() => {
-        if (!Number.isInteger(Number(form.purchase_form)) || Number(form.purchase_form) <= 0) {
-            return true;
-        }
-
-        return filteredProductOptions.length > 0;
-    }, [filteredProductOptions.length, form.purchase_form]);
 
     const warehouseStockRows = useMemo(() => {
         return filteredProductOptions
@@ -343,20 +333,10 @@ export default function AddPurchase() {
 
             const updatedProducts = previous.products.map((row) => {
                 const autoPrice = getStockSellingPrice(stockSellingPrices, value, row.product_id);
-                const availableStock = getStockQuantity(stockQuantities, value, row.product_id);
-
-                if (availableStock <= 0) {
-                    return {
-                        ...row,
-                        product_id: '',
-                        quantity: '',
-                        purchase_price: '',
-                    };
-                }
 
                 return {
                     ...row,
-                    purchase_price: autoPrice == null ? '' : String(autoPrice),
+                    purchase_price: autoPrice == null ? row.purchase_price : String(autoPrice),
                     quantity: row.quantity,
                 };
             });
@@ -389,7 +369,7 @@ export default function AddPurchase() {
                 return {
                     ...row,
                     product_id: value,
-                    purchase_price: autoPrice == null ? '' : String(autoPrice),
+                    purchase_price: autoPrice == null ? row.purchase_price : String(autoPrice),
                 };
             });
 
@@ -417,7 +397,7 @@ export default function AddPurchase() {
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        const validationErrors = validateForm(form, isSuperAdmin, stockQuantities, hasProductsInSelectedWarehouse);
+        const validationErrors = validateForm(form, isSuperAdmin);
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
             setRequestError('');
@@ -432,6 +412,7 @@ export default function AddPurchase() {
             await createPurchase({
                 purchase_form: Number(form.purchase_form),
                 ...(isSuperAdmin ? { purchase_to: Number(form.purchase_to) } : {}),
+                brand_id: Number(form.brand_id),
                 products: form.products.map((row) => ({
                     product_id:     Number(row.product_id),
                     quantity:       Number(row.quantity),
@@ -484,11 +465,12 @@ export default function AddPurchase() {
                 isSubmitting={isSubmitting}
                 errors={errors}
                 warehouses={warehouses}
+                brands={brands}
                 productOptions={filteredProductOptions}
                 isSuperAdmin={isSuperAdmin}
                 purchaseToLabel={purchaseToLabel}
                 availableStatuses={availableStatuses}
-                isPurchasePriceLocked
+                isPurchasePriceLocked={false}
                 selectedPurchaseFromWarehouseId={form.purchase_form}
                 stockQuantities={stockQuantities}
                 orderSubtotal={orderSubtotal}
@@ -496,7 +478,7 @@ export default function AddPurchase() {
                 paidAmount={paidAmount}
                 dueAmount={dueAmount}
                 paymentStatus={paymentStatus}
-                noProductInStock={!hasProductsInSelectedWarehouse}
+                noProductInStock={false}
                 canViewWarehouseStock={Boolean(Number(form.purchase_form) > 0)}
                 onViewWarehouseStock={() => setIsWarehouseStockModalOpen(true)}
             />

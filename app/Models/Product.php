@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Models;
-use App\Models\Brand;
+
 use App\Models\Category;
 use App\Models\Color;
 use App\Models\Fabric;

@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import EditForm from '@/components/product/editForm';
 import { generateBarcodesMap } from '@/components/product/BarcodePreview';
 import { useAppContext } from '@/context/AppContext';
-import { fetchBrands } from '@/pages/Brand/api';
+
 import { fetchCategories } from '@/pages/Category/api';
 import { fetchColors } from '@/pages/Color/api';
 import { fetchFabrics } from '@/pages/Fabric/api';
@@ -17,7 +17,7 @@ import { fetchWarehouses } from '@/pages/Warehouse/api';
 import { fetchProduct, updateProducts } from './api';
 
 const initialForm = {
-    brand_id: '',
+   
     category_id: '',
     style_number: '',
     hs_number: '',
@@ -60,7 +60,7 @@ function validateForm(form) {
     const selectedColorIds = Array.isArray(form.color_ids) ? form.color_ids.filter(Boolean) : [];
     const selectedSizeIds = Array.isArray(form.size_ids) ? form.size_ids.filter(Boolean) : [];
 
-    if (!form.brand_id) validationErrors.brand_id = ['Please select a brand.'];
+   
     if (!form.style_number.trim()) validationErrors.style_number = ['Please enter the style number.'];
     if (!form.name.trim()) validationErrors.name = ['Please enter the product name.'];
     if (selectedColorIds.length === 0) validationErrors.color_ids = ['Please add at least one color.'];
@@ -105,7 +105,7 @@ export default function EditProduct() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
-    const [brands, setBrands] = useState([]);
+    
     const [categories, setCategories] = useState([]);
     const [colors, setColors] = useState([]);
     const [fabrics, setFabrics] = useState([]);
@@ -132,9 +132,9 @@ export default function EditProduct() {
             setLoadError('');
 
             try {
-                const [product, brandData, categoryData, colorData, fabricData, sizeData, productForData, warehouseData, seasonData] = await Promise.all([
+                const [product, categoryData, colorData, fabricData, sizeData, productForData, warehouseData, seasonData] = await Promise.all([
                     fetchProduct(id, { variantOnly }),
-                    fetchBrands(),
+                   
                     fetchCategories(),
                     fetchColors(),
                     fetchFabrics(),
@@ -148,7 +148,7 @@ export default function EditProduct() {
                     return;
                 }
 
-                setBrands(Array.isArray(brandData) ? brandData : []);
+             
                 setCategories(Array.isArray(categoryData) ? categoryData : []);
                 setColors(Array.isArray(colorData) ? colorData : []);
                 setFabrics(Array.isArray(fabricData) ? fabricData : []);
@@ -176,7 +176,7 @@ export default function EditProduct() {
                     ? product.size_ids.map((value) => String(value))
                     : (product.size_id ? [String(product.size_id)] : ['']);
                 setForm({
-                    brand_id: product.brand_id ? String(product.brand_id) : '',
+                  
                     category_id: product.category_id ? String(product.category_id) : '',
                     style_number: product.style_number || '',
                     hs_number: product.hs_number || '',
@@ -380,7 +380,7 @@ export default function EditProduct() {
 
         try {
             await updateProducts(id, {
-                brand_id: Number(form.brand_id),
+               
                 category_id: form.category_id ? Number(form.category_id) : null,
                 style_number: form.style_number.trim(),
                 hs_number: form.hs_number.trim() || null,
@@ -448,7 +448,7 @@ export default function EditProduct() {
 
             <EditForm
                 form={form}
-                brands={brands}
+               
                 categories={categories}
                 colors={colors}
                 fabrics={fabrics}

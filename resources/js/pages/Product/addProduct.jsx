@@ -6,7 +6,7 @@ import AddForm from '@/components/product/addForm';
 import { useAppContext } from '@/context/AppContext';
 import { generateBarcodesMap } from '@/components/product/BarcodePreview';
 
-import { fetchBrands } from '@/pages/Brand/api';
+
 import { fetchCategories } from '@/pages/Category/api';
 import { fetchColors } from '@/pages/Color/api';
 import { fetchFabrics } from '@/pages/Fabric/api';
@@ -18,7 +18,7 @@ import { fetchWarehouses } from '@/pages/Warehouse/api';
 import { createProducts } from './api';
 
 const initialForm = {
-    brand_id: '',
+   
     category_id: '',
     style_number: '',
     hs_number: '',
@@ -60,10 +60,7 @@ function validateForm(form) {
     const selectedColorIds = Array.isArray(form.color_ids) ? form.color_ids.filter(Boolean) : [];
     const selectedSizeIds = Array.isArray(form.size_ids) ? form.size_ids.filter(Boolean) : [];
 
-    if (!form.brand_id) {
-        validationErrors.brand_id = ['Please select a brand.'];
-    }
-
+   
     if (!form.style_number.trim()) {
         validationErrors.style_number = ['Please enter the style number.'];
     }
@@ -124,7 +121,7 @@ export default function AddProduct() {
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [requestError, setRequestError] = useState('');
-    const [brands, setBrands] = useState([]);
+   
     const [categories, setCategories] = useState([]);
     const [colors, setColors] = useState([]);
     const [fabrics, setFabrics] = useState([]);
@@ -142,8 +139,8 @@ export default function AddProduct() {
 
         async function loadOptions() {
             try {
-                const [brandData, categoryData, colorData, fabricData, sizeData, productForData, warehouseData, seasonData] = await Promise.all([
-                    fetchBrands(),
+                const [ categoryData, colorData, fabricData, sizeData, productForData, warehouseData, seasonData] = await Promise.all([
+                    
                     fetchCategories(),
                     fetchColors(),
                     fetchFabrics(),
@@ -157,7 +154,7 @@ export default function AddProduct() {
                     return;
                 }
 
-                setBrands(Array.isArray(brandData) ? brandData : []);
+             
                 setCategories(Array.isArray(categoryData) ? categoryData : []);
                 setColors(Array.isArray(colorData) ? colorData : []);
                 setFabrics(Array.isArray(fabricData) ? fabricData : []);
@@ -206,7 +203,7 @@ export default function AddProduct() {
 
         setForm((previous) => ({
             ...previous,
-            brand_id: copied.brand_id ? String(copied.brand_id) : '',
+          
             category_id: copied.category_id ? String(copied.category_id) : '',
             style_number: copied.style_number || '',
             hs_number: copied.hs_number || '',
@@ -386,7 +383,7 @@ export default function AddProduct() {
 
         try {
             await createProducts({
-                brand_id: Number(form.brand_id),
+             
                 category_id: form.category_id ? Number(form.category_id) : null,
                 style_number: form.style_number.trim(),
                 hs_number: form.hs_number.trim() || null,
@@ -440,7 +437,7 @@ export default function AddProduct() {
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-1">
                 <AddForm
                     form={form}
-                    brands={brands}
+                 
                     categories={categories}
                     colors={colors}
                     fabrics={fabrics}

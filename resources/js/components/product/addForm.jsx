@@ -126,7 +126,7 @@ function ProductRepeaterSelect({
 
 export default function AddForm({
     form,
-    brands = [],
+ 
     categories = [],
     colors = [],
     fabrics = [],
@@ -253,15 +253,7 @@ export default function AddForm({
                     </div>
 
                                          <div className="grid grid-cols-1 gap-5 md:grid-cols-6">
-                          <ProductSelect
-                            id="product-brand"
-                            label="Brand"
-                            value={form.brand_id}
-                            options={brands}
-                            placeholder="Select a brand"
-                            error={errors.brand_id}
-                            onValueChange={(value) => onSelectChange('brand_id', value)}
-                        />
+                         
                         <ProductSelect
                             id="product-category"
                             label="Category"

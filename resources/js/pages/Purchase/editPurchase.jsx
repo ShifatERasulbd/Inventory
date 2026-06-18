@@ -12,6 +12,7 @@ const emptyProductRow = () => ({ product_id: '', quantity: '', purchase_price: '
 const initialForm = {
     purchase_form: '',
     purchase_to: '',
+    brand_id: '',
     po_number: '',
     status: 'pending',
     payment_method: '',
@@ -80,6 +81,7 @@ export default function EditPurchase() {
 
     const [form, setForm] = useState(initialForm);
     const [warehouses, setWarehouses] = useState([]);
+    const [brands, setBrands] = useState([]);
     const [products, setProducts] = useState([]);
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -117,6 +119,7 @@ export default function EditPurchase() {
                     setForm({
                         purchase_form: String(purchase.purchase_form ?? ''),
                         purchase_to:   String(purchase.purchase_to ?? ''),
+                        brand_id:      String(purchase.brand_id ?? ''),
                         po_number:     purchase.po_number || '',
                         status:        purchase.status || 'pending',
                         payment_method: purchase.payment_method || '',
@@ -127,6 +130,7 @@ export default function EditPurchase() {
                         products:      loadedProducts,
                     });
                     setWarehouses(Array.isArray(options?.warehouses) ? options.warehouses : []);
+                    setBrands(Array.isArray(options?.brands) ? options.brands : []);
                     setProducts(Array.isArray(options?.products) ? options.products : []);
                     if (!user && currentUser) {
                         setUser(currentUser);
@@ -250,6 +254,7 @@ export default function EditPurchase() {
             await updatePurchase(id, {
                 purchase_form: Number(form.purchase_form),
                 purchase_to: Number(form.purchase_to),
+                brand_id: Number(form.brand_id),
                 products: form.products.map((row) => ({
                     product_id:     Number(row.product_id),
                     quantity:       Number(row.quantity),
@@ -303,6 +308,7 @@ export default function EditPurchase() {
                 isSubmitting={isSubmitting}
                 errors={errors}
                 warehouses={warehouses}
+                brands={brands}
                 productOptions={products}
                 isSuperAdmin={isSuperAdmin}
                 purchaseToLabel={purchaseToLabel}

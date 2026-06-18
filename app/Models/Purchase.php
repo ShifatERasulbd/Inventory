@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Models;
+use App\Models\Brand;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,7 @@ class Purchase extends Model
     protected $fillable = [
         'purchase_form',
         'purchase_to',
+        'brand_id',
         'products',
         'subtotal',
         'total_amount',
@@ -39,6 +41,7 @@ class Purchase extends Model
         'received_date' => 'date',
         'purchase_form' => 'integer',
         'purchase_to' => 'integer',
+        'brand_id' => 'integer',
     ];
 
     public function purchaseFromWarehouse(): BelongsTo
@@ -49,6 +52,11 @@ class Purchase extends Model
     public function purchaseToWarehouse(): BelongsTo
     {
         return $this->belongsTo(WareHouse::class, 'purchase_to');
+    }
+
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
     }
 
      public function getActivitylogOptions(): LogOptions

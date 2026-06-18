@@ -148,6 +148,7 @@ export function PurchaseTable({
                             <TableHead className="w-[80px]">SL No.</TableHead>
                             <TableHead>PO Number</TableHead>
                             <TableHead>PO Date</TableHead>
+                            <TableHead>Brand</TableHead>
                             <TableHead>Products</TableHead>
                             <TableHead>Purchase From</TableHead>
                             <TableHead>Purchase To</TableHead>
@@ -162,7 +163,7 @@ export function PurchaseTable({
                     <TableBody>
                         {isLoading && (
                             <TableRow>
-                                <TableCell colSpan={11} className="text-center text-muted-foreground">
+                                <TableCell colSpan={12} className="text-center text-muted-foreground">
                                     Loading purchases...
                                 </TableCell>
                             </TableRow>
@@ -170,7 +171,7 @@ export function PurchaseTable({
 
                         {!isLoading && purchases.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={11} className="text-center text-muted-foreground">
+                                <TableCell colSpan={12} className="text-center text-muted-foreground">
                                     No purchases found.
                                 </TableCell>
                             </TableRow>
@@ -178,7 +179,7 @@ export function PurchaseTable({
 
                         {!isLoading && filtered.length === 0 && purchases.length > 0 && (
                             <TableRow>
-                                <TableCell colSpan={11} className="text-center text-muted-foreground">
+                                <TableCell colSpan={12} className="text-center text-muted-foreground">
                                     No purchases match your current status tab/search.
                                 </TableCell>
                             </TableRow>
@@ -215,6 +216,7 @@ export function PurchaseTable({
                                     <TableCell className="font-medium">{index + 1}</TableCell>
                                     <TableCell>{purchase.po_number}</TableCell>
                                     <TableCell>{formatDate(purchase.po_date)}</TableCell>
+                                    <TableCell>{purchase.brand_name || 'N/A'}</TableCell>
                                     <TableCell>
                                         <div className="space-y-2">
                                             {(purchase.products || []).map((item, itemIndex) => (

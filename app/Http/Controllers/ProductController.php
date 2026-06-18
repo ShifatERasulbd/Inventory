@@ -52,7 +52,6 @@ class ProductController extends Controller
     private function productWithRelations(Product $product): Product
     {
         return $product->load([
-            'brand:id,name',
             'category:id,name',
             'color:id,name',
             'fabric:id,name',
@@ -139,7 +138,6 @@ class ProductController extends Controller
     {
         return Product::query()
             ->where('style_number', $product->style_number)
-            ->where('brand_id', $product->brand_id)
             ->where(function ($query) use ($product) {
                 if ($product->category_id === null) {
                     $query->whereNull('category_id');
@@ -164,7 +162,6 @@ class ProductController extends Controller
         return response()->json(
             Product::query()
                 ->with([
-                    'brand:id,name',
                     'category:id,name',
                     'color:id,name,color_code',
                     'fabric:id,name',
@@ -181,7 +178,7 @@ class ProductController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'brand_id' => ['required', 'integer', 'exists:brands,id'],
+           
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'style_number' => ['required', 'string', 'max:50'],
             'hs_number' => ['nullable', 'string', 'max:100'],
@@ -240,7 +237,7 @@ class ProductController extends Controller
                 foreach ($colorIds as $colorId) {
                     foreach ($sizeIds as $sizeId) {
                         $product = Product::query()->create([
-                            'brand_id' => $validated['brand_id'],
+                            
                             'category_id' => $validated['category_id'] ?? null,
                             'style_number' => $validated['style_number'],
                             'hs_number' => $validated['hs_number'] ?? null,
@@ -324,7 +321,6 @@ class ProductController extends Controller
         $variantOnly = $request->boolean('variant_only');
 
         $validated = $request->validate([
-            'brand_id' => ['required', 'integer', 'exists:brands,id'],
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'style_number' => ['required', 'string', 'max:50'],
             'hs_number' => ['nullable', 'string', 'max:100'],
@@ -434,7 +430,6 @@ class ProductController extends Controller
         $primaryBarcodeKey = "{$primaryColorId}_{$primarySizeId}";
 
         $sharedAttributes = [
-            'brand_id' => $validated['brand_id'],
             'category_id' => $validated['category_id'] ?? null,
             'style_number' => $validated['style_number'],
             'hs_number' => $validated['hs_number'] ?? null,
@@ -479,7 +474,6 @@ class ProductController extends Controller
             }
 
             $existingPairs = Product::query()
-                ->where('brand_id', $sharedAttributes['brand_id'])
                 ->where(function ($query) use ($sharedAttributes) {
                     if (($sharedAttributes['category_id'] ?? null) === null) {
                         $query->whereNull('category_id');
