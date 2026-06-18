@@ -44,6 +44,7 @@ export function PurchaseTable({
 }) {
     const [search, setSearch] = useState('');
     const [activeStatus, setActiveStatus] = useState('all');
+    const [activeBrand, setActiveBrand] = useState('all');
 
     const normalizeStatus = (value) => {
         const normalized = String(value || '').trim().toLowerCase();
@@ -87,6 +88,31 @@ export function PurchaseTable({
         })),
     ];
 
+    const brandCounts = purchases.reduce((accumulator, purchase) => {
+        const rawBrandId = Number(purchase.brand_id);
+        const hasBrandId = Number.isInteger(rawBrandId) && rawBrandId > 0;
+        const key = hasBrandId ? String(rawBrandId) : 'none';
+        const label = hasBrandId
+            ? String(purchase.brand_name || `Brand #${rawBrandId}`)
+            : 'Unassigned';
+
+        if (!accumulator[key]) {
+            accumulator[key] = {
+                value: key,
+                label,
+                count: 0,
+            };
+        }
+
+        accumulator[key].count += 1;
+        return accumulator;
+    }, {});
+
+    const brandTabs = [
+        { value: 'all', label: 'All Brands', count: purchases.length },
+        ...Object.values(brandCounts).sort((a, b) => a.label.localeCompare(b.label)),
+    ];
+
     const filtered = purchases.filter((purchase) => {
         const query = search.toLowerCase();
         const poNumber = String(purchase.po_number || '').toLowerCase();
@@ -96,8 +122,12 @@ export function PurchaseTable({
         const status = String(purchase.status || '').toLowerCase();
 
         const matchesStatus = activeStatus === 'all' || normalizeStatus(purchase.status) === activeStatus;
+        const brandKey = Number.isInteger(Number(purchase.brand_id)) && Number(purchase.brand_id) > 0
+            ? String(Number(purchase.brand_id))
+            : 'none';
+        const matchesBrand = activeBrand === 'all' || brandKey === activeBrand;
 
-        if (!matchesStatus) {
+        if (!matchesStatus || !matchesBrand) {
             return false;
         }
 
@@ -133,6 +163,27 @@ export function PurchaseTable({
                                 size="sm"
                                 className="whitespace-nowrap"
                                 onClick={() => setActiveStatus(tab.value)}
+                            >
+                                {tab.label} ({tab.count})
+                            </Button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <div className="overflow-x-auto">
+                <div className="inline-flex min-w-full gap-2 pb-1">
+                    {brandTabs.map((tab) => {
+                        const isActive = activeBrand === tab.value;
+
+                        return (
+                            <Button
+                                key={tab.value}
+                                type="button"
+                                variant={isActive ? 'default' : 'outline'}
+                                size="sm"
+                                className="whitespace-nowrap"
+                                onClick={() => setActiveBrand(tab.value)}
                             >
                                 {tab.label} ({tab.count})
                             </Button>

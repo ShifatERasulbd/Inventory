@@ -104,7 +104,14 @@ class StockController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Stock::query()
-            ->with(['product:id,name,size_id,color_id,barCode', 'product.size:id,size', 'product.color:id,name,color_code', 'warehouse:id,name'])
+            ->with([
+                'product:id,name,size_id,color_id,barCode',
+                'product.size:id,size',
+                'product.color:id,name,color_code',
+                'warehouse:id,name',
+                'warehouse.brands:id,name',
+                'brand:id,name',
+            ])
             ->orderBy('id');
 
         $user = $request->user();
@@ -126,6 +133,10 @@ class StockController extends Controller
                 'product_id' => $stock->product_id,
                 'warehouse_id' => $stock->warehouse_id,
                 'warehouse_name' => $stock->warehouse?->name,
+                'warehouse_brand_ids' => $stock->warehouse?->brands?->pluck('id')?->values()?->all() ?? [],
+                'warehouse_brand_names' => $stock->warehouse?->brands?->pluck('name')?->values()?->all() ?? [],
+                'brand_id' => $stock->brand_id,
+                'brand_name' => $stock->brand?->name,
                 'cartoon_id' => $stock->cartoon_id,
                 'barcode' => $stock->barcode,
                 'product_barcode' => $stock->product?->barCode,
@@ -151,6 +162,7 @@ class StockController extends Controller
             'buying_price' => ['required', 'numeric', 'min:0'],
             'selling_price' => ['nullable', 'numeric', 'min:0'],
             'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
+            'brand_id' => ['nullable', 'integer', 'exists:brands,id'],
             'cartoon_id' => ['nullable', 'integer', 'exists:cartoons,id'],
             'barcode' => ['nullable'],
         ]);
@@ -168,15 +180,28 @@ class StockController extends Controller
             'buying_price' => (float) $validated['buying_price'],
             'selling_price' => (float) ($validated['selling_price'] ?? 0),
             'warehouse_id' => $validated['warehouse_id'] ?? null,
+            'brand_id' => $validated['brand_id'] ?? null,
             'cartoon_id' => $validated['cartoon_id'] ?? null,
             'barcode' => count($barcodes) > 0 ? $barcodes : null,
         ]);
-        $stock->load(['product:id,name,size_id,color_id,barCode', 'product.size:id,size', 'product.color:id,name,color_code']);
+        $stock->load([
+            'product:id,name,size_id,color_id,barCode',
+            'product.size:id,size',
+            'product.color:id,name,color_code',
+            'warehouse:id,name',
+            'warehouse.brands:id,name',
+            'brand:id,name',
+        ]);
 
         return response()->json([
             'id' => $stock->id,
             'product_id' => $stock->product_id,
             'warehouse_id' => $stock->warehouse_id,
+            'warehouse_name' => $stock->warehouse?->name,
+            'warehouse_brand_ids' => $stock->warehouse?->brands?->pluck('id')?->values()?->all() ?? [],
+            'warehouse_brand_names' => $stock->warehouse?->brands?->pluck('name')?->values()?->all() ?? [],
+            'brand_id' => $stock->brand_id,
+            'brand_name' => $stock->brand?->name,
             'cartoon_id' => $stock->cartoon_id,
             'barcode' => $stock->barcode,
             'product_barcode' => $stock->product?->barCode,
@@ -193,12 +218,24 @@ class StockController extends Controller
 
     public function show(Stock $stock): JsonResponse
     {
-        $stock->load(['product:id,name,size_id,color_id,barCode', 'product.size:id,size', 'product.color:id,name,color_code']);
+        $stock->load([
+            'product:id,name,size_id,color_id,barCode',
+            'product.size:id,size',
+            'product.color:id,name,color_code',
+            'warehouse:id,name',
+            'warehouse.brands:id,name',
+            'brand:id,name',
+        ]);
 
         return response()->json([
             'id' => $stock->id,
             'product_id' => $stock->product_id,
             'warehouse_id' => $stock->warehouse_id,
+            'warehouse_name' => $stock->warehouse?->name,
+            'warehouse_brand_ids' => $stock->warehouse?->brands?->pluck('id')?->values()?->all() ?? [],
+            'warehouse_brand_names' => $stock->warehouse?->brands?->pluck('name')?->values()?->all() ?? [],
+            'brand_id' => $stock->brand_id,
+            'brand_name' => $stock->brand?->name,
             'cartoon_id' => $stock->cartoon_id,
             'barcode' => $stock->barcode,
             'product_barcode' => $stock->product?->barCode,
@@ -222,6 +259,7 @@ class StockController extends Controller
             'buying_price' => ['sometimes', 'required', 'numeric', 'min:0'],
             'selling_price' => ['sometimes', 'required', 'numeric', 'min:0'],
             'warehouse_id' => ['sometimes', 'nullable', 'integer', 'exists:warehouses,id'],
+            'brand_id' => ['sometimes', 'nullable', 'integer', 'exists:brands,id'],
             'cartoon_id' => ['sometimes', 'nullable', 'integer', 'exists:cartoons,id'],
             'barcode' => ['sometimes', 'nullable'],
             'adjust_mode' => ['sometimes', 'nullable', 'string', 'in:add,deduct'],
@@ -323,6 +361,7 @@ class StockController extends Controller
                 'buying_price' => array_key_exists('buying_price', $validated) ? (float) $validated['buying_price'] : $stock->buying_price,
                 'selling_price' => array_key_exists('selling_price', $validated) ? (float) $validated['selling_price'] : $stock->selling_price,
                 'warehouse_id' => array_key_exists('warehouse_id', $validated) ? $validated['warehouse_id'] : $stock->warehouse_id,
+                'brand_id' => array_key_exists('brand_id', $validated) ? $validated['brand_id'] : $stock->brand_id,
                 'cartoon_id'   => array_key_exists('cartoon_id', $validated) ? $validated['cartoon_id'] : $stock->cartoon_id,
                 'barcode'      => $barcodeValue,
             ]);
@@ -333,12 +372,24 @@ class StockController extends Controller
             throw $e;
         }
 
-        $stock->load(['product:id,name,size_id,color_id,barCode', 'product.size:id,size', 'product.color:id,name,color_code']);
+        $stock->load([
+            'product:id,name,size_id,color_id,barCode',
+            'product.size:id,size',
+            'product.color:id,name,color_code',
+            'warehouse:id,name',
+            'warehouse.brands:id,name',
+            'brand:id,name',
+        ]);
 
         return response()->json([
             'id' => $stock->id,
             'product_id' => $stock->product_id,
             'warehouse_id' => $stock->warehouse_id,
+            'warehouse_name' => $stock->warehouse?->name,
+            'warehouse_brand_ids' => $stock->warehouse?->brands?->pluck('id')?->values()?->all() ?? [],
+            'warehouse_brand_names' => $stock->warehouse?->brands?->pluck('name')?->values()?->all() ?? [],
+            'brand_id' => $stock->brand_id,
+            'brand_name' => $stock->brand?->name,
             'cartoon_id' => $stock->cartoon_id,
             'barcode' => $stock->barcode,
             'product_barcode' => $stock->product?->barCode,

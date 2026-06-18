@@ -131,6 +131,7 @@ class PurchaseController extends Controller
         }
 
         $warehouseId = (int) ($purchase->purchase_to ?? 0);
+        $purchaseBrandId = $purchase->brand_id ? (int) $purchase->brand_id : null;
         if ($warehouseId <= 0) {
             return;
         }
@@ -140,7 +141,7 @@ class PurchaseController extends Controller
             return;
         }
 
-        DB::transaction(function () use ($items, $warehouseId): void {
+        DB::transaction(function () use ($items, $warehouseId, $purchaseBrandId): void {
             foreach ($items as $item) {
                 $productId = (int) ($item['product_id'] ?? 0);
                 $quantity = (int) ($item['quantity'] ?? $item['stocks'] ?? 0);
@@ -167,6 +168,13 @@ class PurchaseController extends Controller
                 $stock = Stock::query()
                     ->where('product_id', $productId)
                     ->where('warehouse_id', $warehouseId)
+                    ->where(function ($query) use ($purchaseBrandId) {
+                        if ($purchaseBrandId === null) {
+                            $query->whereNull('brand_id');
+                        } else {
+                            $query->where('brand_id', $purchaseBrandId);
+                        }
+                    })
                     ->whereNull('cartoon_id')
                     ->lockForUpdate()
                     ->first();
@@ -175,6 +183,7 @@ class PurchaseController extends Controller
                     Stock::query()->create([
                         'product_id' => $productId,
                         'warehouse_id' => $warehouseId,
+                        'brand_id' => $purchaseBrandId,
                         'stocks' => $quantity,
                         'buying_price' => $buyingPrice,
                         'selling_price' => $sellingPrice,
@@ -459,17 +468,19 @@ class PurchaseController extends Controller
             ->whereNull('cartoon_id')
             ->orderByDesc('updated_at')
             ->orderByDesc('id')
-            ->get(['warehouse_id', 'product_id', 'stocks', 'selling_price']);
+            ->get(['warehouse_id', 'product_id', 'brand_id', 'stocks', 'selling_price']);
 
         foreach ($stocks as $stock) {
             $warehouseId = (int) ($stock->warehouse_id ?? 0);
             $productId = (int) ($stock->product_id ?? 0);
+            $brandId = $stock->brand_id ? (int) $stock->brand_id : null;
 
             if ($warehouseId <= 0 || $productId <= 0) {
                 continue;
             }
 
-            $key = $warehouseId.':'.$productId;
+            $brandSegment = $brandId === null ? 'none' : (string) $brandId;
+            $key = $warehouseId.':'.$productId.':'.$brandSegment;
 
             if (! array_key_exists($key, $stockSellingPrices)) {
                 $stockSellingPrices[$key] = (float) ($stock->selling_price ?? 0);

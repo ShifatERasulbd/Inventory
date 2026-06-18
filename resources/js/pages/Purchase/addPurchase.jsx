@@ -25,7 +25,7 @@ const initialForm = {
 
 const ALL_STATUS_OPTIONS = ['pending', 'approved', 'shipped', 'received', 'cancelled'];
 
-function getStockSellingPrice(stockSellingPrices, warehouseId, productId) {
+function getStockSellingPrice(stockSellingPrices, warehouseId, productId, brandId = null) {
     const sourceWarehouseId = Number(warehouseId);
     const selectedProductId = Number(productId);
 
@@ -37,13 +37,17 @@ function getStockSellingPrice(stockSellingPrices, warehouseId, productId) {
         return null;
     }
 
-    const key = `${sourceWarehouseId}:${selectedProductId}`;
+    const normalizedBrandId = Number(brandId);
+    const brandSegment = Number.isInteger(normalizedBrandId) && normalizedBrandId > 0
+        ? String(normalizedBrandId)
+        : 'none';
+    const key = `${sourceWarehouseId}:${selectedProductId}:${brandSegment}`;
     const value = stockSellingPrices?.[key];
 
     return value == null ? null : Number(value);
 }
 
-function getStockQuantity(stockQuantities, warehouseId, productId) {
+function getStockQuantity(stockQuantities, warehouseId, productId, brandId = null) {
     const sourceWarehouseId = Number(warehouseId);
     const selectedProductId = Number(productId);
 
@@ -55,7 +59,11 @@ function getStockQuantity(stockQuantities, warehouseId, productId) {
         return 0;
     }
 
-    const key = `${sourceWarehouseId}:${selectedProductId}`;
+    const normalizedBrandId = Number(brandId);
+    const brandSegment = Number.isInteger(normalizedBrandId) && normalizedBrandId > 0
+        ? String(normalizedBrandId)
+        : 'none';
+    const key = `${sourceWarehouseId}:${selectedProductId}:${brandSegment}`;
     const value = stockQuantities?.[key];
     return Math.max(0, Number(value ?? 0));
 }
@@ -287,8 +295,8 @@ export default function AddPurchase() {
                 name: product?.name || `Product #${product?.id}`,
                 color: product?.color?.color_code || product?.color?.name || product?.color_name,
                 size: product?.size?.size || product?.size || product?.size_name,
-                available_stock: getStockQuantity(stockQuantities, form.purchase_form, product.id),
-                unit_price: getStockSellingPrice(stockSellingPrices, form.purchase_form, product.id) ?? 0,
+                available_stock: getStockQuantity(stockQuantities, form.purchase_form, product.id, form.brand_id),
+                unit_price: getStockSellingPrice(stockSellingPrices, form.purchase_form, product.id, form.brand_id) ?? 0,
             }))
             .sort((a, b) => String(a.name).localeCompare(String(b.name)));
     }, [filteredProductOptions, form.purchase_form, stockQuantities, stockSellingPrices]);
@@ -332,7 +340,7 @@ export default function AddPurchase() {
             }
 
             const updatedProducts = previous.products.map((row) => {
-                const autoPrice = getStockSellingPrice(stockSellingPrices, value, row.product_id);
+                const autoPrice = getStockSellingPrice(stockSellingPrices, value, row.product_id, previous.brand_id);
 
                 return {
                     ...row,
@@ -360,7 +368,7 @@ export default function AddPurchase() {
 
     const handleProductSelectChange = (index, value) => {
         setForm((previous) => {
-            const autoPrice = getStockSellingPrice(stockSellingPrices, previous.purchase_form, value);
+            const autoPrice = getStockSellingPrice(stockSellingPrices, previous.purchase_form, value, previous.brand_id);
             const updated = previous.products.map((row, i) => {
                 if (i !== index) {
                     return row;
