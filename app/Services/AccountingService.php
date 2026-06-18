@@ -25,6 +25,7 @@ class AccountingService
             ],
             [
                 'warehouse_id' => (int) ($purchase->purchase_form ?? 0) ?: null,
+                'brand_id' => (int) ($purchase->brand_id ?? 0) ?: null,
                 'reference' => $purchase->po_number,
                 'total_amount' => $total,
                 'paid_amount' => min($paid, $total),
@@ -56,6 +57,7 @@ class AccountingService
             ],
             [
                 'warehouse_id' => (int) ($sell->selling_from ?? 0) ?: null,
+                'brand_id' => (int) ($sell->brand_id ?? 0) ?: null,
                 'reference' => $sell->po_number,
                 'total_amount' => $total,
                 'paid_amount' => $paid,
@@ -82,6 +84,7 @@ class AccountingService
             ],
             [
                 'warehouse_id' => (int) ($sale->warehouse_id ?? 0) ?: null,
+                'brand_id' => (int) ($sale->brand_id ?? 0) ?: null,
                 'reference' => $sale->reference_number,
                 'total_amount' => $total,
                 'paid_amount' => $total,
@@ -103,6 +106,7 @@ class AccountingService
 
         return Account::query()->create([
             'warehouse_id' => (int) ($purchase->purchase_form ?? 0) ?: null,
+            'brand_id' => (int) ($purchase->brand_id ?? 0) ?: null,
             'source_type' => 'recurring_payment',
             'source_id' => (int) $payment->id,
             'entry_type' => 'purchase_payment',

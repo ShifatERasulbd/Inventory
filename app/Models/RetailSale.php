@@ -13,6 +13,7 @@ class RetailSale extends Model
     protected $fillable = [
         'reference_number',
         'warehouse_id',
+        'brand_id',
         'sold_by',
         'items',
         'total_amount',
@@ -28,6 +29,11 @@ class RetailSale extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(WareHouse::class);
+    }
+
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
     }
 
     public function seller(): BelongsTo

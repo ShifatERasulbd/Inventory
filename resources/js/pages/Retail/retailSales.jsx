@@ -97,11 +97,13 @@ export default function RetailSales() {
         return sales.filter((sale) => {
             const reference = String(sale.reference_number || '').toLowerCase();
             const warehouse = String(sale.warehouse_name || '').toLowerCase();
+            const brand = String(sale.brand_name || '').toLowerCase();
             const seller = String(sale.seller_name || '').toLowerCase();
             const paymentMethod = String(sale.payment_method || '').toLowerCase();
 
             return reference.includes(query)
                 || warehouse.includes(query)
+                || brand.includes(query)
                 || seller.includes(query)
                 || paymentMethod.includes(query);
         });
@@ -130,6 +132,7 @@ export default function RetailSales() {
                                 <TableHead>Ref</TableHead>
                                 <TableHead>Date</TableHead>
                                 <TableHead>Warehouse</TableHead>
+                                <TableHead>Brand</TableHead>
                                 <TableHead>Seller</TableHead>
                                 <TableHead>Payment</TableHead>
                                 <TableHead className="text-right">Items</TableHead>
@@ -139,7 +142,7 @@ export default function RetailSales() {
                         <TableBody>
                             {isLoading && (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                                    <TableCell colSpan={8} className="text-center text-muted-foreground">
                                         Loading retail sales...
                                     </TableCell>
                                 </TableRow>
@@ -147,7 +150,7 @@ export default function RetailSales() {
 
                             {!isLoading && filteredSales.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                                    <TableCell colSpan={8} className="text-center text-muted-foreground">
                                         No retail sales found.
                                     </TableCell>
                                 </TableRow>
@@ -167,6 +170,7 @@ export default function RetailSales() {
                                         <TableCell className="font-medium">{sale.reference_number || `Sale #${sale.id}`}</TableCell>
                                         <TableCell>{formatDate(sale.created_at)}</TableCell>
                                         <TableCell>{sale.warehouse_name || 'N/A'}</TableCell>
+                                        <TableCell>{sale.brand_name || 'Unassigned'}</TableCell>
                                         <TableCell>{sale.seller_name || 'N/A'}</TableCell>
                                         <TableCell className="capitalize">{sale.payment_method || 'N/A'}</TableCell>
                                         <TableCell className="text-right">{itemCount}</TableCell>
@@ -186,7 +190,7 @@ export default function RetailSales() {
                             {selectedSale?.reference_number || `Sale #${selectedSale?.id || ''}`} Details
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Date: {formatDate(selectedSale?.created_at)} | Payment: {selectedSale?.payment_method || 'N/A'}
+                            Date: {formatDate(selectedSale?.created_at)} | Brand: {selectedSale?.brand_name || 'Unassigned'} | Payment: {selectedSale?.payment_method || 'N/A'}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
 

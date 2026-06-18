@@ -34,8 +34,12 @@ async function requestJson(url, options = {}) {
     return payload;
 }
 
-export async function lookupBarcode(barcode, warehouseId) {
-    return requestJson(`/api/retail/barcode-lookup?barcode=${encodeURIComponent(barcode)}&warehouse_id=${warehouseId}`);
+export async function lookupBarcode(barcode, warehouseId, brandId = null) {
+    const brandPart = Number.isInteger(Number(brandId)) && Number(brandId) > 0
+        ? `&brand_id=${Number(brandId)}`
+        : '';
+
+    return requestJson(`/api/retail/barcode-lookup?barcode=${encodeURIComponent(barcode)}&warehouse_id=${warehouseId}${brandPart}`);
 }
 
 export async function createRetailSale(data) {

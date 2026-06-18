@@ -21,6 +21,8 @@ class RetailController extends Controller
     {
         $barcode = trim((string) $request->query('barcode', ''));
         $requestedWarehouseId = (int) $request->query('warehouse_id', 0);
+        $requestedBrandId = (int) $request->query('brand_id', 0);
+        $brandId = $requestedBrandId > 0 ? $requestedBrandId : null;
         $warehouseId = $this->resolveRetailWarehouseId($request, $requestedWarehouseId);
 
         if ($barcode === '') {
@@ -38,8 +40,15 @@ class RetailController extends Controller
                 'product.size:id,size',
                 'product.color:id,name,color_code',
                 'warehouse:id,name',
+                'brand:id,name',
             ])
             ->where('warehouse_id', $warehouseId)
+            ->when($brandId !== null, function ($query) use ($brandId) {
+                $query->where(function ($brandQuery) use ($brandId) {
+                    $brandQuery->where('brand_id', $brandId)
+                        ->orWhereNull('brand_id');
+                });
+            })
             ->where('stocks', '>', 0)
             ->whereJsonContains('barcode', $barcode);
 
@@ -53,8 +62,15 @@ class RetailController extends Controller
                     'product.size:id,size',
                     'product.color:id,name,color_code',
                     'warehouse:id,name',
+                    'brand:id,name',
                 ])
                 ->where('warehouse_id', $warehouseId)
+                ->when($brandId !== null, function ($query) use ($brandId) {
+                    $query->where(function ($brandQuery) use ($brandId) {
+                        $brandQuery->where('brand_id', $brandId)
+                            ->orWhereNull('brand_id');
+                    });
+                })
                 ->where('stocks', '>', 0)
                 ->whereHas('product', fn ($q) => $q->where('barCode', $barcode));
 
@@ -106,6 +122,8 @@ class RetailController extends Controller
             'available_stock' => (int) $stock->stocks,
             'warehouse_id'   => $stock->warehouse_id,
             'warehouse_name' => $stock->warehouse?->name,
+            'brand_id'       => $stock->brand_id,
+            'brand_name'     => $stock->brand?->name,
             'unit_price'     => $unitPrice,
             'cartoons'       => $cartoons,
         ]);
@@ -118,6 +136,7 @@ class RetailController extends Controller
     {
         $rules = [
             'warehouse_id'           => ['nullable', 'integer', 'exists:warehouses,id'],
+            'brand_id'               => ['nullable', 'integer', 'exists:brands,id'],
             'payment_method'         => ['required', 'string', 'in:cash,card,transfer,other'],
             'note'                   => ['nullable', 'string', 'max:1000'],
             'items'                  => ['required', 'array', 'min:1'],
@@ -135,6 +154,7 @@ class RetailController extends Controller
         }
 
         $validated = $request->validate($rules);
+        $brandId = isset($validated['brand_id']) ? (int) $validated['brand_id'] : null;
 
         $user = $request->user();
         $warehouseId = $this->resolveRetailWarehouseId($request, (int) ($validated['warehouse_id'] ?? 0));
@@ -165,6 +185,11 @@ class RetailController extends Controller
                 if ((int) $stock->warehouse_id !== (int) $warehouseId) {
                     DB::rollBack();
                     return response()->json(['message' => 'Selected stock does not belong to your warehouse.'], 422);
+                }
+
+                if ($brandId !== null && (int) ($stock->brand_id ?? 0) !== $brandId && $stock->brand_id !== null) {
+                    DB::rollBack();
+                    return response()->json(['message' => 'Selected stock does not belong to selected brand.'], 422);
                 }
 
                 if ((int) $stock->stocks < (int) $item['quantity']) {
@@ -276,6 +301,7 @@ class RetailController extends Controller
             $sale = RetailSale::query()->create([
                 'reference_number' => $reference,
                 'warehouse_id'     => $warehouseId,
+                'brand_id'         => $brandId,
                 'sold_by'          => $user->id,
                 'items'            => $lineItems,
                 'total_amount'     => round($totalAmount, 2),
@@ -291,6 +317,7 @@ class RetailController extends Controller
                 'id'               => $sale->id,
                 'reference_number' => $sale->reference_number,
                 'total_amount'     => (float) $sale->total_amount,
+                'brand_id'         => $sale->brand_id,
                 'payment_method'   => $sale->payment_method,
                 'items'            => $sale->items,
                 'created_at'       => $sale->created_at?->toDateTimeString(),
@@ -310,7 +337,7 @@ class RetailController extends Controller
         $warehouseIds = $this->resolveWarehouseIds($user);
 
         $query = RetailSale::query()
-            ->with(['warehouse:id,name', 'seller:id,name'])
+            ->with(['warehouse:id,name', 'brand:id,name', 'seller:id,name'])
             ->orderByDesc('id');
 
         if ($warehouseIds !== null) {
@@ -323,6 +350,8 @@ class RetailController extends Controller
                 'reference_number' => $sale->reference_number,
                 'warehouse_id'     => $sale->warehouse_id,
                 'warehouse_name'   => $sale->warehouse?->name,
+                'brand_id'         => $sale->brand_id,
+                'brand_name'       => $sale->brand?->name,
                 'sold_by'          => $sale->sold_by,
                 'seller_name'      => $sale->seller?->name,
                 'items'            => $sale->items,

@@ -30,6 +30,7 @@ export default function RetailPOS() {
 
     const [warehouses, setWarehouses] = useState([]);
     const [selectedWarehouse, setSelectedWarehouse] = useState('');
+    const [selectedBrand, setSelectedBrand] = useState('none');
     const [barcodeInput, setBarcodeInput] = useState('');
     const [cart, setCart] = useState([]);
     const [paymentMethod, setPaymentMethod] = useState('cash');
@@ -101,6 +102,28 @@ export default function RetailPOS() {
             });
     }, [selectedWarehouse]);
 
+    const selectedWarehouseMeta = warehouses.find((warehouse) => String(warehouse.id) === String(selectedWarehouse)) || null;
+    const selectedWarehouseBrands = Array.isArray(selectedWarehouseMeta?.brands)
+        ? selectedWarehouseMeta.brands.filter((brand) => Number(brand?.id) > 0)
+        : [];
+
+    useEffect(() => {
+        if (!selectedWarehouse) {
+            setSelectedBrand('none');
+            return;
+        }
+
+        if (selectedWarehouseBrands.length === 0) {
+            setSelectedBrand('none');
+            return;
+        }
+
+        const currentExists = selectedWarehouseBrands.some((brand) => String(brand.id) === selectedBrand);
+        if (!currentExists) {
+            setSelectedBrand(String(selectedWarehouseBrands[0].id));
+        }
+    }, [selectedWarehouse, selectedWarehouseBrands, selectedBrand]);
+
     const applyWarehouseCartoonToCart = (cartoonValue) => {
         setSelectedWarehouseCartoon(cartoonValue);
 
@@ -123,11 +146,20 @@ export default function RetailPOS() {
             return;
         }
 
+        if (selectedWarehouseBrands.length > 0 && selectedBrand === 'none') {
+            toast.error('Please select a brand first.');
+            return;
+        }
+
         setBarcodeInput('');
         setIsLookingUp(true);
 
         try {
-            const product = await lookupBarcode(code, Number.parseInt(selectedWarehouse, 10));
+            const product = await lookupBarcode(
+                code,
+                Number.parseInt(selectedWarehouse, 10),
+                selectedBrand !== 'none' ? Number.parseInt(selectedBrand, 10) : null
+            );
 
             setCart((prev) => {
                 const existing = prev.find((item) => item.stock_id === product.stock_id);
@@ -172,7 +204,7 @@ export default function RetailPOS() {
             setIsLookingUp(false);
             barcodeRef.current?.focus();
         }
-    }, [barcodeInput, selectedWarehouse, selectedWarehouseCartoon]);
+    }, [barcodeInput, selectedWarehouse, selectedWarehouseCartoon, selectedBrand, selectedWarehouseBrands]);
 
     const updateQty = (cartKey, delta) => {
         setCart((prev) =>
@@ -272,6 +304,7 @@ export default function RetailPOS() {
         try {
             const sale = await createRetailSale({
                 warehouse_id: Number.parseInt(selectedWarehouse, 10),
+                brand_id: selectedBrand !== 'none' ? Number.parseInt(selectedBrand, 10) : null,
                 payment_method: paymentMethod,
                 note: note || null,
                 items: cart.map((item) => ({
@@ -319,6 +352,23 @@ export default function RetailPOS() {
                                 {!isSuperAdmin && selectedWarehouse && (
                                     <p className="text-xs text-muted-foreground">Using your login warehouse</p>
                                 )}
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label>Brand</Label>
+                                <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select brand..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Unassigned</SelectItem>
+                                        {selectedWarehouseBrands.map((brand) => (
+                                            <SelectItem key={brand.id} value={String(brand.id)}>
+                                                {brand.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             <div className="space-y-1.5">

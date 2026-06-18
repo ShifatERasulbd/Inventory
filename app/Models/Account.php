@@ -12,6 +12,7 @@ class Account extends Model
 
     protected $fillable = [
         'warehouse_id',
+        'brand_id',
         'source_type',
         'source_id',
         'entry_type',
@@ -36,5 +37,10 @@ class Account extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(WareHouse::class, 'warehouse_id');
+    }
+
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class, 'brand_id');
     }
 }

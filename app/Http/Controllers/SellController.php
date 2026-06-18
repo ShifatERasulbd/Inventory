@@ -51,6 +51,8 @@ class SellController extends Controller
             'id' => $sell->id,
             'selling_from' => $sell->selling_from,
             'sold_to' => $sell->sold_to,
+            'brand_id' => $sell->brand_id,
+            'brand_name' => $sell->brand?->name,
             'product_id' => $sell->product_id,
             'quantity' => (int) $sell->quantity,
             'po_number' => $sell->po_number,
@@ -70,6 +72,7 @@ class SellController extends Controller
             ->with([
                 'sellingFromWarehouse:id,name',
                 'soldToWarehouse:id,name',
+                'brand:id,name',
                 'product:id,name',
             ]);
 
@@ -105,6 +108,7 @@ class SellController extends Controller
 
         $validated = $request->validate([
             'selling_from' => ['required', 'integer', 'exists:warehouses,id'],
+            'brand_id' => ['nullable', 'integer', 'exists:brands,id'],
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'quantity' => ['required', 'integer', 'min:1'],
             'po_number' => ['required', 'string', 'max:100'],
@@ -123,6 +127,7 @@ class SellController extends Controller
         $sell->load([
             'sellingFromWarehouse:id,name',
             'soldToWarehouse:id,name',
+            'brand:id,name',
             'product:id,name',
         ]);
 
@@ -149,6 +154,7 @@ class SellController extends Controller
         $sell->load([
             'sellingFromWarehouse:id,name',
             'soldToWarehouse:id,name',
+            'brand:id,name',
             'product:id,name',
         ]);
 
@@ -181,6 +187,7 @@ class SellController extends Controller
 
         $validated = $request->validate([
             'selling_from' => ['required', 'integer', 'exists:warehouses,id'],
+            'brand_id' => ['nullable', 'integer', 'exists:brands,id'],
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'quantity' => ['required', 'integer', 'min:1'],
             'po_number' => ['required', 'string', 'max:100'],
@@ -199,6 +206,7 @@ class SellController extends Controller
         $sell->load([
             'sellingFromWarehouse:id,name',
             'soldToWarehouse:id,name',
+            'brand:id,name',
             'product:id,name',
         ]);
 

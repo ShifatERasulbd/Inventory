@@ -18,6 +18,7 @@ function SellTable({ data, searchTerm }) {
         return (
             String(item.po_number ?? '').toLowerCase().includes(keyword) ||
             String(item.product_name ?? '').toLowerCase().includes(keyword) ||
+            String(item.brand_name ?? '').toLowerCase().includes(keyword) ||
             String(item.selling_from_name ?? '').toLowerCase().includes(keyword) ||
             String(item.sold_to_name ?? '').toLowerCase().includes(keyword)
         );
@@ -31,6 +32,7 @@ function SellTable({ data, searchTerm }) {
                         <TableHead>SL No.</TableHead>
                         <TableHead>PO Number</TableHead>
                         <TableHead>Product</TableHead>
+                        <TableHead>Brand</TableHead>
                         <TableHead>Selling From</TableHead>
                         <TableHead>Sold To</TableHead>
                         <TableHead>Quantity</TableHead>
@@ -42,7 +44,7 @@ function SellTable({ data, searchTerm }) {
                 <TableBody>
                     {filtered.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={9} className="text-center text-muted-foreground">
+                            <TableCell colSpan={10} className="text-center text-muted-foreground">
                                 No sell data found.
                             </TableCell>
                         </TableRow>
@@ -52,6 +54,7 @@ function SellTable({ data, searchTerm }) {
                                 <TableCell>{index + 1}</TableCell>
                                 <TableCell>{sell.po_number}</TableCell>
                                 <TableCell>{sell.product_name}</TableCell>
+                                <TableCell>{sell.brand_name || 'Unassigned'}</TableCell>
                                 <TableCell>{sell.selling_from_name}</TableCell>
                                 <TableCell>{sell.sold_to_name}</TableCell>
                                 <TableCell>{sell.quantity}</TableCell>

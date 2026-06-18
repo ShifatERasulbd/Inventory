@@ -16,6 +16,7 @@ class Sell extends Model
         'purchase_id',
         'selling_from',
         'sold_to',
+        'brand_id',
         'product_id',
         'quantity',
         'po_number',
@@ -38,6 +39,11 @@ class Sell extends Model
     public function soldToWarehouse(): BelongsTo
     {
         return $this->belongsTo(WareHouse::class, 'sold_to');
+    }
+
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
     }
 
     public function product(): BelongsTo

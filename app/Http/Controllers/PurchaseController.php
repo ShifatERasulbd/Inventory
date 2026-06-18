@@ -230,6 +230,7 @@ class PurchaseController extends Controller
                 [
                     'selling_from'   => $purchase->purchase_form,
                     'sold_to'        => $purchase->purchase_to,
+                    'brand_id'       => $purchase->brand_id,
                     'product_id'     => $productId,
                     'quantity'       => $quantity,
                     'po_number'      => $purchase->po_number,
