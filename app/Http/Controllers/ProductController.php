@@ -231,7 +231,9 @@ class ProductController extends Controller
             $products = DB::transaction(function () use ($validated, $colorIds, $sizeIds, $storedCoverImage, $storedGalleryImages, $barcodesMap) {
                 $products = [];
                 $stockRows = [];
-                $warehouseIds = WareHouse::query()->pluck('id')->all();
+                $warehouses = WareHouse::query()
+                    ->with('brands:id')
+                    ->get(['id']);
                 $now = now();
 
                 foreach ($colorIds as $colorId) {
@@ -257,16 +259,42 @@ class ProductController extends Controller
 
                         $products[] = $product;
 
-                        foreach ($warehouseIds as $warehouseId) {
-                            $stockRows[] = [
-                                'product_id' => $product->id,
-                                'stocks' => 0,
-                                'warehouse_id' => (int) $warehouseId,
-                                'cartoon_id' => null,
-                                'barcode' => null,
-                                'created_at' => $now,
-                                'updated_at' => $now,
-                            ];
+                        foreach ($warehouses as $warehouse) {
+                            $warehouseBrandIds = $warehouse->brands
+                                ->pluck('id')
+                                ->map(fn ($id) => (int) $id)
+                                ->filter(fn (int $id) => $id > 0)
+                                ->unique()
+                                ->values()
+                                ->all();
+
+                            if ($warehouseBrandIds === []) {
+                                $stockRows[] = [
+                                    'product_id' => $product->id,
+                                    'stocks' => 0,
+                                    'warehouse_id' => (int) $warehouse->id,
+                                    'brand_id' => null,
+                                    'cartoon_id' => null,
+                                    'barcode' => null,
+                                    'created_at' => $now,
+                                    'updated_at' => $now,
+                                ];
+
+                                continue;
+                            }
+
+                            foreach ($warehouseBrandIds as $brandId) {
+                                $stockRows[] = [
+                                    'product_id' => $product->id,
+                                    'stocks' => 0,
+                                    'warehouse_id' => (int) $warehouse->id,
+                                    'brand_id' => $brandId,
+                                    'cartoon_id' => null,
+                                    'barcode' => null,
+                                    'created_at' => $now,
+                                    'updated_at' => $now,
+                                ];
+                            }
                         }
                     }
                 }
@@ -498,7 +526,9 @@ class ProductController extends Controller
                 ->all();
 
             $existingPairMap = array_fill_keys($existingPairs, true);
-            $warehouseIds = WareHouse::query()->pluck('id')->all();
+            $warehouses = WareHouse::query()
+                ->with('brands:id')
+                ->get(['id']);
             $stockRows = [];
             $now = now();
 
@@ -516,16 +546,42 @@ class ProductController extends Controller
                         'barCode' => $barcodesMap[$pairKey] ?? null,
                     ]));
 
-                    foreach ($warehouseIds as $warehouseId) {
-                        $stockRows[] = [
-                            'product_id' => $created->id,
-                            'stocks' => 0,
-                            'warehouse_id' => (int) $warehouseId,
-                            'cartoon_id' => null,
-                            'barcode' => null,
-                            'created_at' => $now,
-                            'updated_at' => $now,
-                        ];
+                    foreach ($warehouses as $warehouse) {
+                        $warehouseBrandIds = $warehouse->brands
+                            ->pluck('id')
+                            ->map(fn ($id) => (int) $id)
+                            ->filter(fn (int $id) => $id > 0)
+                            ->unique()
+                            ->values()
+                            ->all();
+
+                        if ($warehouseBrandIds === []) {
+                            $stockRows[] = [
+                                'product_id' => $created->id,
+                                'stocks' => 0,
+                                'warehouse_id' => (int) $warehouse->id,
+                                'brand_id' => null,
+                                'cartoon_id' => null,
+                                'barcode' => null,
+                                'created_at' => $now,
+                                'updated_at' => $now,
+                            ];
+
+                            continue;
+                        }
+
+                        foreach ($warehouseBrandIds as $brandId) {
+                            $stockRows[] = [
+                                'product_id' => $created->id,
+                                'stocks' => 0,
+                                'warehouse_id' => (int) $warehouse->id,
+                                'brand_id' => $brandId,
+                                'cartoon_id' => null,
+                                'barcode' => null,
+                                'created_at' => $now,
+                                'updated_at' => $now,
+                            ];
+                        }
                     }
 
                     $existingPairMap[$pairKey] = true;

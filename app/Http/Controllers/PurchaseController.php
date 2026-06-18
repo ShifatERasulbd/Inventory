@@ -167,7 +167,6 @@ class PurchaseController extends Controller
 
                 $stock = Stock::query()
                     ->where('product_id', $productId)
-                    ->where('warehouse_id', $warehouseId)
                     ->where(function ($query) use ($purchaseBrandId) {
                         if ($purchaseBrandId === null) {
                             $query->whereNull('brand_id');

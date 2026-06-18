@@ -17,13 +17,6 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import {
-        Select,
-        SelectContent,
-        SelectItem,
-        SelectTrigger,
-        SelectValue,
-} from '@/components/ui/select';
 import { useAppContext } from '@/context/AppContext';
 
 export function StockTable({
@@ -37,111 +30,121 @@ export function StockTable({
     onSaveSellingPrice,
 }) {
     const [search, setSearch] = useState('');
-    const [activeWarehouse, setActiveWarehouse] = useState('all');
     const [activeBrand, setActiveBrand] = useState('all');
     const { user } = useAppContext();
     const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
 
-    const warehouseOptions = Object.values(
-        stocks.reduce((accumulator, stock) => {
-            const warehouseId = Number(stock.warehouse_id);
-            if (!Number.isInteger(warehouseId) || warehouseId <= 0) {
-                return accumulator;
-            }
+    const getDesignatedBrands = (stock) => {
+        const ids = Array.isArray(stock?.warehouse_brand_ids) ? stock.warehouse_brand_ids : [];
+        const names = Array.isArray(stock?.warehouse_brand_names) ? stock.warehouse_brand_names : [];
 
-            const key = String(warehouseId);
-            if (!accumulator[key]) {
-                accumulator[key] = {
-                    value: key,
-                    label: String(stock.warehouse_name || `Warehouse #${warehouseId}`),
+        return ids
+            .map((id, index) => {
+                const parsedId = Number(id);
+                if (!Number.isInteger(parsedId) || parsedId <= 0) {
+                    return null;
+                }
+
+                return {
+                    value: String(parsedId),
+                    label: String(names[index] || `Brand #${parsedId}`),
                 };
-            }
+            })
+            .filter(Boolean);
+    };
 
-            return accumulator;
-        }, {})
-    ).sort((a, b) => a.label.localeCompare(b.label));
-
-    const warehouseScopedStocks = stocks.filter((stock) => {
-        if (activeWarehouse === 'all') {
-            return true;
+    const resolveStockBrandKeys = (stock) => {
+        const rawBrandId = Number(stock?.brand_id);
+        if (Number.isInteger(rawBrandId) && rawBrandId > 0) {
+            return [String(rawBrandId)];
         }
 
-        return String(stock.warehouse_id ?? '') === activeWarehouse;
-    });
+        const designatedBrands = getDesignatedBrands(stock);
+        if (designatedBrands.length > 0) {
+            return designatedBrands.map((brand) => brand.value);
+        }
 
-    const designatedBrandMap = warehouseScopedStocks.reduce((accumulator, stock) => {
-        const ids = Array.isArray(stock.warehouse_brand_ids) ? stock.warehouse_brand_ids : [];
-        const names = Array.isArray(stock.warehouse_brand_names) ? stock.warehouse_brand_names : [];
+        return ['none'];
+    };
 
-        ids.forEach((id, index) => {
-            const parsedId = Number(id);
-            if (!Number.isInteger(parsedId) || parsedId <= 0) {
+    const resolveStockBrandLabel = (stock) => {
+        const rawBrandId = Number(stock?.brand_id);
+        if (Number.isInteger(rawBrandId) && rawBrandId > 0) {
+            return String(stock?.brand_name || `Brand #${rawBrandId}`);
+        }
+
+        const designatedBrands = getDesignatedBrands(stock);
+        if (designatedBrands.length === 1) {
+            return designatedBrands[0].label;
+        }
+
+        if (designatedBrands.length > 1) {
+            return designatedBrands.map((brand) => brand.label).join(', ');
+        }
+
+        return 'Unassigned';
+    };
+
+    const designatedBrandMap = stocks.reduce((accumulator, stock) => {
+        getDesignatedBrands(stock).forEach((brand) => {
+            if (!accumulator[brand.value]) {
+                accumulator[brand.value] = brand;
+            }
+        });
+
+        return accumulator;
+    }, {});
+
+    const designatedBrandKeys = Object.keys(designatedBrandMap);
+    const hasDesignatedBrands = designatedBrandKeys.length > 0;
+    const restrictedBrandKeys = hasDesignatedBrands && !isSuperAdmin
+        ? new Set(designatedBrandKeys)
+        : null;
+
+    const brandCounts = stocks.reduce((accumulator, stock) => {
+        const keys = resolveStockBrandKeys(stock);
+        keys.forEach((key) => {
+            if (restrictedBrandKeys && !restrictedBrandKeys.has(key)) {
                 return;
             }
 
-            const key = String(parsedId);
+            const label = key === 'none'
+                ? 'Unassigned'
+                : String(
+                    designatedBrandMap[key]?.label
+                    || stock.brand_name
+                    || `Brand #${key}`
+                );
+
             if (!accumulator[key]) {
                 accumulator[key] = {
                     value: key,
-                    label: String(names[index] || `Brand #${parsedId}`),
-                };
-            }
-        });
-
-        return accumulator;
-    }, {});
-
-    const brandCounts = warehouseScopedStocks.reduce((accumulator, stock) => {
-        const rawBrandId = Number(stock.brand_id);
-        const hasBrandId = Number.isInteger(rawBrandId) && rawBrandId > 0;
-        const key = hasBrandId ? String(rawBrandId) : 'none';
-        const label = hasBrandId
-            ? String(stock.brand_name || `Brand #${rawBrandId}`)
-            : 'Unassigned';
-
-        if (!accumulator[key]) {
-            accumulator[key] = {
-                value: key,
-                label,
-                count: 0,
-            };
-        }
-
-        accumulator[key].count += 1;
-        return accumulator;
-    }, {});
-
-    if (activeWarehouse !== 'all') {
-        Object.values(designatedBrandMap).forEach((designatedBrand) => {
-            if (!brandCounts[designatedBrand.value]) {
-                brandCounts[designatedBrand.value] = {
-                    value: designatedBrand.value,
-                    label: designatedBrand.label,
+                    label,
                     count: 0,
                 };
             }
+
+            accumulator[key].count += 1;
         });
-    }
 
-    const brandTabs = [
-        {
-            value: 'all',
-            label: activeWarehouse === 'all' ? 'All Brands' : 'All Designated Brands',
-            count: warehouseScopedStocks.length,
-        },
-        ...Object.values(brandCounts).sort((a, b) => a.label.localeCompare(b.label)),
-    ];
+        return accumulator;
+    }, {});
 
-    useEffect(() => {
-        if (activeWarehouse === 'all') {
-            return;
+    Object.values(designatedBrandMap).forEach((designatedBrand) => {
+        if (!brandCounts[designatedBrand.value]) {
+            brandCounts[designatedBrand.value] = {
+                value: designatedBrand.value,
+                label: designatedBrand.label,
+                count: 0,
+            };
         }
+    });
 
-        const exists = warehouseOptions.some((option) => option.value === activeWarehouse);
-        if (!exists) {
-            setActiveWarehouse('all');
-        }
-    }, [activeWarehouse, warehouseOptions]);
+    const visibleBrandEntries = Object.values(brandCounts)
+        .filter((entry) => entry.value !== 'none' || !hasDesignatedBrands || isSuperAdmin)
+        .sort((a, b) => a.label.localeCompare(b.label));
+
+    const brandTabs = [{ value: 'all', label: 'All Brands', count: stocks.length }, ...visibleBrandEntries];
 
     useEffect(() => {
         const hasActiveBrand = activeBrand === 'all' || brandTabs.some((tab) => tab.value === activeBrand);
@@ -150,12 +153,10 @@ export function StockTable({
         }
     }, [activeBrand, brandTabs]);
 
-    const filtered = warehouseScopedStocks.filter((stock) => {
+    const filtered = stocks.filter((stock) => {
         const query = search.toLowerCase();
-        const brandKey = Number.isInteger(Number(stock.brand_id)) && Number(stock.brand_id) > 0
-            ? String(Number(stock.brand_id))
-            : 'none';
-        const matchesBrand = activeBrand === 'all' || brandKey === activeBrand;
+        const brandKeys = resolveStockBrandKeys(stock);
+        const matchesBrand = activeBrand === 'all' || brandKeys.includes(activeBrand);
 
         if (!matchesBrand) {
             return false;
@@ -182,30 +183,6 @@ export function StockTable({
                         className="w-full pl-9"
                     />
                 </div>
-
-                {isSuperAdmin && (
-                    <div className="w-full max-w-[280px]">
-                        <Select
-                            value={activeWarehouse}
-                            onValueChange={(value) => {
-                                setActiveWarehouse(value);
-                                setActiveBrand('all');
-                            }}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Filter by warehouse" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Warehouses</SelectItem>
-                                {warehouseOptions.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                )}
             </div>
 
             <div className="overflow-x-auto">
@@ -266,7 +243,7 @@ export function StockTable({
                         {!isLoading && filtered.length === 0 && stocks.length > 0 && (
                             <TableRow>
                                 <TableCell colSpan={columnCount} className="text-center text-muted-foreground">
-                                    No products match your current warehouse/brand/search filters.
+                                    No products match your current brand/search filters.
                                 </TableCell>
                             </TableRow>
                         )}
@@ -279,7 +256,7 @@ export function StockTable({
                                     <TableCell>{stock.color_variant || 'N/A'}</TableCell>
                                     <TableCell>{stock.size || 'N/A'}</TableCell>
                                     {isSuperAdmin && <TableCell>{stock.warehouse_name || `Warehouse #${stock.warehouse_id ?? 'N/A'}`}</TableCell>}
-                                    <TableCell>{stock.brand_name || 'Unassigned'}</TableCell>
+                                    <TableCell>{resolveStockBrandLabel(stock)}</TableCell>
                                     <TableCell>{Number(stock.available_stock ?? 0)}</TableCell>
                                     <TableCell>$ {Number(stock.buying_price ?? 0).toFixed(2)}</TableCell>
                                    <TableCell>

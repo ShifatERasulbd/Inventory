@@ -147,11 +147,17 @@ class CartoonController extends Controller
         return array_values(array_unique($ids));
     }
 
-    private function deductBarcodesFromSourceStock(int $sourceWarehouseId, array $purchaseProductIds, array $incomingCodes): array
+    private function deductBarcodesFromSourceStock(int $sourceWarehouseId, ?int $sourceBrandId, array $purchaseProductIds, array $incomingCodes): array
     {
         $stocks = Stock::query()
             ->where('warehouse_id', $sourceWarehouseId)
             ->whereIn('product_id', $purchaseProductIds)
+            ->when($sourceBrandId !== null, function ($query) use ($sourceBrandId) {
+                $query->where(function ($brandQuery) use ($sourceBrandId) {
+                    $brandQuery->where('brand_id', $sourceBrandId)
+                        ->orWhereNull('brand_id');
+                });
+            })
             ->lockForUpdate()
             ->get();
 
@@ -534,14 +540,22 @@ class CartoonController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($counts, $codesByProduct, $priceMap, $warehouseId, $cartoon, $request) {
+        $purchaseBrandId = $purchase->brand_id ? (int) $purchase->brand_id : null;
+
+        DB::transaction(function () use ($counts, $codesByProduct, $priceMap, $warehouseId, $purchaseBrandId, $cartoon, $request) {
             foreach ($counts as $productId => $quantity) {
                 $incomingCodes = $codesByProduct[$productId] ?? [];
                 $prices = $priceMap[$productId] ?? ['purchase_price' => 0, 'selling_price' => 0];
 
                 $stock = Stock::query()
                     ->where('product_id', $productId)
-                    ->where('warehouse_id', $warehouseId)
+                    ->where(function ($query) use ($purchaseBrandId) {
+                        if ($purchaseBrandId === null) {
+                            $query->whereNull('brand_id');
+                        } else {
+                            $query->where('brand_id', $purchaseBrandId);
+                        }
+                    })
                     ->whereNull('cartoon_id')
                     ->lockForUpdate()
                     ->first();
@@ -550,6 +564,7 @@ class CartoonController extends Controller
                     Stock::query()->create([
                         'product_id' => $productId,
                         'warehouse_id' => $warehouseId,
+                        'brand_id' => $purchaseBrandId,
                         'stocks' => $quantity,
                         'buying_price' => (float) ($prices['purchase_price'] ?? 0),
                         'selling_price' => (float) ($prices['selling_price'] ?? 0),
@@ -803,6 +818,7 @@ class CartoonController extends Controller
 
         $purchase = $cartoon->purchase;
         $purchaseProductIds = $this->extractPurchaseProductIds($cartoon);
+        $purchaseBrandId = $purchase?->brand_id ? (int) $purchase->brand_id : null;
 
         if ($purchaseProductIds === []) {
             return response()->json([
@@ -810,8 +826,9 @@ class CartoonController extends Controller
             ], 422);
         }
 
+        $sourceWarehouseId = (int) ($purchase?->purchase_form ?? 0);
+
         if ($adjustMode === 'add') {
-            $sourceWarehouseId = (int) ($purchase?->purchase_form ?? 0);
 
             if ($sourceWarehouseId <= 0) {
                 return response()->json([
@@ -820,7 +837,7 @@ class CartoonController extends Controller
             }
         }
 
-        DB::transaction(function () use ($adjustMode, $incomingCodes, $existingCodes, $cartoon, $purchase, $purchaseProductIds) {
+        DB::transaction(function () use ($adjustMode, $incomingCodes, $existingCodes, $cartoon, $purchase, $purchaseProductIds, $purchaseBrandId, $sourceWarehouseId) {
             if ($adjustMode === 'deduct') {
                 $destinationWarehouseId = (int) ($cartoon->warehouse_id ?? 0);
                 if ($destinationWarehouseId <= 0) {
@@ -907,6 +924,13 @@ class CartoonController extends Controller
                     $stock = Stock::query()
                         ->where('product_id', $productId)
                         ->where('warehouse_id', $destinationWarehouseId)
+                        ->when($purchaseBrandId !== null, function ($query) use ($purchaseBrandId) {
+                            $query->where(function ($brandQuery) use ($purchaseBrandId) {
+                                $brandQuery->where('brand_id', $purchaseBrandId)
+                                    ->orWhereNull('brand_id');
+                            });
+                        })
+                        ->when($purchaseBrandId === null, fn ($query) => $query->whereNull('brand_id'))
                         ->whereNull('cartoon_id')
                         ->lockForUpdate()
                         ->first();
@@ -915,6 +939,7 @@ class CartoonController extends Controller
                         Stock::query()->create([
                             'product_id' => $productId,
                             'warehouse_id' => $destinationWarehouseId,
+                            'brand_id' => $purchaseBrandId,
                             'stocks' => $quantity,
                             'buying_price' => (float) ($prices['purchase_price'] ?? 0),
                             'selling_price' => (float) ($prices['selling_price'] ?? 0),
@@ -934,9 +959,7 @@ class CartoonController extends Controller
 
                 $newCodes = array_values($pool);
             } else {
-                $sourceWarehouseId = (int) ($purchase?->purchase_form ?? 0);
-
-                $deduction = $this->deductBarcodesFromSourceStock($sourceWarehouseId, $purchaseProductIds, $incomingCodes);
+                $deduction = $this->deductBarcodesFromSourceStock($sourceWarehouseId, $purchaseBrandId, $purchaseProductIds, $incomingCodes);
 
                 if (! ($deduction['ok'] ?? false)) {
                     $missingCodes = $deduction['missing_codes'] ?? [];

@@ -13,6 +13,7 @@ const initialForm = {
     buying_price: '',
     selling_price: '',
     warehouse_id: '',
+    brand_id: '',
     cartoon_id: '',
     barcode: '',
 };
@@ -23,6 +24,7 @@ function validateForm(form) {
     const buyingPrice = Number(form.buying_price);
     const sellingPrice = form.selling_price === '' ? 0 : Number(form.selling_price);
     const warehouseId = form.warehouse_id === '' ? null : Number(form.warehouse_id);
+    const brandId = form.brand_id === '' ? null : Number(form.brand_id);
     const cartoonId = form.cartoon_id === '' ? null : Number(form.cartoon_id);
     const barcode = form.barcode.trim();
     const validationErrors = {};
@@ -45,6 +47,10 @@ function validateForm(form) {
 
     if (warehouseId !== null && (!Number.isInteger(warehouseId) || warehouseId <= 0)) {
         validationErrors.warehouse_id = ['Warehouse ID must be a positive integer.'];
+    }
+
+    if (brandId !== null && (!Number.isInteger(brandId) || brandId <= 0)) {
+        validationErrors.brand_id = ['Brand ID must be a positive integer.'];
     }
 
     if (cartoonId !== null && (!Number.isInteger(cartoonId) || cartoonId <= 0)) {
@@ -109,6 +115,7 @@ export default function AddStock() {
                 buying_price: Number(form.buying_price),
                 selling_price: form.selling_price === '' ? 0 : Number(form.selling_price),
                 warehouse_id: form.warehouse_id === '' ? null : Number(form.warehouse_id),
+                brand_id: form.brand_id === '' ? null : Number(form.brand_id),
                 cartoon_id: form.cartoon_id === '' ? null : Number(form.cartoon_id),
                 barcode: form.barcode.trim() ? form.barcode.split(',').map((b) => b.trim()).filter(Boolean) : null,
             });

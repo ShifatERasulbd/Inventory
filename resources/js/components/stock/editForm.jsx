@@ -90,6 +90,20 @@ export default function EditForm({ form, existingBarcodes = [], onChange, onSubm
                         </div>
 
                         <div className="space-y-2">
+                            <Label htmlFor="brand_id">Brand ID</Label>
+                            <Input
+                                id="brand_id"
+                                name="brand_id"
+                                type="number"
+                                min="1"
+                                value={form.brand_id}
+                                onChange={onChange}
+                                placeholder="e.g. 1"
+                            />
+                            {errors.brand_id && <p className="text-xs text-destructive">{errors.brand_id[0]}</p>}
+                        </div>
+
+                        <div className="space-y-2">
                             <Label htmlFor="cartoon_id">Cartoon ID</Label>
                             <Input
                                 id="cartoon_id"

@@ -13,6 +13,7 @@ const initialForm = {
     buying_price: '',
     selling_price: '',
     warehouse_id: '',
+    brand_id: '',
     cartoon_id: '',
     barcode: '',
 };
@@ -51,6 +52,7 @@ export default function EditStock() {
                         buying_price: String(stock.buying_price ?? 0),
                         selling_price: String(stock.selling_price ?? 0),
                         warehouse_id: stock.warehouse_id == null ? '' : String(stock.warehouse_id),
+                        brand_id: stock.brand_id == null ? '' : String(stock.brand_id),
                         cartoon_id: stock.cartoon_id == null ? '' : String(stock.cartoon_id),
                         barcode: '',
                     });
@@ -98,6 +100,7 @@ export default function EditStock() {
                 buying_price: Number(form.buying_price),
                 selling_price: Number(form.selling_price),
                 warehouse_id: form.warehouse_id === '' ? null : Number(form.warehouse_id),
+                brand_id: form.brand_id === '' ? null : Number(form.brand_id),
                 cartoon_id: form.cartoon_id === '' ? null : Number(form.cartoon_id),
                 ...(newBarcodes.length > 0 ? { barcode: newBarcodes, adjust_mode: 'add' } : {}),
             });

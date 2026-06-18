@@ -38,11 +38,26 @@ function getStockSellingPrice(stockSellingPrices, warehouseId, productId, brandI
     }
 
     const normalizedBrandId = Number(brandId);
-    const brandSegment = Number.isInteger(normalizedBrandId) && normalizedBrandId > 0
-        ? String(normalizedBrandId)
-        : 'none';
-    const key = `${sourceWarehouseId}:${selectedProductId}:${brandSegment}`;
-    const value = stockSellingPrices?.[key];
+    const hasSelectedBrand = Number.isInteger(normalizedBrandId) && normalizedBrandId > 0;
+    const exactBrandSegment = hasSelectedBrand ? String(normalizedBrandId) : 'none';
+    const exactKey = `${sourceWarehouseId}:${selectedProductId}:${exactBrandSegment}`;
+    const fallbackNoneKey = `${sourceWarehouseId}:${selectedProductId}:none`;
+
+    let value = stockSellingPrices?.[exactKey];
+
+    if (value == null && hasSelectedBrand) {
+        value = stockSellingPrices?.[fallbackNoneKey];
+    }
+
+    // Final fallback for legacy data: take any brand segment value for this warehouse/product.
+    if (value == null && stockSellingPrices && typeof stockSellingPrices === 'object') {
+        const prefix = `${sourceWarehouseId}:${selectedProductId}:`;
+        const matchedEntry = Object.entries(stockSellingPrices).find(([key, candidate]) => (
+            key.startsWith(prefix) && candidate != null
+        ));
+
+        value = matchedEntry ? matchedEntry[1] : null;
+    }
 
     return value == null ? null : Number(value);
 }
@@ -60,11 +75,25 @@ function getStockQuantity(stockQuantities, warehouseId, productId, brandId = nul
     }
 
     const normalizedBrandId = Number(brandId);
-    const brandSegment = Number.isInteger(normalizedBrandId) && normalizedBrandId > 0
-        ? String(normalizedBrandId)
-        : 'none';
-    const key = `${sourceWarehouseId}:${selectedProductId}:${brandSegment}`;
-    const value = stockQuantities?.[key];
+    const hasSelectedBrand = Number.isInteger(normalizedBrandId) && normalizedBrandId > 0;
+    const exactBrandSegment = hasSelectedBrand ? String(normalizedBrandId) : 'none';
+    const exactKey = `${sourceWarehouseId}:${selectedProductId}:${exactBrandSegment}`;
+    const fallbackNoneKey = `${sourceWarehouseId}:${selectedProductId}:none`;
+
+    let value = stockQuantities?.[exactKey];
+
+    if (value == null && hasSelectedBrand) {
+        value = stockQuantities?.[fallbackNoneKey];
+    }
+
+    // Final fallback for legacy data: sum all brand segments for this warehouse/product.
+    if (value == null && stockQuantities && typeof stockQuantities === 'object') {
+        const prefix = `${sourceWarehouseId}:${selectedProductId}:`;
+        value = Object.entries(stockQuantities)
+            .filter(([key]) => key.startsWith(prefix))
+            .reduce((sum, [, candidate]) => sum + Math.max(0, Number(candidate ?? 0)), 0);
+    }
+
     return Math.max(0, Number(value ?? 0));
 }
 
