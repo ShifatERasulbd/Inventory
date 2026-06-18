@@ -43,7 +43,10 @@ class UserController extends Controller
     {
         $user = $request->user()->load('roles.permissions:id,name,slug');
         $warehouseIds = is_array($user->warehouse_ids) ? $user->warehouse_ids : [];
-        $warehouses = WareHouse::whereIn('id', $warehouseIds)->get(['id', 'name']);
+        $warehouses = WareHouse::query()
+            ->with('brands:id,name')
+            ->whereIn('id', $warehouseIds)
+            ->get(['id', 'name']);
 
         $userData = $this->attachWarehouses($user->toArray(), $warehouseIds, $warehouses);
         $userData['warehouse'] = collect($userData['warehouses'] ?? [])->first();

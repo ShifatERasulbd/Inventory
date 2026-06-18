@@ -72,14 +72,18 @@ export default function AddCartoons() {
                 ]);
 
                 if (!ignore) {
-                    const approvedOnly = (Array.isArray(purchaseData) ? purchaseData : []).filter((purchase) => {
-                        const status = String(purchase?.status ?? '').toLowerCase();
-                        return ['approve', 'approved', 'active'].includes(status);
+                    const availablePurchases = (Array.isArray(purchaseData) ? purchaseData : []).filter((purchase) => {
+                        if (!purchase?.id || !purchase?.po_number) {
+                            return false;
+                        }
+
+                        // Keep cancelled purchases out of new cartoon assignment.
+                        return String(purchase.status ?? '').toLowerCase() !== 'cancelled';
                     });
-                    setPurchases(approvedOnly);
+                    setPurchases(availablePurchases);
 
                     if (purchaseIdFromQuery) {
-                        const hasPurchase = approvedOnly.some((purchase) => String(purchase.id) === String(purchaseIdFromQuery));
+                        const hasPurchase = availablePurchases.some((purchase) => String(purchase.id) === String(purchaseIdFromQuery));
                         if (hasPurchase) {
                             setForm((previous) => ({
                                 ...previous,

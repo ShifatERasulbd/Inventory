@@ -46,12 +46,30 @@ export default function RetailPOS() {
         setPageTitle('Retail POS');
     }, [setPageTitle]);
 
+    const getUserWarehousesFallback = useCallback(() => {
+        const candidates = Array.isArray(user?.warehouses) ? user.warehouses : [];
+
+        return candidates
+            .filter((warehouse) => Number.parseInt(warehouse?.id, 10) > 0)
+            .map((warehouse) => ({
+                id: Number.parseInt(warehouse.id, 10),
+                name: String(warehouse.name ?? ''),
+                brands: Array.isArray(warehouse.brands)
+                    ? warehouse.brands.filter((brand) => Number.parseInt(brand?.id, 10) > 0)
+                    : [],
+            }));
+    }, [user]);
+
     useEffect(() => {
         fetchWarehouses()
             .then((data) => {
-                let filtered = data;
+                let filtered = Array.isArray(data) ? data : [];
                 if (!isSuperAdmin && userWarehouseIds.length > 0) {
                     filtered = data.filter((w) => userWarehouseIds.includes(Number(w.id)));
+                }
+
+                if (!isSuperAdmin && filtered.length === 0) {
+                    filtered = getUserWarehousesFallback();
                 }
 
                 setWarehouses(filtered);
@@ -68,8 +86,17 @@ export default function RetailPOS() {
                     setSelectedWarehouse(String(filtered[0].id));
                 }
             })
-            .catch(() => {});
-    }, [isSuperAdmin, userWarehouseIds]);
+            .catch(() => {
+                if (!isSuperAdmin) {
+                    const fallback = getUserWarehousesFallback();
+                    setWarehouses(fallback);
+
+                    if (fallback.length > 0) {
+                        setSelectedWarehouse(String(fallback[0].id));
+                    }
+                }
+            });
+    }, [getUserWarehousesFallback, isSuperAdmin, userWarehouseIds]);
 
     useEffect(() => {
         barcodeRef.current?.focus();
