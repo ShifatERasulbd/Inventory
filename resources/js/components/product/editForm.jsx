@@ -131,7 +131,6 @@ export default function EditForm({
     colors = [],
     fabrics = [],
     sizes = [],
-    styles = [],
     productFors = [],
     warehouses = [],
     seasons = [],
@@ -346,17 +345,17 @@ export default function EditForm({
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
 
 
-                        <ProductSelect
-                            id="product-style-number"
-                            label="Style"
-                            value={form.style_number}
-                            options={styles}
-                            placeholder="Select a style"
-                            error={errors.style_number}
-                            onValueChange={(value) => onSelectChange('style_number', value)}
-                            valueKey="name"
-                            labelKey="name"
-                        />
+                        <div className="space-y-2">
+                            <Label htmlFor="product-style-number">Style Number</Label>
+                            <Input
+                                id="product-style-number"
+                                name="style_number"
+                                value={form.style_number}
+                                onChange={onChange}
+                                placeholder="e.g. ST-1001"
+                            />
+                            {errors.style_number && <p className="text-xs text-destructive">{errors.style_number[0]}</p>}
+                        </div>
 
                         <div className="space-y-2">
                             <Label htmlFor="product-ref-number">Ref Number</Label>

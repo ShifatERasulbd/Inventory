@@ -92,11 +92,13 @@ function getOrderSubtotal(rows) {
     return (rows ?? []).reduce((total, row) => total + getLineTotal(row.quantity, row.purchase_price), 0);
 }
 
-function validateForm(form, isSuperAdmin) {
+function validateForm(form, isSuperAdmin, stockQuantities, hasProductsInWarehouse) {
     const validationErrors = {};
 
     if (!Number.isInteger(Number(form.purchase_form)) || Number(form.purchase_form) <= 0) {
         validationErrors.purchase_form = ['Purchase from warehouse is required.'];
+    } else if (!hasProductsInWarehouse) {
+        validationErrors.purchase_form = ['No product in stock.'];
     }
 
     if (isSuperAdmin && (!Number.isInteger(Number(form.purchase_to)) || Number(form.purchase_to) <= 0)) {
@@ -133,9 +135,14 @@ function validateForm(form, isSuperAdmin) {
                 validationErrors[`products.${i}.quantity`] = ['Quantity must be a positive integer.'];
             }
 
+            const availableStock = getStockQuantity(stockQuantities, form.purchase_form, row.product_id);
+            if (productId > 0 && availableStock <= 0) {
+                validationErrors[`products.${i}.product_id`] = ['Selected product is not available in the selected purchase warehouse.'];
+            }
+
             const purchasePrice = String(row.purchase_price ?? '').trim();
             if (purchasePrice === '' || Number.isNaN(Number(purchasePrice)) || Number(purchasePrice) < 0) {
-                validationErrors[`products.${i}.purchase_price`] = ['Purchase price must be 0 or greater.'];
+                validationErrors[`products.${i}.purchase_price`] = ['Purchase price must be auto-filled from source warehouse stock selling price.'];
             }
 
         });
@@ -265,17 +272,26 @@ export default function AddPurchase() {
             return [];
         }
 
-        // Keep product dropdown usable even when stock is zero in selected warehouse.
-        return products;
-    }, [form.purchase_form, products]);
+        return products.filter((product) =>
+            getStockQuantity(stockQuantities, form.purchase_form, product.id) > 0
+        );
+    }, [form.purchase_form, products, stockQuantities]);
 
     const selectedWarehouse = useMemo(() => {
         const selectedWarehouseId = Number(form.purchase_form);
         return warehouses.find((warehouse) => Number(warehouse.id) === selectedWarehouseId) || null;
     }, [form.purchase_form, warehouses]);
 
+    const hasProductsInSelectedWarehouse = useMemo(() => {
+        if (!Number.isInteger(Number(form.purchase_form)) || Number(form.purchase_form) <= 0) {
+            return true;
+        }
+
+        return filteredProductOptions.length > 0;
+    }, [filteredProductOptions.length, form.purchase_form]);
+
     const warehouseStockRows = useMemo(() => {
-        return products
+        return filteredProductOptions
             .map((product) => ({
                 product_id: product.id,
                 name: product?.name || `Product #${product?.id}`,
@@ -285,15 +301,7 @@ export default function AddPurchase() {
                 unit_price: getStockSellingPrice(stockSellingPrices, form.purchase_form, product.id) ?? 0,
             }))
             .sort((a, b) => String(a.name).localeCompare(String(b.name)));
-    }, [products, form.purchase_form, stockQuantities, stockSellingPrices]);
-
-    const hasProductsInSelectedWarehouse = useMemo(() => {
-        if (!Number.isInteger(Number(form.purchase_form)) || Number(form.purchase_form) <= 0) {
-            return true;
-        }
-
-        return warehouseStockRows.some((row) => Number(row.available_stock) > 0);
-    }, [warehouseStockRows, form.purchase_form]);
+    }, [filteredProductOptions, form.purchase_form, stockQuantities, stockSellingPrices]);
 
     const orderSubtotal = useMemo(() => getOrderSubtotal(form.products), [form.products]);
     const paidAmount = useMemo(() => {
@@ -335,6 +343,16 @@ export default function AddPurchase() {
 
             const updatedProducts = previous.products.map((row) => {
                 const autoPrice = getStockSellingPrice(stockSellingPrices, value, row.product_id);
+                const availableStock = getStockQuantity(stockQuantities, value, row.product_id);
+
+                if (availableStock <= 0) {
+                    return {
+                        ...row,
+                        product_id: '',
+                        quantity: '',
+                        purchase_price: '',
+                    };
+                }
 
                 return {
                     ...row,
@@ -399,7 +417,7 @@ export default function AddPurchase() {
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        const validationErrors = validateForm(form, isSuperAdmin);
+        const validationErrors = validateForm(form, isSuperAdmin, stockQuantities, hasProductsInSelectedWarehouse);
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
             setRequestError('');
@@ -470,7 +488,7 @@ export default function AddPurchase() {
                 isSuperAdmin={isSuperAdmin}
                 purchaseToLabel={purchaseToLabel}
                 availableStatuses={availableStatuses}
-                isPurchasePriceLocked={false}
+                isPurchasePriceLocked
                 selectedPurchaseFromWarehouseId={form.purchase_form}
                 stockQuantities={stockQuantities}
                 orderSubtotal={orderSubtotal}

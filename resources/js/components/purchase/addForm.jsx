@@ -108,7 +108,7 @@ export default function AddPurchaseForm({
                             </Select>
                             {errors.purchase_form && <p className="text-xs text-destructive">{errors.purchase_form[0]}</p>}
                             {!errors.purchase_form && noProductInStock && (
-                                <p className="text-xs text-amber-600">No product in stock in this warehouse. You can still create the purchase.</p>
+                                <p className="text-xs text-destructive">No product in stock.</p>
                             )}
                         </div>
 

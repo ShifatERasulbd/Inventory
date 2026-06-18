@@ -12,7 +12,6 @@ import { fetchFabrics } from '@/pages/Fabric/api';
 import { fetchProductsFor } from '@/pages/ProductsFor/api';
 import { fetchSeasons } from '@/pages/Season/api';
 import { fetchSizes } from '@/pages/Size/api';
-import { fetchStyles } from '@/pages/Style/api';
 import { fetchWarehouses } from '@/pages/Warehouse/api';
 
 import { fetchProduct, updateProducts } from './api';
@@ -62,7 +61,7 @@ function validateForm(form) {
     const selectedSizeIds = Array.isArray(form.size_ids) ? form.size_ids.filter(Boolean) : [];
 
     if (!form.brand_id) validationErrors.brand_id = ['Please select a brand.'];
-    if (!form.style_number.trim()) validationErrors.style_number = ['Please select a style.'];
+    if (!form.style_number.trim()) validationErrors.style_number = ['Please enter the style number.'];
     if (!form.name.trim()) validationErrors.name = ['Please enter the product name.'];
     if (selectedColorIds.length === 0) validationErrors.color_ids = ['Please add at least one color.'];
     if (!form.fabric_id) validationErrors.fabric_id = ['Please select a fabric.'];
@@ -111,7 +110,6 @@ export default function EditProduct() {
     const [colors, setColors] = useState([]);
     const [fabrics, setFabrics] = useState([]);
     const [sizes, setSizes] = useState([]);
-    const [styles, setStyles] = useState([]);
     const [productFors, setProductFors] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
     const [seasons, setSeasons] = useState([]);
@@ -134,14 +132,13 @@ export default function EditProduct() {
             setLoadError('');
 
             try {
-                const [product, brandData, categoryData, colorData, fabricData, sizeData, styleData, productForData, warehouseData, seasonData] = await Promise.all([
+                const [product, brandData, categoryData, colorData, fabricData, sizeData, productForData, warehouseData, seasonData] = await Promise.all([
                     fetchProduct(id, { variantOnly }),
                     fetchBrands(),
                     fetchCategories(),
                     fetchColors(),
                     fetchFabrics(),
                     fetchSizes(),
-                    fetchStyles(),
                     fetchProductsFor(),
                     fetchWarehouses(),
                     fetchSeasons(),
@@ -156,7 +153,6 @@ export default function EditProduct() {
                 setColors(Array.isArray(colorData) ? colorData : []);
                 setFabrics(Array.isArray(fabricData) ? fabricData : []);
                 setSizes(Array.isArray(sizeData) ? sizeData : []);
-                setStyles(Array.isArray(styleData) ? styleData : []);
                 setProductFors(Array.isArray(productForData) ? productForData : []);
                 setWarehouses(Array.isArray(warehouseData) ? warehouseData : []);
                 setSeasons(Array.isArray(seasonData) ? seasonData : []);
@@ -457,7 +453,6 @@ export default function EditProduct() {
                 colors={colors}
                 fabrics={fabrics}
                 sizes={sizes}
-                styles={styles}
                 productFors={productFors}
                 warehouses={warehouses}
                 seasons={seasons}

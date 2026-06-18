@@ -16,7 +16,6 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\SeasonController;
 use App\Http\Controllers\ColorController;
-use App\Http\Controllers\StyleController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\FabricController;
 use App\Http\Controllers\SizeController;
@@ -83,9 +82,6 @@ Route::prefix('api')->group(function () {
 
         // Color Controller
         Route::apiResource('/colors', ColorController::class)->middleware('resource.permission:colors');
-
-        // Style Controller
-        Route::apiResource('/styles', StyleController::class)->middleware('resource.permission:products');
 
         // Fabric Controller
         Route::apiResource('/fabrics', FabricController::class)->middleware('resource.permission:fabrics');

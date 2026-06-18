@@ -24,7 +24,7 @@ export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitti
                                 name="name"
                                 value={form.name}
                                 onChange={onChange}
-                                placeholder="e.g. Season"
+                                placeholder="e.g. Brand"
                             />
                             {errors.name && <p className="text-xs text-destructive">{errors.name[0]}</p>}
                         </div>
