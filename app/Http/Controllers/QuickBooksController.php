@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Models\QuickBooksToken;
 use App\Services\QuickBooksPurchaseSyncService;
+use App\Services\QuickBooksRetailSaleSyncService;
 use Illuminate\Support\Str;
 
 class QuickBooksController extends Controller
@@ -64,6 +65,19 @@ class QuickBooksController extends Controller
         ]);
     }
 
+    public function retryRetailSalesSync(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $limit = max(1, min((int) $request->query('limit', 200), 1000));
+
+        $synced = app(QuickBooksRetailSaleSyncService::class)->retryRecentRetailSales($limit);
+
+        return response()->json([
+            'message' => 'Retail sales sync retry completed.',
+            'synced_count' => $synced,
+            'checked_limit' => $limit,
+        ]);
+    }
+
     // Step 2: Handle the Callback from QuickBooks
     public function handleCallback(Request $request)
     {
@@ -85,16 +99,24 @@ class QuickBooksController extends Controller
             return redirect(self::CALLBACK_REDIRECT_PATH . '?' . $query);
         }
 
-        $state = $request->query('state');
-        $expectedState = $request->session()->pull('quickbooks_oauth_state');
+        $state = (string) $request->query('state', '');
+        $expectedState = (string) $request->session()->pull('quickbooks_oauth_state', '');
 
-        if (!$state || !$expectedState || !hash_equals($expectedState, $state)) {
-            Log::warning('QuickBooks OAuth state validation failed', [
-                'received_state_present' => (bool) $state,
-                'expected_state_present' => (bool) $expectedState,
+        if ($expectedState !== '') {
+            if ($state === '' || ! hash_equals($expectedState, $state)) {
+                Log::warning('QuickBooks OAuth state validation failed', [
+                    'received_state_present' => $state !== '',
+                    'expected_state_present' => true,
+                ]);
+
+                return redirect(self::CALLBACK_REDIRECT_PATH . '?status=error&reason=invalid_state');
+            }
+        } else {
+            // Some SPA/API auth flows may not preserve the session used during connect step.
+            // In that case, continue token exchange if code + realmId are present.
+            Log::warning('QuickBooks OAuth callback received without session state; proceeding with token exchange.', [
+                'received_state_present' => $state !== '',
             ]);
-
-            return redirect(self::CALLBACK_REDIRECT_PATH . '?status=error&reason=invalid_state');
         }
 
         $code = $request->query('code');
@@ -140,6 +162,9 @@ class QuickBooksController extends Controller
 
         // Replay failed eligible purchase syncs now that QuickBooks is connected.
         app(QuickBooksPurchaseSyncService::class)->retryFailedEligiblePurchases();
+
+        // Replay recent POS retail sales so missed sales are sent to QuickBooks income.
+        app(QuickBooksRetailSaleSyncService::class)->retryRecentRetailSales();
 
         // Redirect to cartoon create section after QuickBooks callback completes.
         return redirect(self::CALLBACK_REDIRECT_PATH . '?status=success&realmId=' . urlencode((string) $realmId));

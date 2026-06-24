@@ -19,11 +19,16 @@ class RetailSale extends Model
         'total_amount',
         'payment_method',
         'note',
+        'quickbooks_sync_status',
+        'quickbooks_synced_at',
+        'quickbooks_txn_id',
+        'quickbooks_last_error',
     ];
 
     protected $casts = [
         'items'        => 'array',
         'total_amount' => 'decimal:2',
+        'quickbooks_synced_at' => 'datetime',
     ];
 
     public function warehouse(): BelongsTo

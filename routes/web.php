@@ -62,6 +62,7 @@ Route::prefix('api')->group(function () {
         // QuickBooks Routes
         Route::get('/quickbooks/connect', [QuickBooksController::class, 'getAuthUrl']);
         Route::get('/quickbooks/status', [QuickBooksController::class, 'getConnectionStatus']);
+        Route::post('/quickbooks/retry-retail-sales-sync', [QuickBooksController::class, 'retryRetailSalesSync']);
         
         // State Controller
         Route::get('/states/trashed', [StateController::class, 'trashed'])->middleware('resource.permission:states');

@@ -7,6 +7,7 @@ use App\Models\RetailSale;
 use App\Models\Sell;
 use App\Models\Stock;
 use App\Services\AccountingService;
+use App\Services\QuickBooksRetailSaleSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -310,6 +311,12 @@ class RetailController extends Controller
             ]);
 
             app(AccountingService::class)->syncRetailSaleAccount($sale->fresh());
+
+            DB::afterCommit(function () use ($sale) {
+                app(QuickBooksRetailSaleSyncService::class)->syncRetailSaleAsIncome(
+                    $sale->fresh(['brand:id,name', 'warehouse:id,name', 'seller:id,name'])
+                );
+            });
 
             DB::commit();
 
