@@ -29,6 +29,10 @@ class Purchase extends Model
         'shipping_date',
         'received_date',
         'note',
+        'quickbooks_sync_status',
+        'quickbooks_synced_at',
+        'quickbooks_txn_id',
+        'quickbooks_last_error',
     ];
 
     protected $casts = [
@@ -42,6 +46,7 @@ class Purchase extends Model
         'purchase_form' => 'integer',
         'purchase_to' => 'integer',
         'brand_id' => 'integer',
+        'quickbooks_synced_at' => 'datetime',
     ];
 
     public function purchaseFromWarehouse(): BelongsTo

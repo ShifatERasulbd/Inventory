@@ -150,6 +150,34 @@ export default function Purchase() {
         }));
     };
 
+    const startQuickBooksConnect = async () => {
+        try {
+            const response = await fetch('/api/quickbooks/connect', {
+                credentials: 'include',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`QuickBooks connect failed with status ${response.status}`);
+            }
+
+            const payload = await response.json();
+            if (payload?.url) {
+                window.location.href = payload.url;
+                return;
+            }
+
+            throw new Error('Missing QuickBooks authorization URL.');
+        } catch (error) {
+            toast.error(error.message || 'Unable to open QuickBooks connect flow.', {
+                style: { color: '#dc2626' },
+            });
+        }
+    };
+
     const handleUpdateStatus = async (id, currentStatus) => {
         const nextStatus = statusDrafts[id] ?? currentStatus;
         const isPendingToApproved =
@@ -185,6 +213,36 @@ export default function Purchase() {
             }
 
             if (isPendingToApproved) {
+                if (updated?.quickbooks_sync_status === 'success') {
+                    toast.success('Purchase approved and sent to QuickBooks as Accounts Payable successfully.', {
+                        style: { color: '#16a34a' },
+                    });
+                } else if (updated?.quickbooks_sync_status === 'pending_connection') {
+                    const qbError = updated?.quickbooks_last_error || 'QuickBooks is not connected.';
+                    toast.info(`Purchase approved. QuickBooks sync is waiting for connection: ${qbError}`, {
+                        style: { color: '#0f766e' },
+                    });
+
+                    toast.info('Redirecting to QuickBooks to connect your account...', {
+                        style: { color: '#0f766e' },
+                    });
+                    await startQuickBooksConnect();
+                    return;
+                } else if (updated?.quickbooks_sync_status === 'failed') {
+                    const qbError = updated?.quickbooks_last_error || 'QuickBooks sync failed.';
+                    toast.error(`Purchase approved, but QuickBooks sync failed: ${qbError}`, {
+                        style: { color: '#dc2626' },
+                    });
+
+                    if (String(qbError).toLowerCase().includes('quickbooks is not connected')) {
+                        toast.info('Redirecting to QuickBooks to connect your account...', {
+                            style: { color: '#0f766e' },
+                        });
+                        await startQuickBooksConnect();
+                        return;
+                    }
+                }
+
                 navigate(`/cartoons/add?purchase_id=${id}`);
             }
         } catch (error) {

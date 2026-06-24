@@ -10,6 +10,7 @@ use App\Models\Sell;
 use App\Models\Stock;
 use App\Models\WareHouse;
 use App\Services\AccountingService;
+use App\Services\QuickBooksPurchaseSyncService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -248,6 +249,17 @@ class PurchaseController extends Controller
         }
     }
 
+    private function syncApprovedPurchaseToQuickBooks(Purchase $purchase): void
+    {
+        app(QuickBooksPurchaseSyncService::class)->syncApprovedPurchaseIfEligible($purchase);
+    }
+
+    private function shouldSyncQuickBooksOnStatusTransition(string $previousStatus, string $currentStatus): bool
+    {
+        return strtolower(trim($previousStatus)) === 'pending'
+            && $this->isApprovedStatus($currentStatus);
+    }
+
     private function resolvePurchaseTo(Request $request, array $validated): ?int
     {
         if ($request->user()?->hasRole('super-admin')) {
@@ -396,6 +408,10 @@ class PurchaseController extends Controller
             'shipping_date'      => $purchase->shipping_date?->format('Y-m-d'),
             'received_date'      => $purchase->received_date?->format('Y-m-d'),
             'note'               => $purchase->note,
+            'quickbooks_sync_status' => $purchase->quickbooks_sync_status,
+            'quickbooks_synced_at' => $purchase->quickbooks_synced_at?->toDateTimeString(),
+            'quickbooks_txn_id' => $purchase->quickbooks_txn_id,
+            'quickbooks_last_error' => $purchase->quickbooks_last_error,
             'purchase_form_name' => $purchase->purchaseFromWarehouse?->name,
             'purchase_to_name'   => $purchase->purchaseToWarehouse?->name,
         ];
@@ -573,6 +589,9 @@ class PurchaseController extends Controller
         app(AccountingService::class)->syncPurchaseAccount($purchase->fresh());
 
         $this->syncApprovedPurchaseToSellAndStock($purchase);
+        if ($this->shouldSyncQuickBooksOnStatusTransition($previousStatus, (string) $purchase->status)) {
+            $this->syncApprovedPurchaseToQuickBooks($purchase->fresh(['brand']));
+        }
         $this->syncReceivedPurchaseToCartoonWarehouse($purchase);
 
         $purchase->load([

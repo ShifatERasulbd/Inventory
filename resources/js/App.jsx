@@ -131,6 +131,7 @@ const EditSeason = lazyWithRetry(() => import('@/pages/Season/editSeasons'), 'se
 const Suppliers = lazyWithRetry(() => import('@/pages/Suppliers/suppliers'), 'suppliers');
 const AddSupplier = lazyWithRetry(() => import('@/pages/Suppliers/addSuppliers'), 'suppliers-add');
 const EditSupplier = lazyWithRetry(() => import('@/pages/Suppliers/editSuppliers'), 'suppliers-edit');
+const QuickBooksDashboard = lazyWithRetry(() => import('@/pages/QuickBooks/dashboardPage'), 'quickbooks-dashboard');
 
 export default function App() {
     return (
@@ -257,6 +258,11 @@ export default function App() {
                             <Route path="/suppliers" element={<Suppliers/>}/>
                             <Route path="/suppliers/add" element={<AddSupplier/>}/>
                             <Route path="/suppliers/:id/edit" element={<EditSupplier/>}/>
+
+                            {/* QuickBooks */}
+                            <Route path="/quickbooks" element={<QuickBooksDashboard />} />
+                            <Route path="/quickbooks/connect" element={<QuickBooksDashboard />} />
+                            <Route path="/quickbooks/*" element={<QuickBooksDashboard />} />
                         </Route>
                     </Routes>
                 </Suspense>

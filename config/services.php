@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'quickbooks_test1' => [
+        'client_id' => env('QB_TEST1_CLIENT_ID'),
+        'client_secret' => env('QB_TEST1_CLIENT_SECRET'),
+        'redirect_uri' => env('QB_TEST1_REDIRECT_URI'),
+        'environment' => env('QB_TEST1_ENVIRONMENT', 'production'),
+        'api_base' => env('QB_TEST1_API_BASE'),
+    ],
+
 ];

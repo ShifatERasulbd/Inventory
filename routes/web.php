@@ -29,6 +29,7 @@ use App\Http\Controllers\RecurringPaymentController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ReceivedCartoonIssueController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\QuickBooksController;
 
 Route::get('/', function () {
     return view('app');
@@ -36,6 +37,9 @@ Route::get('/', function () {
 
 Route::prefix('api')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+
+    // QuickBooks callback must be public because Intuit redirects the user back here.
+    Route::get('/quickbooks/callback', [QuickBooksController::class, 'handleCallback'])->name('quickbooks.callback.api');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/user', [UserController::class, 'me']);
@@ -54,6 +58,11 @@ Route::prefix('api')->group(function () {
         Route::post('/countries/{id}/restore', [CountryController::class, 'restore'])->middleware('resource.permission:countries');
         Route::apiResource('/countries', CountryController::class)->middleware('resource.permission:countries');
 
+
+        // QuickBooks Routes
+        Route::get('/quickbooks/connect', [QuickBooksController::class, 'getAuthUrl']);
+        Route::get('/quickbooks/status', [QuickBooksController::class, 'getConnectionStatus']);
+        
         // State Controller
         Route::get('/states/trashed', [StateController::class, 'trashed'])->middleware('resource.permission:states');
         Route::post('/states/{id}/restore', [StateController::class, 'restore'])->middleware('resource.permission:states');
@@ -139,7 +148,14 @@ Route::prefix('api')->group(function () {
     });
 });
 
+// Backward-compatible callback path in case the Intuit app still points to /quickbooks/callback.
+Route::get('/quickbooks/callback', [QuickBooksController::class, 'handleCallback'])->name('quickbooks.callback');
+
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/quickbooks/connect', function () {
+        return view('app');
+    });
+
     Route::get('/{path}', function () {
         return view('app');
     })->where('path', '^(?!api\/).*$');
