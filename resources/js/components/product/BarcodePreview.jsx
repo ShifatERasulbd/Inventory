@@ -8,6 +8,17 @@ function cleanPart(str) {
     return (str || '').toUpperCase().replace(/[^A-Z0-9]/g, '') || 'X';
 }
 
+function cleanColorPart(str) {
+    const normalized = String(str || '')
+        .trim()
+        .replace(/[\s_]+/g, '-')
+        .replace(/[^A-Za-z0-9-]/g, '')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+
+    return normalized || 'X';
+}
+
 function extractRefSuffix(refNumber) {
     const cleanedRef = cleanPart(refNumber);
 
@@ -26,14 +37,14 @@ function findOptionLabel(options, value, labelKey, fallbackPrefix) {
 /**
  * Generates the barcode string for a single product variant.
  *
- * Format: {STYLE}-{REF_LAST3}-{SIZE}-{COLOR_CODE}
- * Example: STNUMBER-001-L-RED
+ * Format: {STYLE}-{REF_LAST3}-{SIZE}-{COLOR_NAME}
+ * Example: STYLE001-780-L-Black-Beauty
  */
 export function generateBarcodeValue({ styleNumber, colorCode, refNumber, sizeName }) {
     const style = cleanPart(styleNumber);
     const ref = extractRefSuffix(refNumber);
     const size = cleanPart(sizeName);
-    const color = cleanPart(colorCode);
+    const color = cleanColorPart(colorCode);
     return `${style}-${ref}-${size}-${color}`;
 }
 
@@ -49,12 +60,12 @@ export function generateBarcodesMap({ styleNumber, colorIds, fabricId, refNumber
     for (const colorId of validColors) {
         for (const sizeId of validSizes) {
             const key = `${colorId}_${sizeId}`;
-            const colorCode = findOptionLabel(colors, colorId, 'color_code', 'COLOR');
+            const colorName = findOptionLabel(colors, colorId, 'name', 'COLOR');
             const sizeName = findOptionLabel(sizes, sizeId, 'size', 'SIZE');
 
             map[key] = generateBarcodeValue({
                 styleNumber,
-                colorCode,
+                colorCode: colorName,
                 refNumber,
                 sizeName,
             });
@@ -85,22 +96,22 @@ export default function BarcodePreview({ styleNumber, colorIds, fabricId, refNum
     const combos = [];
     for (const colorId of validColors) {
         for (const sizeId of validSizes) {
-            const colorCode = findOptionLabel(colors, colorId, 'color_code', 'COLOR');
+            const colorName = findOptionLabel(colors, colorId, 'name', 'COLOR');
             const sizeName = findOptionLabel(sizes, sizeId, 'size', 'SIZE');
-            const value = generateBarcodeValue({ styleNumber, colorCode, refNumber, sizeName });
-            combos.push({ colorId, sizeId, colorCode, sizeName, value });
+            const value = generateBarcodeValue({ styleNumber, colorCode: colorName, refNumber, sizeName });
+            combos.push({ colorId, sizeId, colorName, sizeName, value });
         }
     }
 
     return (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {combos.map(({ colorId, sizeId, colorCode, sizeName, value }) => (
+            {combos.map(({ colorId, sizeId, colorName, sizeName, value }) => (
                 <div
                     key={`${colorId}-${sizeId}`}
                     className="flex w-full flex-col rounded-md border bg-white p-3 text-center"
                 >
                     <p className="text-xs font-medium text-foreground">
-                        {colorCode} / {sizeName}
+                        {colorName} / {sizeName}
                     </p>
                     <div className="w-full overflow-x-auto py-1">
                         <div className="mx-auto flex min-w-max justify-center">

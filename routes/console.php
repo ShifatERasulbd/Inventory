@@ -5,6 +5,7 @@ use App\Models\User;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -55,3 +56,22 @@ Artisan::command('api-key:generate {email} {name=Timeless Canada Key} {--warehou
 
     return self::SUCCESS;
 })->purpose('Generate API key for a user with warehouse stock scope');
+
+Artisan::command('remote-orders:sync {--since=} {--limit=100}', function (): int {
+    $since = $this->option('since');
+    $limit = (int) $this->option('limit');
+
+    $result = app(\App\Services\RemoteOrderSyncService::class)->syncRecent(
+        $since !== null ? (int) $since : null,
+        $limit
+    );
+
+    $this->info('Remote orders synced: '.$result['synced_count']);
+    $this->line('Latest remote id: '.$result['latest_remote_id']);
+
+    return self::SUCCESS;
+})->purpose('Sync remote 1971co orders into local remote_orders table');
+
+Schedule::command('remote-orders:sync --limit=100')
+    ->everyMinute()
+    ->withoutOverlapping();

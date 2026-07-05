@@ -13,6 +13,7 @@ import { fetchProductsFor } from '@/pages/ProductsFor/api';
 import { fetchSeasons } from '@/pages/Season/api';
 import { fetchSizes } from '@/pages/Size/api';
 import { fetchWarehouses } from '@/pages/Warehouse/api';
+import { fetchBrands } from '@/pages/Brand/api';
 
 import { fetchProduct, updateProducts } from './api';
 
@@ -32,6 +33,8 @@ const initialForm = {
     gender_id: '',
     barCode: '',
     warehouse_id: '',
+    brand_id: '',
+    brand_ids: [''],
     season_id: '',
     cover_image: null,
     gallery_images: [],
@@ -112,6 +115,7 @@ export default function EditProduct() {
     const [sizes, setSizes] = useState([]);
     const [productFors, setProductFors] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
+    const [brands, setBrands] = useState([]);
     const [seasons, setSeasons] = useState([]);
     const [currentCoverImageUrl, setCurrentCoverImageUrl] = useState('');
     const [currentGalleryImageUrls, setCurrentGalleryImageUrls] = useState([]);
@@ -132,7 +136,7 @@ export default function EditProduct() {
             setLoadError('');
 
             try {
-                const [product, categoryData, colorData, fabricData, sizeData, productForData, warehouseData, seasonData] = await Promise.all([
+                const [product, categoryData, colorData, fabricData, sizeData, productForData, warehouseData, brandData, seasonData] = await Promise.all([
                     fetchProduct(id, { variantOnly }),
                    
                     fetchCategories(),
@@ -141,6 +145,7 @@ export default function EditProduct() {
                     fetchSizes(),
                     fetchProductsFor(),
                     fetchWarehouses(),
+                    fetchBrands(),
                     fetchSeasons(),
                 ]);
 
@@ -155,6 +160,7 @@ export default function EditProduct() {
                 setSizes(Array.isArray(sizeData) ? sizeData : []);
                 setProductFors(Array.isArray(productForData) ? productForData : []);
                 setWarehouses(Array.isArray(warehouseData) ? warehouseData : []);
+                setBrands(Array.isArray(brandData) ? brandData : []);
                 setSeasons(Array.isArray(seasonData) ? seasonData : []);
                 const galleryPaths = Array.isArray(product.gallery_images) ? product.gallery_images : [];
                 const galleryUrls = Array.isArray(product.gallery_image_urls) ? product.gallery_image_urls : [];
@@ -175,6 +181,9 @@ export default function EditProduct() {
                 const initialSizeIds = Array.isArray(product.size_ids) && product.size_ids.length > 0
                     ? product.size_ids.map((value) => String(value))
                     : (product.size_id ? [String(product.size_id)] : ['']);
+                const initialBrandIds = Array.isArray(product.brand_ids) && product.brand_ids.length > 0
+                    ? product.brand_ids.map((value) => String(value))
+                    : (product.brand_id ? [String(product.brand_id)] : ['']);
                 setForm({
                   
                     category_id: product.category_id ? String(product.category_id) : '',
@@ -191,6 +200,8 @@ export default function EditProduct() {
                     gender_id: product.gender_id ? String(product.gender_id) : '',
                     barCode: product.barCode || '',
                     warehouse_id: product.warehouse_id ? String(product.warehouse_id) : '',
+                    brand_id: initialBrandIds.find(Boolean) || '',
+                    brand_ids: initialBrandIds,
                     season_id: product.season_id ? String(product.season_id) : '',
                     cover_image: null,
                     gallery_images: [],
@@ -274,6 +285,7 @@ export default function EditProduct() {
                 [field]: current,
                 ...(field === 'color_ids' ? { color_id: current.find(Boolean) || '' } : {}),
                 ...(field === 'size_ids' ? { size_id: current.find(Boolean) || '' } : {}),
+                ...(field === 'brand_ids' ? { brand_id: current.find(Boolean) || '' } : {}),
             };
         });
 
@@ -310,6 +322,7 @@ export default function EditProduct() {
                 [field]: current,
                 ...(field === 'color_ids' ? { color_id: current.find(Boolean) || '' } : {}),
                 ...(field === 'size_ids' ? { size_id: current.find(Boolean) || '' } : {}),
+                ...(field === 'brand_ids' ? { brand_id: current.find(Boolean) || '' } : {}),
             };
         });
 
@@ -368,6 +381,7 @@ export default function EditProduct() {
 
         const selectedColorIds = Array.isArray(form.color_ids) ? form.color_ids.filter(Boolean) : [];
         const selectedSizeIds = Array.isArray(form.size_ids) ? form.size_ids.filter(Boolean) : [];
+        const selectedBrandIds = Array.isArray(form.brand_ids) ? form.brand_ids.filter(Boolean) : [];
 
         const validationErrors = validateForm(form);
         if (Object.keys(validationErrors).length > 0) {
@@ -393,6 +407,8 @@ export default function EditProduct() {
                 size_id: Number(selectedSizeIds[0]),
                 size_ids: selectedSizeIds.map((value) => Number(value)),
                 gender_id: Number(form.gender_id),
+                brand_id: selectedBrandIds[0] ? Number(selectedBrandIds[0]) : (form.brand_id ? Number(form.brand_id) : null),
+                brand_ids: selectedBrandIds.map((value) => Number(value)),
                 barcodes: generateBarcodesMap({
                     styleNumber: form.style_number,
                     colorIds: selectedColorIds,
@@ -455,6 +471,7 @@ export default function EditProduct() {
                 sizes={sizes}
                 productFors={productFors}
                 warehouses={warehouses}
+                brands={brands}
                 seasons={seasons}
                 currentCoverImageUrl={currentCoverImageUrl}
                 currentGalleryImageUrls={currentGalleryImageUrls}

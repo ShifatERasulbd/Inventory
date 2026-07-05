@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Barcode, ShoppingCart, Trash2, Plus, Minus, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Barcode, ShoppingCart, Trash2, Plus, Minus, X, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,104 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useAppContext } from '@/context/AppContext';
-import { createRetailSale, fetchAvailableCartoonsByWarehouse, fetchWarehouses, lookupBarcode } from './api';
+import {
+    createRetailSale,
+    fetchAvailableCartoonsByWarehouse,
+    fetchPendingRemoteOrders,
+    fetchWarehouses,
+    lookupBarcode,
+    updateRemoteOrderStatus,
+} from './api';
+
+function normalizeBarcode(value) {
+    return String(value ?? '').trim().toUpperCase();
+}
+
+function normalizeText(value) {
+    return String(value ?? '').trim().toLowerCase();
+}
+
+function normalizeName(value) {
+    return String(value ?? '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function buildOrderItemKey({ productId, color, size }) {
+    const normalizedProductId = Number.parseInt(productId, 10) || 0;
+    return `${normalizedProductId}::${normalizeText(color)}::${normalizeText(size)}`;
+}
+
+function resolveOrderLineForProduct(product, requiredItems, scannedQtyByOrderKey) {
+    const exactKey = buildOrderItemKey({
+        productId: product?.product_id,
+        color: product?.color,
+        size: product?.size,
+    });
+
+    const withRemaining = (item) => Number(scannedQtyByOrderKey[item.matchKey] || 0) < Number(item.quantity || 0);
+
+    const exact = requiredItems.find((item) => item.matchKey === exactKey && withRemaining(item));
+    if (exact) {
+        return exact;
+    }
+
+    const scannedProductId = Number.parseInt(product?.product_id, 10) || 0;
+    if (scannedProductId > 0) {
+        const byProductId = requiredItems.find((item) => Number(item.productId || 0) === scannedProductId && withRemaining(item));
+        if (byProductId) {
+            return byProductId;
+        }
+    }
+
+    const scannedName = normalizeName(product?.product_name);
+    if (scannedName) {
+        const byName = requiredItems.find((item) => item.nameKey === scannedName && withRemaining(item));
+        if (byName) {
+            return byName;
+        }
+    }
+
+    return null;
+}
+
+function extractSelectedOrderItems(order) {
+    const sourceItems = Array.isArray(order?.raw_payload?.items) ? order.raw_payload.items : [];
+
+    return sourceItems
+        .map((item) => {
+            const quantity = Math.max(1, Number.parseInt(item?.quantity ?? item?.qty ?? 1, 10) || 1);
+            const name = String(item?.name || item?.title || item?.product_name || 'Unknown Product');
+            const productId = Number.parseInt(item?.productId ?? item?.product_id ?? 0, 10) || 0;
+            const color = String(
+                item?.selectedColor
+                || item?.selected_color
+                || item?.color
+                || item?.color_variant?.name
+                || ''
+            ).trim();
+            const size = String(
+                item?.selectedSize
+                || item?.selected_size
+                || item?.size
+                || item?.size_variant?.size
+                || ''
+            ).trim();
+            const matchKey = buildOrderItemKey({ productId, color, size });
+
+            return {
+                productId,
+                quantity,
+                name,
+                nameKey: normalizeName(name),
+                color,
+                size,
+                matchKey,
+            };
+        })
+        .filter((item) => item.productId > 0);
+}
 
 function formatCurrency(value) {
     const amount = Number(value ?? 0);
@@ -22,6 +120,7 @@ function formatCurrency(value) {
 
 export default function RetailPOS() {
     const { setPageTitle, user } = useAppContext();
+    const location = useLocation();
 
     const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
     const userWarehouseIds = Array.isArray(user?.warehouse_ids)
@@ -40,11 +139,23 @@ export default function RetailPOS() {
     const [isLookingUp, setIsLookingUp] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Dropdown pending orders states
+    const [pendingOrders, setPendingOrders] = useState([]);
+    const [selectedPendingOrder, setSelectedPendingOrder] = useState('none');
+
     const barcodeRef = useRef(null);
+    const prefillAppliedRef = useRef(false);
 
     useEffect(() => {
         setPageTitle('Retail POS');
     }, [setPageTitle]);
+
+    // Fetch live unfulfilled pending orders list on layout mount
+    useEffect(() => {
+        fetchPendingRemoteOrders()
+            .then((orders) => setPendingOrders(orders))
+            .catch(() => setPendingOrders([]));
+    }, []);
 
     const getUserWarehousesFallback = useCallback(() => {
         const candidates = Array.isArray(user?.warehouses) ? user.warehouses : [];
@@ -127,7 +238,194 @@ export default function RetailPOS() {
                 setWarehouseCartoons([]);
                 setSelectedWarehouseCartoon('none');
             });
-    }, [selectedWarehouse]);
+    }, [selectedWarehouse, selectedWarehouseCartoon]);
+
+    const selectedRemoteOrder = useMemo(() => {
+        if (selectedPendingOrder === 'none') {
+            return null;
+        }
+
+        return pendingOrders.find((order) => String(order.id) === selectedPendingOrder) || null;
+    }, [pendingOrders, selectedPendingOrder]);
+
+    const selectedOrderItems = useMemo(() => {
+        return extractSelectedOrderItems(selectedRemoteOrder);
+    }, [selectedRemoteOrder]);
+
+    const selectedOrderRequiredQtyByKey = useMemo(() => {
+        return selectedOrderItems.reduce((acc, item) => {
+            acc[item.matchKey] = (acc[item.matchKey] || 0) + item.quantity;
+            return acc;
+        }, {});
+    }, [selectedOrderItems]);
+
+    const selectedOrderRequiredItems = useMemo(() => {
+        const grouped = selectedOrderItems.reduce((acc, item) => {
+            const existing = acc[item.matchKey];
+            if (existing) {
+                existing.quantity += item.quantity;
+                return acc;
+            }
+
+            acc[item.matchKey] = {
+                matchKey: item.matchKey,
+                productId: item.productId,
+                name: item.name,
+                nameKey: item.nameKey,
+                color: item.color,
+                size: item.size,
+                quantity: item.quantity,
+            };
+
+            return acc;
+        }, {});
+
+        return Object.values(grouped);
+    }, [selectedOrderItems]);
+
+    const scannedQtyByOrderKey = useMemo(() => {
+        return cart.reduce((acc, item) => {
+            const key = item.order_match_key || buildOrderItemKey({
+                productId: item.product_id,
+                color: item.color,
+                size: item.size,
+            });
+
+            if (!key) {
+                return acc;
+            }
+
+            acc[key] = (acc[key] || 0) + Number(item.quantity || 0);
+            return acc;
+        }, {});
+    }, [cart]);
+
+    // Handle approved order selection and reset to scan-driven matching mode.
+    const handleSelectPendingOrderChange = (orderIdString) => {
+        setSelectedPendingOrder(orderIdString);
+        if (orderIdString === 'none') {
+            setCart([]);
+            setNote('');
+            return;
+        }
+
+        if (!selectedWarehouse) {
+            toast.error('Please select a warehouse before preloading an order.');
+            setSelectedPendingOrder('none');
+            return;
+        }
+
+        const match = pendingOrders.find((order) => String(order.id) === orderIdString);
+        if (!match) {
+            return;
+        }
+
+        setCart([]);
+        setNote(match.raw_payload?.notes || match.raw_payload?.comment || '');
+        toast.success(`Selected approved order ${match.order_number || match.id}. Scan barcodes to match order items.`);
+    };
+
+    useEffect(() => {
+        const prefill = location?.state?.remoteOrderPrefill;
+        if (!prefill || prefillAppliedRef.current) {
+            return;
+        }
+
+        if (!selectedWarehouse) {
+            return;
+        }
+
+        const prefillItems = Array.isArray(prefill.items) ? prefill.items : [];
+        if (prefillItems.length === 0) {
+            prefillAppliedRef.current = true;
+            if (prefill.note) {
+                setNote(prefill.note);
+            }
+            toast.info('Opened from remote order, but no items were provided for POS cart prefill.');
+            return;
+        }
+
+        prefillAppliedRef.current = true;
+
+        if (prefill.note) {
+            setNote(prefill.note);
+        }
+
+        const hydrateCartFromPrefill = async () => {
+            const warehouseId = Number.parseInt(selectedWarehouse, 10);
+            const brandId = selectedBrand !== 'none' ? Number.parseInt(selectedBrand, 10) : null;
+            let addedItems = 0;
+            let missingBarcodeCount = 0;
+            let lookupFailedCount = 0;
+
+            for (const item of prefillItems) {
+                const barcode = String(item?.barcode ?? '').trim();
+                const requestedQty = Math.max(1, Number.parseInt(item?.quantity ?? 1, 10) || 1);
+                const requestedUnitPrice = Number.parseFloat(item?.unit_price ?? 0) || 0;
+
+                if (!barcode) {
+                    missingBarcodeCount++;
+                    continue;
+                }
+
+                try {
+                    const product = await lookupBarcode(barcode, warehouseId, brandId);
+
+                    setCart((previous) => {
+                        const existing = previous.find((cartItem) => cartItem.stock_id === product.stock_id);
+                        const allowedQty = Math.max(1, Math.min(requestedQty, Number(product.available_stock || 1)));
+                        const basePrice = requestedUnitPrice > 0 ? requestedUnitPrice : Number(product.unit_price || 0);
+
+                        if (existing) {
+                            const nextQty = Math.min(existing.quantity + allowedQty, Number(existing.available_stock || allowedQty));
+                            return previous.map((cartItem) => (
+                                cartItem.stock_id === product.stock_id
+                                    ? { ...cartItem, quantity: nextQty, unit_price: basePrice > 0 ? basePrice : cartItem.unit_price }
+                                    : cartItem
+                            ));
+                        }
+
+                        return [
+                            ...previous,
+                            {
+                                cartKey: `${product.stock_id}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+                                stock_id: product.stock_id,
+                                product_id: product.product_id,
+                                product_name: product.product_name,
+                                size: product.size,
+                                color: product.color,
+                                barcode,
+                                quantity: allowedQty,
+                                unit_price: basePrice > 0 ? basePrice : Number(product.unit_price || 0),
+                                available_stock: Number(product.available_stock || 0),
+                                cartoon_id: selectedWarehouseCartoon !== 'none'
+                                    ? Number.parseInt(selectedWarehouseCartoon, 10)
+                                    : null,
+                                cartoons: product.cartoons || [],
+                            },
+                        ];
+                    });
+
+                    addedItems++;
+                } catch {
+                    // Fail silently
+                    lookupFailedCount++;
+                }
+            }
+
+            if (addedItems > 0) {
+                toast.success(`Loaded ${addedItems} item(s) from remote order into POS cart.`);
+            }
+
+            if (missingBarcodeCount > 0 || lookupFailedCount > 0) {
+                toast.warning(
+                    `Some items could not be added automatically. Missing barcode: ${missingBarcodeCount}, not found in stock: ${lookupFailedCount}.`
+                );
+            }
+        };
+
+        hydrateCartFromPrefill();
+    }, [location, selectedWarehouse, selectedBrand, selectedWarehouseCartoon]);
 
     const selectedWarehouseMeta = warehouses.find((warehouse) => String(warehouse.id) === String(selectedWarehouse)) || null;
     const selectedWarehouseBrands = Array.isArray(selectedWarehouseMeta?.brands)
@@ -188,9 +486,43 @@ export default function RetailPOS() {
                 selectedBrand !== 'none' ? Number.parseInt(selectedBrand, 10) : null
             );
 
+            const matchedOrderLine = selectedPendingOrder !== 'none'
+                ? resolveOrderLineForProduct(product, selectedOrderRequiredItems, scannedQtyByOrderKey)
+                : null;
+
+            const orderMatchKey = matchedOrderLine?.matchKey || buildOrderItemKey({
+                productId: product.product_id,
+                color: product.color,
+                size: product.size,
+            });
+
+            if (selectedPendingOrder !== 'none') {
+                if (!matchedOrderLine) {
+                    toast.error('Scanned barcode does not match selected approved order item.');
+                    return;
+                }
+
+                const requiredQty = Number(selectedOrderRequiredQtyByKey[orderMatchKey] || 0);
+                const scannedQty = Number(scannedQtyByOrderKey[orderMatchKey] || 0);
+
+                if (scannedQty >= requiredQty) {
+                    toast.warning('Required quantity already scanned for this order item.');
+                    return;
+                }
+            }
+
             setCart((prev) => {
                 const existing = prev.find((item) => item.stock_id === product.stock_id);
+                const requiredQty = selectedPendingOrder !== 'none'
+                    ? Number(selectedOrderRequiredQtyByKey[orderMatchKey] || 0)
+                    : Number.POSITIVE_INFINITY;
+
                 if (existing) {
+                    if (existing.quantity >= requiredQty) {
+                        toast.warning('Required quantity reached for this order item.');
+                        return prev;
+                    }
+
                     if (existing.quantity >= existing.available_stock) {
                         toast.warning(`Only ${existing.available_stock} in stock.`);
                         return prev;
@@ -201,6 +533,11 @@ export default function RetailPOS() {
                             ? { ...item, quantity: item.quantity + 1 }
                             : item
                     );
+                }
+
+                if (requiredQty <= 0) {
+                    toast.error('Scanned barcode does not match selected approved order item.');
+                    return prev;
                 }
 
                 return [
@@ -216,6 +553,7 @@ export default function RetailPOS() {
                         quantity: 1,
                         unit_price: product.unit_price,
                         available_stock: product.available_stock,
+                        order_match_key: orderMatchKey,
                         cartoon_id: selectedWarehouseCartoon !== 'none'
                             ? Number.parseInt(selectedWarehouseCartoon, 10)
                             : null,
@@ -231,7 +569,17 @@ export default function RetailPOS() {
             setIsLookingUp(false);
             barcodeRef.current?.focus();
         }
-    }, [barcodeInput, selectedWarehouse, selectedWarehouseCartoon, selectedBrand, selectedWarehouseBrands]);
+    }, [
+        barcodeInput,
+        scannedQtyByOrderKey,
+        selectedOrderRequiredItems,
+        selectedOrderRequiredQtyByKey,
+        selectedPendingOrder,
+        selectedWarehouse,
+        selectedWarehouseCartoon,
+        selectedBrand,
+        selectedWarehouseBrands,
+    ]);
 
     const updateQty = (cartKey, delta) => {
         setCart((prev) =>
@@ -274,6 +622,7 @@ export default function RetailPOS() {
 
     const clearCart = () => {
         setCart([]);
+        setSelectedPendingOrder('none');
     };
 
     const filteredWarehouseCartoons = (() => {
@@ -345,9 +694,18 @@ export default function RetailPOS() {
                 })),
             });
 
+            if (selectedPendingOrder !== 'none') {
+                try {
+                    await updateRemoteOrderStatus(Number.parseInt(selectedPendingOrder, 10), 'processing');
+                } catch (statusError) {
+                    toast.warning(statusError.message || 'Sale created, but failed to update remote order status to processing.');
+                }
+            }
+
             toast.success(`Sale complete. Ref: ${sale.reference_number}`);
             setCart([]);
             setNote('');
+            setSelectedPendingOrder('none');
             barcodeRef.current?.focus();
         } catch (err) {
             toast.error(err.message || 'Checkout failed.');
@@ -398,7 +756,55 @@ export default function RetailPOS() {
                                 </Select>
                             </div>
 
-                            <div className="space-y-1.5">
+                            {/* Added Dropdown: Select Active Pending Order */}
+                            <div className="space-y-1.5 md:col-span-2">
+                                <Label className="flex items-center gap-1.5">
+                                    <ClipboardList className="h-3.5 w-3.5" />
+                                    Approved Order List
+                                </Label>
+                                <Select value={selectedPendingOrder} onValueChange={handleSelectPendingOrderChange}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Choose a pending order to fill cart..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Clear / Manual Scan Selection</SelectItem>
+                                        {pendingOrders.map((order) => (
+                                            <SelectItem key={order.id} value={String(order.id)}>
+                                                {order.order_number} — {order.customer_name} ({formatCurrency(order.total)})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+
+                                {selectedPendingOrder !== 'none' && (
+                                    <div className="rounded-md border bg-muted/30 p-2 text-xs">
+                                        <p className="mb-1 font-medium">Required items from selected order</p>
+                                        {selectedOrderRequiredItems.length === 0 ? (
+                                            <p className="text-muted-foreground">No valid order items found in this order payload.</p>
+                                        ) : (
+                                            <div className="space-y-1">
+                                                {selectedOrderRequiredItems.map((item) => {
+                                                    const scannedQty = Number(scannedQtyByOrderKey[item.matchKey] || 0);
+                                                    return (
+                                                        <div key={item.matchKey} className="flex items-center justify-between gap-2">
+                                                            <span className="truncate">
+                                                                {item.name}
+                                                                {item.color ? ` | Color: ${item.color}` : ''}
+                                                                {item.size ? ` | Size: ${item.size}` : ''}
+                                                            </span>
+                                                            <span className="font-mono text-muted-foreground">
+                                                                {scannedQty}/{item.quantity}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="space-y-1.5 md:col-span-2">
                                 <Label>Scan Barcode</Label>
                                 <form onSubmit={handleBarcodeScan} className="flex gap-2">
                                     <Input

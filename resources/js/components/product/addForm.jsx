@@ -133,6 +133,7 @@ export default function AddForm({
     sizes = [],
     productFors = [],
     warehouses = [],
+    brands = [],
     seasons = [],
     onChange,
     onSelectChange,
@@ -305,12 +306,12 @@ export default function AddForm({
                         />
                      </div>
 
-                    <div className="rounded-md border bg-muted/40 px-3 py-2">
+                    {/* <div className="rounded-md border bg-muted/40 px-3 py-2">
                         <p className="text-xs font-medium text-muted-foreground">Fabric Details</p>
                         <p className="text-sm text-foreground">{fabricDetailsText}</p>
-                    </div>
+                    </div> */}
 
-                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
                         <ProductRepeaterSelect
                             id="product-color"
                             label="Colors"
@@ -335,6 +336,18 @@ export default function AddForm({
                             onAdd={() => onAddRepeaterItem?.('size_ids')}
                             onRemove={(index) => onRemoveRepeaterItem?.('size_ids', index)}
                             labelKey="size"
+                        />
+
+                        <ProductRepeaterSelect
+                            id="product-brand"
+                            label="Brands"
+                            values={form.brand_ids}
+                            options={brands}
+                            placeholder="Select a brand"
+                            error={errors.brand_ids}
+                            onValueChange={(index, value) => onRepeaterSelectChange?.('brand_ids', index, value)}
+                            onAdd={() => onAddRepeaterItem?.('brand_ids')}
+                            onRemove={(index) => onRemoveRepeaterItem?.('brand_ids', index)}
                         />
                     </div>
 

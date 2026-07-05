@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import EditPurchaseForm from '@/components/purchase/editForm';
 import { useAppContext } from '@/context/AppContext';
 
-import { fetchPurchase, fetchPurchaseFormOptions, updatePurchase } from './api';
+import { fetchPurchase, fetchPurchaseFormOptions, fetchShipmentTimes, updatePurchase } from './api';
 
 const emptyProductRow = () => ({ product_id: '', quantity: '', purchase_price: '' });
 
@@ -14,6 +14,7 @@ const initialForm = {
     purchase_to: '',
     brand_id: '',
     po_number: '',
+    expected_delivery_date: '',
     status: 'pending',
     payment_method: '',
     paid_amount: '0',
@@ -58,6 +59,34 @@ function getOrderSubtotal(rows) {
     return (rows ?? []).reduce((total, row) => total + getLineTotal(row.quantity, row.purchase_price), 0);
 }
 
+function toDateOnlyString(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function addDays(baseDate, days) {
+    const date = new Date(baseDate);
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + Math.max(0, Number(days) || 0));
+    return date;
+}
+
+function parseShipmentDays(rawValue) {
+    const parsed = Number(rawValue);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+        return Math.floor(parsed);
+    }
+
+    const extracted = Number(String(rawValue ?? '').match(/\d+/)?.[0]);
+    if (!Number.isFinite(extracted) || extracted < 0) {
+        return 0;
+    }
+
+    return Math.floor(extracted);
+}
+
 async function fetchCurrentUser() {
     const response = await fetch('/api/user', {
         credentials: 'include',
@@ -87,6 +116,10 @@ export default function EditPurchase() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
+    const [latestShipmentTimes, setLatestShipmentTimes] = useState({
+        shipmentTime: '',
+        productionTime: '',
+    });
     const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
 
     useEffect(() => {
@@ -121,6 +154,7 @@ export default function EditPurchase() {
                         purchase_to:   String(purchase.purchase_to ?? ''),
                         brand_id:      String(purchase.brand_id ?? ''),
                         po_number:     purchase.po_number || '',
+                        expected_delivery_date: purchase.expected_delivery_date || '',
                         status:        purchase.status || 'pending',
                         payment_method: purchase.payment_method || '',
                         paid_amount: String(purchase.paid_amount ?? 0),
@@ -143,6 +177,25 @@ export default function EditPurchase() {
             } finally {
                 if (!ignore) {
                     setIsLoading(false);
+                }
+            }
+
+            try {
+                const shipmentTimes = await fetchShipmentTimes();
+
+                if (!ignore) {
+                    const latestShipment = Array.isArray(shipmentTimes) && shipmentTimes.length > 0
+                        ? shipmentTimes[0]
+                        : null;
+
+                    setLatestShipmentTimes({
+                        shipmentTime: latestShipment?.shipmentTime ?? latestShipment?.shipping_time ?? '',
+                        productionTime: latestShipment?.productionTime ?? latestShipment?.production_time ?? '',
+                    });
+                }
+            } catch {
+                if (!ignore) {
+                    setLatestShipmentTimes({ shipmentTime: '', productionTime: '' });
                 }
             }
         }
@@ -202,6 +255,12 @@ export default function EditPurchase() {
         return 'partial';
     }, [dueAmount, paidAmount]);
 
+    const shipmentDays = useMemo(() => parseShipmentDays(latestShipmentTimes.shipmentTime), [latestShipmentTimes.shipmentTime]);
+
+    const minExpectedDeliveryDate = useMemo(() => {
+        return toDateOnlyString(addDays(new Date(), shipmentDays));
+    }, [shipmentDays]);
+
     const handleChange = (event) => {
         const { name, value } = event.target;
         setForm((previous) => ({
@@ -247,6 +306,16 @@ export default function EditPurchase() {
     const handleSubmit = async (event) => {
         event.preventDefault();
 
+        if (!form.expected_delivery_date?.trim()) {
+            setErrors({ expected_delivery_date: ['Expected delivery date is required.'] });
+            return;
+        }
+
+        if (form.expected_delivery_date < minExpectedDeliveryDate) {
+            setErrors({ expected_delivery_date: [`Expected delivery date must be on or after ${minExpectedDeliveryDate}.`] });
+            return;
+        }
+
         setIsSubmitting(true);
         setErrors({});
 
@@ -263,6 +332,7 @@ export default function EditPurchase() {
                 payment_method: form.payment_method || null,
                 paid_amount: paidAmount,
                 po_number: form.po_number.trim(),
+                expected_delivery_date: form.expected_delivery_date.trim(),
                 status: form.status.trim(),
                 shipping_date: form.shipping_date || null,
                 received_date: form.received_date || null,
@@ -317,6 +387,9 @@ export default function EditPurchase() {
                 orderTotal={orderSubtotal}
                 dueAmount={dueAmount}
                 paymentStatus={paymentStatus}
+                minExpectedDeliveryDate={minExpectedDeliveryDate}
+                shipmentTimeValue={latestShipmentTimes.shipmentTime}
+                productionTimeValue={latestShipmentTimes.productionTime}
             />
         </div>
     );

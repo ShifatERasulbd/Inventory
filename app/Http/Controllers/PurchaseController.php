@@ -18,6 +18,23 @@ use Illuminate\Support\Facades\DB;
 
 class PurchaseController extends Controller
 {
+    private function formatDateForResponse(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d');
+        }
+
+        try {
+            return Carbon::parse((string) $value)->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     private function normalizePurchaseProducts(array $items): array
     {
         return array_values(array_map(function (array $item): array {
@@ -168,6 +185,7 @@ class PurchaseController extends Controller
 
                 $stock = Stock::query()
                     ->where('product_id', $productId)
+                    ->where('warehouse_id', $warehouseId)
                     ->where(function ($query) use ($purchaseBrandId) {
                         if ($purchaseBrandId === null) {
                             $query->whereNull('brand_id');
@@ -198,6 +216,7 @@ class PurchaseController extends Controller
                 $updatedBarcodes = array_merge($existingBarcodes, $barcodes);
 
                 $stock->update([
+                    'warehouse_id' => $warehouseId,
                     'stocks' => ((int) $stock->stocks) + $quantity,
                     'buying_price' => $buyingPrice,
                     'selling_price' => $sellingPrice,
@@ -235,6 +254,7 @@ class PurchaseController extends Controller
                     'product_id'     => $productId,
                     'quantity'       => $quantity,
                     'po_number'      => $purchase->po_number,
+                    'expected_delivery_date' => $purchase->expected_delivery_date,
                     'purchase_price' => $purchasePrice,
                     'selling_price'  => $sellingPrice,
                     'status'         => 'approved',
@@ -404,9 +424,10 @@ class PurchaseController extends Controller
             'payment_method'     => $purchase->payment_method,
             'po_number'          => $purchase->po_number,
             'po_date'            => $purchase->created_at?->format('Y-m-d'),
+            'expected_delivery_date' => $this->formatDateForResponse($purchase->expected_delivery_date),
             'status'             => $purchase->status,
-            'shipping_date'      => $purchase->shipping_date?->format('Y-m-d'),
-            'received_date'      => $purchase->received_date?->format('Y-m-d'),
+            'shipping_date'      => $this->formatDateForResponse($purchase->shipping_date),
+            'received_date'      => $this->formatDateForResponse($purchase->received_date),
             'note'               => $purchase->note,
             'quickbooks_sync_status' => $purchase->quickbooks_sync_status,
             'quickbooks_synced_at' => $purchase->quickbooks_synced_at?->toDateTimeString(),
@@ -616,6 +637,7 @@ class PurchaseController extends Controller
             'products.*.purchase_price'        => ['required', 'numeric', 'min:0'],
             'products.*.selling_price'         => ['nullable', 'numeric', 'min:0'],
             'po_number'                        => ['required', 'string', 'max:100'],
+            'expected_delivery_date'           => ['required', 'date'],
             'status'                           => ['required', 'string', 'max:50'],
             'shipping_date'                    => ['nullable', 'date'],
             'received_date'                    => ['nullable', 'date'],
@@ -660,6 +682,7 @@ class PurchaseController extends Controller
             'payment_status'=> $financials['payment_status'],
             'payment_method'=> $validated['payment_method'] ?? null,
             'po_number'     => $validated['po_number'],
+            'expected_delivery_date' => $validated['expected_delivery_date'],
             'status'        => $validated['status'],
             'shipping_date' => $validated['shipping_date'] ?? null,
             'received_date' => $validated['received_date'] ?? null,
@@ -739,6 +762,7 @@ class PurchaseController extends Controller
             'products.*.purchase_price' => ['required', 'numeric', 'min:0'],
             'products.*.selling_price'  => ['nullable', 'numeric', 'min:0'],
             'po_number'                 => ['required', 'string', 'max:100'],
+            'expected_delivery_date'    => ['required', 'date'],
             'status'                    => ['required', 'string', 'max:50'],
             'shipping_date'             => ['nullable', 'date'],
             'received_date'             => ['nullable', 'date'],
@@ -776,6 +800,7 @@ class PurchaseController extends Controller
             'payment_status'=> $financials['payment_status'],
             'payment_method'=> $validated['payment_method'] ?? null,
             'po_number'     => $validated['po_number'],
+            'expected_delivery_date' => $validated['expected_delivery_date'],
             'status'        => $validated['status'],
             'shipping_date' => $validated['shipping_date'] ?? null,
             'received_date' => $validated['received_date'] ?? null,

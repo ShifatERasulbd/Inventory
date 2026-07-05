@@ -13,7 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Barcode, ChevronDown, ChevronRight, Copy, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -38,7 +38,37 @@ export function ProductTable({
     const multiSelectCheckboxClass = 'border-gray-400 bg-gray-200 data-[state=checked]:border-black data-[state=checked]:bg-black data-[state=checked]:text-white data-[state=indeterminate]:border-black data-[state=indeterminate]:bg-black data-[state=indeterminate]:text-white';
 
     const [search, setSearch] = useState('');
+    const [activeProduct, setActiveProduct] = useState('all');
     const [expandedStyleKeys, setExpandedStyleKeys] = useState([]);
+
+    const productTabs = useMemo(() => {
+        const counts = (products || []).reduce((accumulator, product) => {
+            const name = String(product?.name || '').trim();
+            if (!name) {
+                return accumulator;
+            }
+
+            if (!accumulator[name]) {
+                accumulator[name] = { value: name, label: name, count: 0 };
+            }
+
+            accumulator[name].count += 1;
+            return accumulator;
+        }, {});
+
+        return [
+            { value: 'all', label: 'All Products', count: (products || []).length },
+            ...Object.values(counts).sort((a, b) => a.label.localeCompare(b.label)),
+        ];
+    }, [products]);
+
+    useEffect(() => {
+        const hasActiveProduct = activeProduct === 'all' || productTabs.some((tab) => tab.value === activeProduct);
+
+        if (!hasActiveProduct) {
+            setActiveProduct('all');
+        }
+    }, [activeProduct, productTabs]);
 
     const getStyleGroupKey = (product) => {
         const normalizedStyle = (product?.style_number || '').trim().toLowerCase();
@@ -48,7 +78,14 @@ export function ProductTable({
     const filtered = useMemo(() => {
         const q = search.toLowerCase();
 
-        return products.filter((product) => (
+        return products.filter((product) => {
+            const matchesProductTab = activeProduct === 'all' || String(product?.name || '') === activeProduct;
+
+            if (!matchesProductTab) {
+                return false;
+            }
+
+            return (
             product.name?.toLowerCase().includes(q) ||
             product.style_number?.toLowerCase().includes(q) ||
             product.barCode?.toLowerCase().includes(q) ||
@@ -57,8 +94,9 @@ export function ProductTable({
             product.size?.size?.toLowerCase().includes(q) ||
             product.gender?.name?.toLowerCase().includes(q) ||
             product.warehouse?.name?.toLowerCase().includes(q)
-        ));
-    }, [products, search]);
+            );
+        });
+    }, [products, search, activeProduct]);
 
     const variantGroups = useMemo(() => {
         const groups = {};
@@ -118,6 +156,28 @@ export function ProductTable({
                     <Plus />
                     Add Product
                 </Button>
+            </div>
+
+            <div className="overflow-x-auto space-y-2">
+                <span className="text-xs font-semibold text-muted-foreground block uppercase tracking-wider">Products</span>
+                <div className="inline-flex min-w-full gap-2 pb-1">
+                    {productTabs.map((tab) => {
+                        const isActive = activeProduct === tab.value;
+
+                        return (
+                            <Button
+                                key={tab.value}
+                                type="button"
+                                variant={isActive ? 'default' : 'outline'}
+                                size="sm"
+                                className="whitespace-nowrap"
+                                onClick={() => setActiveProduct(tab.value)}
+                            >
+                                {tab.label} ({tab.count})
+                            </Button>
+                        );
+                    })}
+                </div>
             </div>
 
             <div className="flex items-center justify-between">

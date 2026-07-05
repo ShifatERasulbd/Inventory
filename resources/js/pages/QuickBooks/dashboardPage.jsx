@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -35,6 +36,17 @@ export default function DashboardPage() {
 
     return (
         <div className="space-y-5">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="text-sm text-slate-600">
+                    If your sync status shows pending connection, open troubleshooting to validate config, token health, and reconnect.
+                </p>
+                <Link
+                    to="/quickbooks/troubleshoot"
+                    className="mt-3 inline-flex rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                >
+                    Open QuickBooks Troubleshooter
+                </Link>
+            </div>
             <QuickBooksConnect autoStart={!status} />
         </div>
     );

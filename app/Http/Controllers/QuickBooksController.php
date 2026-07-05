@@ -1,10 +1,12 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Models\Purchase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Models\QuickBooksToken;
+use App\Models\RetailSale;
 use App\Services\QuickBooksPurchaseSyncService;
 use App\Services\QuickBooksRetailSaleSyncService;
 use Illuminate\Support\Str;
@@ -51,17 +53,82 @@ class QuickBooksController extends Controller
 
     public function getConnectionStatus(): \Illuminate\Http\JsonResponse
     {
-        $token = QuickBooksToken::query()->latest('updated_at')->first();
-
-        $isConnected = $token
-            && $token->access_token
-            && $token->access_token_expires_at
-            && $token->access_token_expires_at->greaterThan(now());
+        $status = $this->resolveConnectionStatus(true);
 
         return response()->json([
-            'connected' => (bool) $isConnected,
-            'realm_id' => $isConnected ? (string) $token->realm_id : null,
-            'expires_at' => $isConnected ? $token->access_token_expires_at?->toIso8601String() : null,
+            'connected' => $status['connected'],
+            'realm_id' => $status['realm_id'],
+            'expires_at' => $status['expires_at'],
+            'refreshed' => $status['refreshed'],
+            'message' => $status['message'],
+        ]);
+    }
+
+    public function reconnect(Request $request): \Illuminate\Http\JsonResponse
+    {
+        return $this->getAuthUrl($request);
+    }
+
+    public function troubleshoot(): \Illuminate\Http\JsonResponse
+    {
+        $clientId = trim((string) config('services.quickbooks_test1.client_id'));
+        $clientSecret = trim((string) config('services.quickbooks_test1.client_secret'));
+        $redirectUri = trim((string) config('services.quickbooks_test1.redirect_uri'));
+        $environment = strtolower(trim((string) config('services.quickbooks_test1.environment', 'production')));
+        $token = QuickBooksToken::query()->latest('updated_at')->first();
+
+        $issues = [];
+
+        if ($clientId === '') {
+            $issues[] = 'Missing QB_TEST1_CLIENT_ID in environment configuration.';
+        }
+
+        if ($clientSecret === '') {
+            $issues[] = 'Missing QB_TEST1_CLIENT_SECRET in environment configuration.';
+        }
+
+        if ($redirectUri === '') {
+            $issues[] = 'Missing QB_TEST1_REDIRECT_URI in environment configuration.';
+        } elseif (!filter_var($redirectUri, FILTER_VALIDATE_URL)) {
+            $issues[] = 'QB_TEST1_REDIRECT_URI is not a valid URL.';
+        }
+
+        if ($token === null) {
+            $issues[] = 'No QuickBooks token record found. Reconnect is required.';
+        }
+
+        $status = $this->resolveConnectionStatus(true);
+
+        if (! $status['connected'] && $status['message'] !== null) {
+            $issues[] = $status['message'];
+        }
+
+        $pendingPurchases = Purchase::query()->where('quickbooks_sync_status', 'pending_connection')->count();
+        $pendingRetailSales = RetailSale::query()->where('quickbooks_sync_status', 'pending_connection')->count();
+
+        return response()->json([
+            'connected' => $status['connected'],
+            'refreshed' => $status['refreshed'],
+            'message' => $status['message'],
+            'configuration' => [
+                'client_id_configured' => $clientId !== '',
+                'client_secret_configured' => $clientSecret !== '',
+                'redirect_uri' => $redirectUri !== '' ? $redirectUri : null,
+                'redirect_uri_valid' => $redirectUri !== '' ? (bool) filter_var($redirectUri, FILTER_VALIDATE_URL) : false,
+                'environment' => $environment,
+            ],
+            'token' => [
+                'exists' => $token !== null,
+                'realm_id' => $status['realm_id'],
+                'access_token_expires_at' => $token?->access_token_expires_at?->toIso8601String(),
+                'refresh_token_expires_at' => $token?->refresh_token_expires_at?->toIso8601String(),
+                'updated_at' => $token?->updated_at?->toIso8601String(),
+            ],
+            'pending_sync' => [
+                'purchases' => $pendingPurchases,
+                'retail_sales' => $pendingRetailSales,
+            ],
+            'issues' => array_values(array_unique($issues)),
         ]);
     }
 
@@ -168,5 +235,114 @@ class QuickBooksController extends Controller
 
         // Redirect to cartoon create section after QuickBooks callback completes.
         return redirect(self::CALLBACK_REDIRECT_PATH . '?status=success&realmId=' . urlencode((string) $realmId));
+    }
+
+    private function resolveConnectionStatus(bool $attemptRefresh): array
+    {
+        $token = QuickBooksToken::query()->latest('updated_at')->first();
+
+        if (! $token) {
+            return [
+                'connected' => false,
+                'realm_id' => null,
+                'expires_at' => null,
+                'refreshed' => false,
+                'message' => 'QuickBooks is not connected.',
+            ];
+        }
+
+        if ($token->access_token && $token->access_token_expires_at && $token->access_token_expires_at->greaterThan(now())) {
+            return [
+                'connected' => true,
+                'realm_id' => (string) $token->realm_id,
+                'expires_at' => $token->access_token_expires_at?->toIso8601String(),
+                'refreshed' => false,
+                'message' => null,
+            ];
+        }
+
+        if (! $attemptRefresh) {
+            return [
+                'connected' => false,
+                'realm_id' => (string) $token->realm_id,
+                'expires_at' => $token->access_token_expires_at?->toIso8601String(),
+                'refreshed' => false,
+                'message' => 'QuickBooks access token has expired.',
+            ];
+        }
+
+        if (! $token->refresh_token || ! $token->refresh_token_expires_at || $token->refresh_token_expires_at->lessThanOrEqualTo(now())) {
+            return [
+                'connected' => false,
+                'realm_id' => (string) $token->realm_id,
+                'expires_at' => $token->access_token_expires_at?->toIso8601String(),
+                'refreshed' => false,
+                'message' => 'QuickBooks refresh token is missing or expired. Reconnect is required.',
+            ];
+        }
+
+        try {
+            $this->refreshToken($token);
+
+            return [
+                'connected' => true,
+                'realm_id' => (string) $token->realm_id,
+                'expires_at' => $token->access_token_expires_at?->toIso8601String(),
+                'refreshed' => true,
+                'message' => 'QuickBooks token refreshed successfully.',
+            ];
+        } catch (\Throwable $e) {
+            Log::error('QuickBooks token refresh during status check failed', [
+                'realm_id' => $token->realm_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'connected' => false,
+                'realm_id' => (string) $token->realm_id,
+                'expires_at' => $token->access_token_expires_at?->toIso8601String(),
+                'refreshed' => false,
+                'message' => 'QuickBooks refresh failed: '.$e->getMessage(),
+            ];
+        }
+    }
+
+    private function refreshToken(QuickBooksToken $token): void
+    {
+        $response = Http::asForm()
+            ->withBasicAuth(
+                (string) config('services.quickbooks_test1.client_id'),
+                (string) config('services.quickbooks_test1.client_secret')
+            )
+            ->post('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', [
+                'grant_type' => 'refresh_token',
+                'refresh_token' => $token->refresh_token,
+            ]);
+
+        if ($response->failed()) {
+            throw new \RuntimeException('Token refresh failed (HTTP '.$response->status().').');
+        }
+
+        $payload = $response->json();
+        $accessToken = (string) ($payload['access_token'] ?? '');
+
+        if ($accessToken === '') {
+            throw new \RuntimeException('Token refresh response did not include access_token.');
+        }
+
+        $refreshToken = (string) ($payload['refresh_token'] ?? $token->refresh_token);
+        $expiresIn = (int) ($payload['expires_in'] ?? 3600);
+        $refreshExpiresIn = (int) ($payload['x_refresh_token_expires_in'] ?? 0);
+
+        $token->update([
+            'access_token' => $accessToken,
+            'refresh_token' => $refreshToken,
+            'access_token_expires_at' => now()->addSeconds(max(1, $expiresIn)),
+            'refresh_token_expires_at' => $refreshExpiresIn > 0
+                ? now()->addSeconds($refreshExpiresIn)
+                : $token->refresh_token_expires_at,
+        ]);
+
+        $token->refresh();
     }
 }

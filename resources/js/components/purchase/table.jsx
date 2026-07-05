@@ -33,8 +33,7 @@ export function PurchaseTable({
     onRequestDelete,
     deletingId,
     onAddNew,
-    onInvoice,
-    statusDrafts = {},
+                               statusDrafts = {},
     updatingStatusId = null,
     onStatusDraftChange,
     onUpdateStatus,
@@ -193,28 +192,29 @@ export function PurchaseTable({
             </div>
 
             <Card>
-                <Table>
+                <Table className="min-w-[1320px]">
                     <TableHeader>
                         <TableRow>
                             <TableHead className="w-[80px]">SL No.</TableHead>
-                            <TableHead>PO Number</TableHead>
-                            <TableHead>PO Date</TableHead>
-                            <TableHead>Brand</TableHead>
-                            <TableHead>Products</TableHead>
-                            <TableHead>Purchase From</TableHead>
-                            <TableHead>Purchase To</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Shipping Date</TableHead>
-                            <TableHead>Received Date</TableHead>
-                            <TableHead>Note</TableHead>
-                            <TableHead className="w-[120px]">Action</TableHead>
+                            <TableHead className="w-[150px]">PO Number</TableHead>
+                            <TableHead className="w-[110px]">PO Date</TableHead>
+                            <TableHead className="w-[90px]">Brand</TableHead>
+                            <TableHead className="w-[240px]">Products</TableHead>
+                            <TableHead className="w-[140px]">Expected Delivery Date</TableHead>
+                            <TableHead className="w-[130px]">Purchase From</TableHead>
+                            <TableHead className="w-[130px]">Purchase To</TableHead>
+                            <TableHead className="w-[120px]">Status</TableHead>
+                            <TableHead className="w-[110px]">Shipping Date</TableHead>
+                            <TableHead className="w-[110px]">Received Date</TableHead>
+                            
+                            <TableHead className="sticky right-0 z-10 w-[100px] bg-background text-left">Action</TableHead>
                         </TableRow>
                     </TableHeader>
 
                     <TableBody>
                         {isLoading && (
                             <TableRow>
-                                <TableCell colSpan={12} className="text-center text-muted-foreground">
+                                <TableCell colSpan={13} className="text-center text-muted-foreground">
                                     Loading purchases...
                                 </TableCell>
                             </TableRow>
@@ -222,7 +222,7 @@ export function PurchaseTable({
 
                         {!isLoading && purchases.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={12} className="text-center text-muted-foreground">
+                                <TableCell colSpan={13} className="text-center text-muted-foreground">
                                     No purchases found.
                                 </TableCell>
                             </TableRow>
@@ -230,7 +230,7 @@ export function PurchaseTable({
 
                         {!isLoading && filtered.length === 0 && purchases.length > 0 && (
                             <TableRow>
-                                <TableCell colSpan={12} className="text-center text-muted-foreground">
+                                <TableCell colSpan={13} className="text-center text-muted-foreground">
                                     No purchases match your current status tab/search.
                                 </TableCell>
                             </TableRow>
@@ -265,26 +265,29 @@ export function PurchaseTable({
                                         return (
                                             <>
                                     <TableCell className="font-medium">{index + 1}</TableCell>
-                                    <TableCell>{purchase.po_number}</TableCell>
+                                    <TableCell className="max-w-[150px] truncate">{purchase.po_number}</TableCell>
                                     <TableCell>{formatDate(purchase.po_date)}</TableCell>
                                     <TableCell>{purchase.brand_name || 'N/A'}</TableCell>
-                                    <TableCell>
+                                    <TableCell className="max-w-[240px]">
                                         <div className="space-y-2">
                                             {(purchase.products || []).map((item, itemIndex) => (
                                                 <div key={`${purchase.id}-${itemIndex}`} className="rounded-md border border-border/60 px-3 py-2 text-sm">
                                                     <div className="font-medium">
                                                         {item.product_name || `Product #${item.product_id}`}
                                                     </div>
-                                                    <div className="text-muted-foreground">
-                                                        Qty: {Number(item.quantity ?? 0)} | Size: {item.size || item.size_name || item?.size?.size || 'N/A'} | Color: {item.color || item.color_name || item?.color?.name || 'N/A'} | Purchase: {Number(item.purchase_price ?? 0).toFixed(2)} | Selling: {Number(item.selling_price ?? 0).toFixed(2)}
+                                                    <div className="mt-1 space-y-0.5 text-muted-foreground">
+                                                        <div>Qty: {Number(item.quantity ?? 0)}</div>
+                                                        <div>Size: {item.size || item.size_name || item?.size?.size || 'N/A'}</div>
+                                                        <div>Color: {item.color || item.color_name || item?.color?.name || 'N/A'}</div>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
                                     </TableCell>
-                                    <TableCell>{purchase.purchase_form_name || `Warehouse #${purchase.purchase_form}`}</TableCell>
-                                    <TableCell>{purchase.purchase_to_name || `Warehouse #${purchase.purchase_to}`}</TableCell>
-                                    <TableCell className="capitalize">
+                                    <TableCell>{formatDate(purchase.expected_delivery_date)}</TableCell>
+                                    <TableCell className="max-w-[130px] truncate">{purchase.purchase_form_name || `Warehouse #${purchase.purchase_form}`}</TableCell>
+                                    <TableCell className="max-w-[130px] truncate">{purchase.purchase_to_name || `Warehouse #${purchase.purchase_to}`}</TableCell>
+                                    <TableCell className="w-[120px] capitalize">
                                         {showStatusAction ? (
                                             <div className="flex flex-col gap-2">
                                                 <Select
@@ -316,10 +319,9 @@ export function PurchaseTable({
                                             purchase.status
                                         )}
                                     </TableCell>
-                                    <TableCell>{formatDate(purchase.shipping_date)}</TableCell>
-                                    <TableCell>{formatDate(purchase.received_date)}</TableCell>
-                                    <TableCell>{purchase.note || 'No note'}</TableCell>
-                                    <TableCell>
+                                    <TableCell className="w-[110px]">{formatDate(purchase.shipping_date)}</TableCell>
+                                    <TableCell className="w-[110px]">{formatDate(purchase.received_date)}</TableCell>
+                                    <TableCell className="sticky right-0 z-10 bg-background shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]">
                                         <div className="flex items-center gap-2">
                                             {String(purchase.payment_status || '').toLowerCase() !== 'paid' && Number(purchase.due_amount ?? 0) > 0 && (
                                                 <TooltipProvider>

@@ -377,7 +377,7 @@ class CartoonController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = Cartoon::query()->with(['purchase', 'warehouse']);
+        $query = Cartoon::with(['purchase', 'warehouse'])->orderByDesc('id');
 
         if (! $request->user()?->hasRole('super-admin')) {
             $warehouseIds = $this->getUserWarehouseIds($request);
@@ -467,9 +467,13 @@ class CartoonController extends Controller
             ], 422);
         }
 
-        $warehouseId = (int) ($this->resolveLoginWarehouseId($request) ?? 0);
+        $warehouseId = (int) ($purchase->purchase_to ?? 0);
 
-        // Super admins may not have a login warehouse; fall back to purchase source warehouse.
+        if ($warehouseId <= 0) {
+            $warehouseId = (int) ($this->resolveLoginWarehouseId($request) ?? 0);
+        }
+
+        // Super admins may not have a destination warehouse on older POs; fall back to the source warehouse.
         if ($warehouseId <= 0 && $request->user()?->hasRole('super-admin')) {
             $warehouseId = (int) ($purchase->purchase_form ?? 0);
         }
@@ -549,6 +553,7 @@ class CartoonController extends Controller
 
                 $stock = Stock::query()
                     ->where('product_id', $productId)
+                    ->where('warehouse_id', $warehouseId)
                     ->where(function ($query) use ($purchaseBrandId) {
                         if ($purchaseBrandId === null) {
                             $query->whereNull('brand_id');
@@ -576,6 +581,7 @@ class CartoonController extends Controller
 
                 $existing = is_array($stock->barcode) ? $stock->barcode : [];
                 $stock->update([
+                    'warehouse_id' => $warehouseId,
                     'stocks' => ((int) $stock->stocks) + $quantity,
                     'buying_price' => (float) ($prices['purchase_price'] ?? 0),
                     'selling_price' => (float) ($prices['selling_price'] ?? 0),

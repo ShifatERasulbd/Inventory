@@ -58,8 +58,158 @@ class ProductController extends Controller
             'size:id,size',
             'gender:id,name',
             'warehouse:id,name',
+            'brand:id,name',
+            'brands:id,name',
             'season:id,name',
         ]);
+    }
+
+    private function resolveBrandIds(array $validated): array
+    {
+        $brandIds = collect($validated['brand_ids'] ?? [])
+            ->filter(fn ($value) => $value !== null && $value !== '')
+            ->map(fn ($value) => (int) $value)
+            ->filter(fn (int $value) => $value > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($brandIds === [] && ! empty($validated['brand_id'])) {
+            $brandIds = [(int) $validated['brand_id']];
+        }
+
+        return $brandIds;
+    }
+
+    private function resolveEffectiveBrandIdsForWarehouse(int $warehouseId, array $brandIds): array
+    {
+        if ($brandIds === []) {
+            return [];
+        }
+
+        $warehouseBrandIds = WareHouse::query()
+            ->whereKey($warehouseId)
+            ->with('brands:id')
+            ->first()
+            ?->brands
+            ?->pluck('id')
+            ?->map(fn ($id) => (int) $id)
+            ?->filter(fn (int $id) => $id > 0)
+            ?->unique()
+            ?->values()
+            ?->all() ?? [];
+
+        if ($warehouseBrandIds === []) {
+            return $brandIds;
+        }
+
+        $effectiveBrandIds = array_values(array_intersect($brandIds, $warehouseBrandIds));
+
+        return $effectiveBrandIds !== [] ? $effectiveBrandIds : $brandIds;
+    }
+
+    private function syncProductStocksForWarehouseAndBrands(array $productIds, int $warehouseId, array $brandIds): void
+    {
+        $productIds = collect($productIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($productIds === []) {
+            return;
+        }
+
+        $effectiveBrandIds = $this->resolveEffectiveBrandIdsForWarehouse($warehouseId, $brandIds);
+
+        // Keep each product's stock rows aligned with the selected warehouse and selected brands.
+        Stock::query()
+            ->whereIn('product_id', $productIds)
+            ->where('warehouse_id', '!=', $warehouseId)
+            ->delete();
+
+        if ($effectiveBrandIds === []) {
+            Stock::query()
+                ->whereIn('product_id', $productIds)
+                ->where('warehouse_id', $warehouseId)
+                ->whereNotNull('brand_id')
+                ->delete();
+
+            $existingNullRows = Stock::query()
+                ->whereIn('product_id', $productIds)
+                ->where('warehouse_id', $warehouseId)
+                ->whereNull('brand_id')
+                ->pluck('product_id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            $missingRows = array_values(array_diff($productIds, $existingNullRows));
+            $now = now();
+
+            if ($missingRows !== []) {
+                $rows = array_map(fn (int $productId) => [
+                    'product_id' => $productId,
+                    'stocks' => 0,
+                    'warehouse_id' => $warehouseId,
+                    'brand_id' => null,
+                    'cartoon_id' => null,
+                    'barcode' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ], $missingRows);
+
+                Stock::query()->insert($rows);
+            }
+
+            return;
+        }
+
+        Stock::query()
+            ->whereIn('product_id', $productIds)
+            ->where('warehouse_id', $warehouseId)
+            ->where(function ($query) use ($effectiveBrandIds) {
+                $query->whereNull('brand_id')
+                    ->orWhereNotIn('brand_id', $effectiveBrandIds);
+            })
+            ->delete();
+
+        $existingBrandRows = Stock::query()
+            ->whereIn('product_id', $productIds)
+            ->where('warehouse_id', $warehouseId)
+            ->whereIn('brand_id', $effectiveBrandIds)
+            ->get(['product_id', 'brand_id'])
+            ->map(fn (Stock $stock) => ((int) $stock->product_id) . '_' . ((int) $stock->brand_id))
+            ->all();
+
+        $existingBrandMap = array_fill_keys($existingBrandRows, true);
+        $rows = [];
+        $now = now();
+
+        foreach ($productIds as $productId) {
+            foreach ($effectiveBrandIds as $brandId) {
+                $pairKey = $productId . '_' . $brandId;
+
+                if (isset($existingBrandMap[$pairKey])) {
+                    continue;
+                }
+
+                $rows[] = [
+                    'product_id' => $productId,
+                    'stocks' => 0,
+                    'warehouse_id' => $warehouseId,
+                    'brand_id' => $brandId,
+                    'cartoon_id' => null,
+                    'barcode' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+        }
+
+        if ($rows !== []) {
+            Stock::query()->insert($rows);
+        }
     }
 
     private function storeImage(UploadedFile $file): string
@@ -168,6 +318,8 @@ class ProductController extends Controller
                     'size:id,size',
                     'gender:id,name',
                     'warehouse:id,name',
+                    'brand:id,name',
+                    'brands:id,name',
                     'season:id,name'
                 ])
                 ->orderBy('id')
@@ -194,6 +346,9 @@ class ProductController extends Controller
             'gender_id' => ['required', 'integer', 'exists:products_for,id'],
             'barcodes' => ['required', 'string'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
+            'brand_id' => ['nullable', 'integer', 'exists:brands,id'],
+            'brand_ids' => ['nullable', 'array'],
+            'brand_ids.*' => ['required', 'integer', 'exists:brands,id'],
             'cover_image' => ['nullable', 'image', 'max:3072'],
             'gallery_images' => ['nullable', 'array', 'max:8'],
             'gallery_images.*' => ['image', 'max:3072'],
@@ -201,6 +356,7 @@ class ProductController extends Controller
     
         $colorIds = collect($validated['color_ids'] ?? [])->filter()->unique()->values()->all();
         $sizeIds = collect($validated['size_ids'] ?? [])->filter()->unique()->values()->all();
+        $brandIds = $this->resolveBrandIds($validated);
 
         // Decode the barcodes map sent as JSON string from FormData
         $decodedBarcodes = json_decode($validated['barcodes'], true);
@@ -228,13 +384,9 @@ class ProductController extends Controller
         }
 
         try {
-            $products = DB::transaction(function () use ($validated, $colorIds, $sizeIds, $storedCoverImage, $storedGalleryImages, $barcodesMap) {
+            $products = DB::transaction(function () use ($validated, $colorIds, $sizeIds, $brandIds, $storedCoverImage, $storedGalleryImages, $barcodesMap) {
                 $products = [];
-                $stockRows = [];
-                $warehouses = WareHouse::query()
-                    ->with('brands:id')
-                    ->get(['id']);
-                $now = now();
+                $createdProductIds = [];
 
                 foreach ($colorIds as $colorId) {
                     foreach ($sizeIds as $sizeId) {
@@ -251,57 +403,20 @@ class ProductController extends Controller
                             'size_id' => $sizeId,
                             'gender_id' => $validated['gender_id'],
                             'warehouse_id' => $validated['warehouse_id'],
+                            'brand_id' => $brandIds[0] ?? null,
                             'season_id'=>$validated['season_id'],
                             'cover_image' => $storedCoverImage,
                             'gallery_images' => $storedGalleryImages,
                             'barCode' => $barcodesMap["{$colorId}_{$sizeId}"] ?? null,
                         ]);
 
+                        $product->brands()->sync($brandIds);
                         $products[] = $product;
-
-                        foreach ($warehouses as $warehouse) {
-                            $warehouseBrandIds = $warehouse->brands
-                                ->pluck('id')
-                                ->map(fn ($id) => (int) $id)
-                                ->filter(fn (int $id) => $id > 0)
-                                ->unique()
-                                ->values()
-                                ->all();
-
-                            if ($warehouseBrandIds === []) {
-                                $stockRows[] = [
-                                    'product_id' => $product->id,
-                                    'stocks' => 0,
-                                    'warehouse_id' => (int) $warehouse->id,
-                                    'brand_id' => null,
-                                    'cartoon_id' => null,
-                                    'barcode' => null,
-                                    'created_at' => $now,
-                                    'updated_at' => $now,
-                                ];
-
-                                continue;
-                            }
-
-                            foreach ($warehouseBrandIds as $brandId) {
-                                $stockRows[] = [
-                                    'product_id' => $product->id,
-                                    'stocks' => 0,
-                                    'warehouse_id' => (int) $warehouse->id,
-                                    'brand_id' => $brandId,
-                                    'cartoon_id' => null,
-                                    'barcode' => null,
-                                    'created_at' => $now,
-                                    'updated_at' => $now,
-                                ];
-                            }
-                        }
+                        $createdProductIds[] = (int) $product->id;
                     }
                 }
 
-                if ($stockRows !== []) {
-                    Stock::query()->insert($stockRows);
-                }
+                $this->syncProductStocksForWarehouseAndBrands($createdProductIds, (int) $validated['warehouse_id'], $brandIds);
 
                 return $products;
             });
@@ -329,6 +444,10 @@ class ProductController extends Controller
             $productData = $this->productWithRelations($product)->toArray();
             $productData['color_ids'] = $product->color_id ? [(int) $product->color_id] : [];
             $productData['size_ids'] = $product->size_id ? [(int) $product->size_id] : [];
+            $brandIds = $product->brands->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+            $productData['brand_ids'] = $brandIds !== []
+                ? $brandIds
+                : ($product->brand_id ? [(int) $product->brand_id] : []);
 
             return response()->json($productData);
         }
@@ -340,6 +459,10 @@ class ProductController extends Controller
         $productData = $this->productWithRelations($product)->toArray();
         $productData['color_ids'] = $styleGroup->pluck('color_id')->filter()->unique()->map(fn ($id) => (int) $id)->values()->all();
         $productData['size_ids'] = $styleGroup->pluck('size_id')->filter()->unique()->map(fn ($id) => (int) $id)->values()->all();
+        $brandIds = $product->brands->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+        $productData['brand_ids'] = $brandIds !== []
+            ? $brandIds
+            : ($product->brand_id ? [(int) $product->brand_id] : []);
 
         return response()->json($productData);
     }
@@ -367,6 +490,9 @@ class ProductController extends Controller
             'barCode' => ['nullable', 'string', 'max:200'],
             'barcodes' => ['required', 'string'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
+            'brand_id' => ['nullable', 'integer', 'exists:brands,id'],
+            'brand_ids' => ['nullable', 'array'],
+            'brand_ids.*' => ['required', 'integer', 'exists:brands,id'],
             'cover_image' => ['nullable', 'image', 'max:3072'],
             'gallery_images' => ['nullable', 'array', 'max:8'],
             'gallery_images.*' => ['image', 'max:3072'],
@@ -425,6 +551,7 @@ class ProductController extends Controller
 
         $colorIds = collect($validated['color_ids'] ?? [])->filter()->unique()->map(fn ($value) => (int) $value)->values()->all();
         $sizeIds = collect($validated['size_ids'] ?? [])->filter()->unique()->map(fn ($value) => (int) $value)->values()->all();
+        $brandIds = $this->resolveBrandIds($validated);
 
         $targetProductIds = $variantOnly
             ? [(int) $product->id]
@@ -467,6 +594,7 @@ class ProductController extends Controller
             'fabric_id' => $validated['fabric_id'],
             'gender_id' => $validated['gender_id'],
             'warehouse_id' => $validated['warehouse_id'],
+            'brand_id' => $brandIds[0] ?? null,
             'season_id' => $validated['season_id'] ?? null,
             'cover_image' => $validated['cover_image'] ?? $product->cover_image,
             'gallery_images' => $validated['gallery_images'] ?? $currentGalleryImages,
@@ -480,7 +608,7 @@ class ProductController extends Controller
             $validated['barcodes']
         );
 
-        DB::transaction(function () use ($variantOnly, $product, $targetProductIds, $sharedAttributes, $primaryColorId, $primarySizeId, $barcodesMap, $primaryBarcodeKey, $colorIds, $sizeIds) {
+        DB::transaction(function () use ($variantOnly, $product, $targetProductIds, $sharedAttributes, $primaryColorId, $primarySizeId, $barcodesMap, $primaryBarcodeKey, $colorIds, $sizeIds, $brandIds) {
             $productsToUpdate = Product::query()
                 ->whereIn('id', $targetProductIds)
                 ->get();
@@ -495,6 +623,8 @@ class ProductController extends Controller
                     'size_id' => $sizeId > 0 ? $sizeId : $primarySizeId,
                     'barCode' => $barcodesMap[$pairKey] ?? $item->barCode ?? ($barcodesMap[$primaryBarcodeKey] ?? null),
                 ]));
+
+                $item->brands()->sync($brandIds);
             }
 
             if ($variantOnly) {
@@ -526,11 +656,7 @@ class ProductController extends Controller
                 ->all();
 
             $existingPairMap = array_fill_keys($existingPairs, true);
-            $warehouses = WareHouse::query()
-                ->with('brands:id')
-                ->get(['id']);
-            $stockRows = [];
-            $now = now();
+            $createdProductIds = [];
 
             foreach ($colorIds as $colorId) {
                 foreach ($sizeIds as $sizeId) {
@@ -546,51 +672,19 @@ class ProductController extends Controller
                         'barCode' => $barcodesMap[$pairKey] ?? null,
                     ]));
 
-                    foreach ($warehouses as $warehouse) {
-                        $warehouseBrandIds = $warehouse->brands
-                            ->pluck('id')
-                            ->map(fn ($id) => (int) $id)
-                            ->filter(fn (int $id) => $id > 0)
-                            ->unique()
-                            ->values()
-                            ->all();
-
-                        if ($warehouseBrandIds === []) {
-                            $stockRows[] = [
-                                'product_id' => $created->id,
-                                'stocks' => 0,
-                                'warehouse_id' => (int) $warehouse->id,
-                                'brand_id' => null,
-                                'cartoon_id' => null,
-                                'barcode' => null,
-                                'created_at' => $now,
-                                'updated_at' => $now,
-                            ];
-
-                            continue;
-                        }
-
-                        foreach ($warehouseBrandIds as $brandId) {
-                            $stockRows[] = [
-                                'product_id' => $created->id,
-                                'stocks' => 0,
-                                'warehouse_id' => (int) $warehouse->id,
-                                'brand_id' => $brandId,
-                                'cartoon_id' => null,
-                                'barcode' => null,
-                                'created_at' => $now,
-                                'updated_at' => $now,
-                            ];
-                        }
-                    }
+                    $created->brands()->sync($brandIds);
+                    $createdProductIds[] = (int) $created->id;
 
                     $existingPairMap[$pairKey] = true;
                 }
             }
 
-            if ($stockRows !== []) {
-                Stock::query()->insert($stockRows);
-            }
+            $allAffectedProductIds = array_unique(array_merge(
+                $productsToUpdate->pluck('id')->map(fn ($id) => (int) $id)->all(),
+                $createdProductIds
+            ));
+
+            $this->syncProductStocksForWarehouseAndBrands($allAffectedProductIds, (int) $sharedAttributes['warehouse_id'], $brandIds);
         });
 
         $this->deleteImagesIfUnreferenced($imagesToDeleteAfterUpdate, $product->id);

@@ -1,6 +1,9 @@
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Check, ChevronsUpDown, Calendar as CalendarIcon } from 'lucide-react';
+import * as React from 'react';
+import { format } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +16,9 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils"; // Standard shadcn utility for merging classnames
 
 export default function EditPurchaseForm({
     form,
@@ -36,7 +42,27 @@ export default function EditPurchaseForm({
     orderTotal = 0,
     dueAmount = 0,
     paymentStatus = 'unpaid',
+    minExpectedDeliveryDate = '',
+    shipmentTimeValue = '',
+    productionTimeValue = '',
 }) {
+    // State to track which product popover row is open
+    const [openPopoverIndex, setOpenPopoverIndex] = React.useState(null);
+
+    const minExpectedDate = React.useMemo(() => {
+        if (!minExpectedDeliveryDate) {
+            return null;
+        }
+
+        const parsed = new Date(minExpectedDeliveryDate);
+        if (Number.isNaN(parsed.getTime())) {
+            return null;
+        }
+
+        parsed.setHours(0, 0, 0, 0);
+        return parsed;
+    }, [minExpectedDeliveryDate]);
+
     const getProductOptionLabel = (product) => {
         const name = product?.name || `Product #${product?.id}`;
         const size = product?.size?.size || product?.size || product?.size_name;
@@ -159,6 +185,56 @@ export default function EditPurchaseForm({
                             {errors.status && <p className="text-xs text-destructive">{errors.status[0]}</p>}
                         </div>
 
+                        <div className="space-y-2 flex flex-col">
+                            <Label htmlFor="expected_delivery_date">Expected Delivery Date</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        id="expected_delivery_date"
+                                        variant="outline"
+                                        className={cn(
+                                            'w-full justify-start text-left font-normal',
+                                            !form.expected_delivery_date && 'text-muted-foreground'
+                                        )}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                                        {form.expected_delivery_date ? (
+                                            format(new Date(form.expected_delivery_date), 'PPP')
+                                        ) : (
+                                            <span>Pick a date</span>
+                                        )}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={form.expected_delivery_date ? new Date(form.expected_delivery_date) : undefined}
+                                        disabled={(date) => {
+                                            if (!minExpectedDate) {
+                                                return false;
+                                            }
+
+                                            const candidate = new Date(date);
+                                            candidate.setHours(0, 0, 0, 0);
+                                            return candidate < minExpectedDate;
+                                        }}
+                                        onSelect={(date) => {
+                                            const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
+                                            onSelectChange('expected_delivery_date', formattedDate);
+                                        }}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            {errors.expected_delivery_date && (
+                                <p className="text-xs text-destructive">{errors.expected_delivery_date[0]}</p>
+                            )}
+                             <p className="text-xs text-red-500">
+                               For new orders(if the stock is not available) Minimum Production Time(In Days): {String(productionTimeValue || '-')} days
+                            </p>
+                            
+                        </div>
+
                         <div className="space-y-2 md:col-span-2">
                             <Label htmlFor="note">Note</Label>
                             <RichTextEditor
@@ -187,94 +263,139 @@ export default function EditPurchaseForm({
                         )}
 
                         <div className="space-y-3">
-                            {(form.products ?? []).map((row, index) => (
-                                <div
-                                    key={index}
-                                    className="relative rounded-lg border bg-muted/30 p-4"
-                                >
-                                    <div className="mb-3 flex items-center justify-between">
-                                        <span className="text-sm font-medium text-muted-foreground">
-                                            Item {index + 1}
-                                        </span>
-                                        {(form.products ?? []).length > 1 && (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-7 w-7 text-destructive hover:text-destructive"
-                                                onClick={() => onRemoveProduct(index)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        )}
+                            {(form.products ?? []).map((row, index) => {
+                                const selectedProduct = productOptions.find(
+                                    (p) => String(p.id) === String(row.product_id)
+                                );
+
+                                return (
+                                    <div
+                                        key={index}
+                                        className="relative rounded-lg border bg-muted/30 p-4"
+                                    >
+                                        <div className="mb-3 flex items-center justify-between">
+                                            <span className="text-sm font-medium text-muted-foreground">
+                                                Item {index + 1}
+                                            </span>
+                                            {(form.products ?? []).length > 1 && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                                    onClick={() => onRemoveProduct(index)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
+
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                            {/* Searchable Select2 Product Dropdown Field */}
+                                            <div className="space-y-2 sm:col-span-2 lg:col-span-1 flex flex-col justify-end">
+                                                <Label>Product</Label>
+                                                <Popover 
+                                                    open={openPopoverIndex === index} 
+                                                    onOpenChange={(open) => setOpenPopoverIndex(open ? index : null)}
+                                                >
+                                                    <PopoverTrigger asChild>
+                                                        <Button
+                                                            variant="outline"
+                                                            role="combobox"
+                                                            aria-expanded={openPopoverIndex === index}
+                                                            className="w-full justify-between font-normal"
+                                                        >
+                                                            <span className="truncate">
+                                                                {selectedProduct 
+                                                                    ? getProductOptionLabel(selectedProduct) 
+                                                                    : "Select product..."}
+                                                            </span>
+                                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                                                        <Command>
+                                                            <CommandInput placeholder="Search product..." />
+                                                            <CommandList>
+                                                                <CommandEmpty>No product found.</CommandEmpty>
+                                                                <CommandGroup>
+                                                                    {productOptions.map((product) => {
+                                                                        const label = getProductOptionLabel(product);
+                                                                        const isSelected = String(row.product_id) === String(product.id);
+                                                                        return (
+                                                                            <CommandItem
+                                                                                key={product.id}
+                                                                                value={label} // Allows searching by full configured label text
+                                                                                onSelect={() => {
+                                                                                    onProductSelectChange(index, String(product.id));
+                                                                                    setOpenPopoverIndex(null);
+                                                                                }}
+                                                                            >
+                                                                                <Check
+                                                                                    className={cn(
+                                                                                        "mr-2 h-4 w-4",
+                                                                                        isSelected ? "opacity-100" : "opacity-0"
+                                                                                    )}
+                                                                                />
+                                                                                <span className="truncate">{label}</span>
+                                                                            </CommandItem>
+                                                                        );
+                                                                    })}
+                                                                </CommandGroup>
+                                                            </CommandList>
+                                                        </Command>
+                                                    </PopoverContent>
+                                                </Popover>
+                                                
+                                                {errors[`products.${index}.product_id`] && (
+                                                    <p className="text-xs text-destructive">
+                                                        {errors[`products.${index}.product_id`][0]}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>Quantity</Label>
+                                                <Input
+                                                    type="number"
+                                                    min="1"
+                                                    value={row.quantity}
+                                                    onChange={(e) => onProductChange(index, 'quantity', e.target.value)}
+                                                    placeholder="e.g. 100"
+                                                />
+                                                {errors[`products.${index}.quantity`] && (
+                                                    <p className="text-xs text-destructive">
+                                                        {errors[`products.${index}.quantity`][0]}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>Purchase Price</Label>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    value={row.purchase_price}
+                                                    onChange={(e) => onProductChange(index, 'purchase_price', e.target.value)}
+                                                    placeholder="e.g. 350.00"
+                                                />
+                                                {errors[`products.${index}.purchase_price`] && (
+                                                    <p className="text-xs text-destructive">
+                                                        {errors[`products.${index}.purchase_price`][0]}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>Line Total</Label>
+                                                <Input value={getLineTotal(row).toFixed(2)} disabled />
+                                            </div>
+
+                                        </div>
                                     </div>
-
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                                        <div className="space-y-2 sm:col-span-2 lg:col-span-1">
-                                            <Label>Product</Label>
-                                            <Select
-                                                value={row.product_id}
-                                                onValueChange={(value) => onProductSelectChange(index, value)}
-                                            >
-                                                <SelectTrigger className="w-full">
-                                                    <SelectValue placeholder="Select product" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {productOptions.map((product) => (
-                                                        <SelectItem key={product.id} value={String(product.id)}>
-                                                            {getProductOptionLabel(product)}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            {errors[`products.${index}.product_id`] && (
-                                                <p className="text-xs text-destructive">
-                                                    {errors[`products.${index}.product_id`][0]}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label>Quantity</Label>
-                                            <Input
-                                                type="number"
-                                                min="1"
-                                                value={row.quantity}
-                                                onChange={(e) => onProductChange(index, 'quantity', e.target.value)}
-                                                placeholder="e.g. 100"
-                                            />
-                                            {errors[`products.${index}.quantity`] && (
-                                                <p className="text-xs text-destructive">
-                                                    {errors[`products.${index}.quantity`][0]}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label>Purchase Price</Label>
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                value={row.purchase_price}
-                                                onChange={(e) => onProductChange(index, 'purchase_price', e.target.value)}
-                                                placeholder="e.g. 350.00"
-                                            />
-                                            {errors[`products.${index}.purchase_price`] && (
-                                                <p className="text-xs text-destructive">
-                                                    {errors[`products.${index}.purchase_price`][0]}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label>Line Total</Label>
-                                            <Input value={getLineTotal(row).toFixed(2)} disabled />
-                                        </div>
-
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
 

@@ -23,6 +23,11 @@ class Brand extends Model
       return $this->belongsToMany(WareHouse::class, 'warehouse_brand', 'brand_id', 'warehouse_id');
     }
 
+    public function products(): BelongsToMany
+    {
+      return $this->belongsToMany(Product::class, 'product_brand', 'brand_id', 'product_id');
+    }
+
      public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

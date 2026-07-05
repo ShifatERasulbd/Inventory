@@ -30,16 +30,24 @@ use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ReceivedCartoonIssueController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\QuickBooksController;
+use App\Http\Controllers\RemoteOrderController;
+use App\Http\Controllers\ShipStationController;
+use App\Http\Controllers\UPSCourierController;
+use App\Http\Controllers\ShippingController;
 
 Route::get('/', function () {
     return view('app');
 })->name('login');
-
+Route::post('/shipping/orders', [ShipStationController::class, 'storeOrder']);
+Route::post('/ups/shipments', [UPSCourierController::class, 'storeShipment']);
 Route::prefix('api')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
 
     // QuickBooks callback must be public because Intuit redirects the user back here.
     Route::get('/quickbooks/callback', [QuickBooksController::class, 'handleCallback'])->name('quickbooks.callback.api');
+
+    // Public webhook from the main store for automatic remote-order ingestion.
+    Route::post('/webhooks/order-created', [RemoteOrderController::class, 'handleWebhook']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/user', [UserController::class, 'me']);
@@ -58,10 +66,20 @@ Route::prefix('api')->group(function () {
         Route::post('/countries/{id}/restore', [CountryController::class, 'restore'])->middleware('resource.permission:countries');
         Route::apiResource('/countries', CountryController::class)->middleware('resource.permission:countries');
 
-
+        // 1971 order details
+        Route::get('/remote-orders', [RemoteOrderController::class, 'index']);
+        Route::get('/remote-orders/pending', [RemoteOrderController::class, 'getPendingOrders']);
+        Route::post('/remote-orders/sync', [RemoteOrderController::class, 'sync']);
+        Route::get('/remote-orders/{id}', [RemoteOrderController::class, 'show'])->whereNumber('id');
+        Route::put('/remote-orders/{id}', [RemoteOrderController::class, 'update'])->whereNumber('id');
+        Route::post('/remote-orders/bulk-status', [RemoteOrderController::class, 'bulkUpdateStatus']);
+        Route::post('/remote-orders/bulk-delete', [RemoteOrderController::class, 'bulkDelete']);
+        
         // QuickBooks Routes
         Route::get('/quickbooks/connect', [QuickBooksController::class, 'getAuthUrl']);
+        Route::get('/quickbooks/reconnect', [QuickBooksController::class, 'reconnect']);
         Route::get('/quickbooks/status', [QuickBooksController::class, 'getConnectionStatus']);
+        Route::get('/quickbooks/troubleshoot', [QuickBooksController::class, 'troubleshoot']);
         Route::post('/quickbooks/retry-retail-sales-sync', [QuickBooksController::class, 'retryRetailSalesSync']);
         
         // State Controller
@@ -93,6 +111,9 @@ Route::prefix('api')->group(function () {
         // Color Controller
         Route::apiResource('/colors', ColorController::class)->middleware('resource.permission:colors');
 
+        // Shipping Time Controller
+        Route::apiResource('/shipments', ShippingController::class)->middleware('resource.permission:shipments');
+
         // Fabric Controller
         Route::apiResource('/fabrics', FabricController::class)->middleware('resource.permission:fabrics');
 
@@ -117,6 +138,7 @@ Route::prefix('api')->group(function () {
         Route::post('/cartoons/{cartoon}/assign-rack', [CartoonController::class, 'assignRack'])->middleware('resource.permission:cartoons');
 
         // Stock Controller
+        Route::post('/stocks/locations', [StockController::class, 'locations'])->middleware('resource.permission:stocks');
         Route::apiResource('/stocks', StockController::class)->middleware('resource.permission:stocks');
 
         // Purchase Controller
@@ -154,6 +176,10 @@ Route::get('/quickbooks/callback', [QuickBooksController::class, 'handleCallback
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/quickbooks/connect', function () {
+        return view('app');
+    });
+
+    Route::get('/quickbook/connect', function () {
         return view('app');
     });
 

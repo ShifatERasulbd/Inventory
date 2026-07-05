@@ -34,6 +34,21 @@ async function requestJson(url, options = {}) {
     return payload;
 }
 
+export async function fetchPendingRemoteOrders() {
+    const payload = await requestJson('/api/remote-orders/pending');
+    return Array.isArray(payload) ? payload : [];
+}
+
+export async function updateRemoteOrderStatus(orderId, status) {
+    await ensureCsrfCookie();
+
+    return requestJson(`/api/remote-orders/${orderId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+    });
+}
+
+
 export async function lookupBarcode(barcode, warehouseId, brandId = null) {
     const brandPart = Number.isInteger(Number(brandId)) && Number(brandId) > 0
         ? `&brand_id=${Number(brandId)}`

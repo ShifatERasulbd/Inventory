@@ -133,6 +133,7 @@ export default function EditForm({
     sizes = [],
     productFors = [],
     warehouses = [],
+    brands = [],
     seasons = [],
     onChange,
     onSelectChange,
@@ -306,7 +307,7 @@ export default function EditForm({
                         <p className="text-sm text-foreground">{fabricDetailsText}</p>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
                         <ProductRepeaterSelect
                             id="product-color"
                             label="Colors"
@@ -331,6 +332,18 @@ export default function EditForm({
                             onAdd={() => onAddRepeaterItem?.('size_ids')}
                             onRemove={(index) => onRemoveRepeaterItem?.('size_ids', index)}
                             labelKey="size"
+                        />
+
+                        <ProductRepeaterSelect
+                            id="product-brand"
+                            label="Brands"
+                            values={form.brand_ids}
+                            options={brands}
+                            placeholder="Select a brand"
+                            error={errors.brand_ids}
+                            onValueChange={(index, value) => onRepeaterSelectChange?.('brand_ids', index, value)}
+                            onAdd={() => onAddRepeaterItem?.('brand_ids')}
+                            onRemove={(index) => onRemoveRepeaterItem?.('brand_ids', index)}
                         />
                     </div>
 

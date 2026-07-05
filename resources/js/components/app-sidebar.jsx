@@ -84,6 +84,11 @@ const userAccessItems = [
     { title: 'Role', icon: Shield, path: '/roles', permission: 'read-roles' },
     { title: 'API Users', icon: Key, path: '/api-user', permission: 'read-users', superAdminOnly: true },
     { title: 'Activity Log', icon: History, path: '/activity-log', superAdminOnly: true },
+    {title: 'shipment', icon: Airplay, path: '/shipments', permission: 'read-shipments'},
+];
+
+const OrderItems = [
+    { title: '1971co Orders', icon: FileBarChart2, path: '/remote-orders' },
 ];
 
 export function AppSidebar(props) {
@@ -109,6 +114,7 @@ export function AppSidebar(props) {
     const visibleProductionItems=ProductionItems.filter((item)=>canAccess(item.permission));
     const visibleRetailItems=RetailItems.filter((item)=>canAccess(item.permission));
     const visiblePackagingItems=PackagingItems.filter((item)=>canAccess(item.permission));
+    const visibleOrderItems=OrderItems.filter((item)=>canAccess(item.permission));
     
 
     const handleLogout = async () => {
@@ -300,6 +306,33 @@ export function AppSidebar(props) {
                         </SidebarGroupContent>
                     </SidebarGroup>
                 )}
+
+
+                {/* Website Orders */}
+                {visibleOrderItems.length > 0 && (
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Website Orders</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {visibleOrderItems.map((item) => (
+                                    <SidebarMenuItem key={item.title}>
+                                        <SidebarMenuButton
+                                            asChild
+                                            tooltip={item.title}
+                                            isActive={location.pathname === item.path}
+                                        >
+                                            <Link to={item.path}>
+                                                <item.icon />
+                                                <span>{item.title}</span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                ))}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                )}
+
 
                 {/* user access */}
                 {visibleuserAccessItems.length > 0 && (

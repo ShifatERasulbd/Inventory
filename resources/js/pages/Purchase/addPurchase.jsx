@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-
 import AddPurchaseForm from '@/components/purchase/addForm';
 import WarehouseStockModal from '@/components/purchase/warehouseStockModal';
 import { useAppContext } from '@/context/AppContext';
 
-import { createPurchase, fetchPurchaseFormOptions } from './api';
+import { createPurchase, fetchPurchaseFormOptions, fetchShipmentTimes } from './api';
 
 const emptyProductRow = () => ({ product_id: '', quantity: '', purchase_price: '' });
 
@@ -15,6 +14,7 @@ const initialForm = {
     purchase_to: '',
     brand_id: '',
     po_number: '',
+    expected_delivery_date: '',
     status: 'pending',
     payment_method: '',
     paid_amount: '0',
@@ -115,6 +115,8 @@ function getAvailableStatuses(isSuperAdmin, userWarehouseId, selectedPurchaseToW
     return ALL_STATUS_OPTIONS.filter((status) => status !== 'approved');
 }
 
+
+
 function getLineTotal(quantity, purchasePrice) {
     const qty = Number(quantity ?? 0);
     const unit = Number(purchasePrice ?? 0);
@@ -130,7 +132,35 @@ function getOrderSubtotal(rows) {
     return (rows ?? []).reduce((total, row) => total + getLineTotal(row.quantity, row.purchase_price), 0);
 }
 
-function validateForm(form, isSuperAdmin) {
+function toDateOnlyString(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function addDays(baseDate, days) {
+    const date = new Date(baseDate);
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + Math.max(0, Number(days) || 0));
+    return date;
+}
+
+function parseShipmentDays(rawValue) {
+    const parsed = Number(rawValue);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+        return Math.floor(parsed);
+    }
+
+    const extracted = Number(String(rawValue ?? '').match(/\d+/)?.[0]);
+    if (!Number.isFinite(extracted) || extracted < 0) {
+        return 0;
+    }
+
+    return Math.floor(extracted);
+}
+
+function validateForm(form, isSuperAdmin, minExpectedDeliveryDate) {
     const validationErrors = {};
 
     if (!Number.isInteger(Number(form.purchase_form)) || Number(form.purchase_form) <= 0) {
@@ -147,6 +177,12 @@ function validateForm(form, isSuperAdmin) {
 
     if (!form.po_number.trim()) {
         validationErrors.po_number = ['PO number is required.'];
+    }
+
+    if(!form.expected_delivery_date.trim()) {
+        validationErrors.expected_delivery_date = ['Expected delivery date is required.'];
+    } else if (minExpectedDeliveryDate && form.expected_delivery_date < minExpectedDeliveryDate) {
+        validationErrors.expected_delivery_date = [`Expected delivery date must be on or after ${minExpectedDeliveryDate}.`];
     }
 
     if (!form.status.trim()) {
@@ -226,6 +262,10 @@ export default function AddPurchase() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoadingOptions, setIsLoadingOptions] = useState(true);
     const [isWarehouseStockModalOpen, setIsWarehouseStockModalOpen] = useState(false);
+    const [latestShipmentTimes, setLatestShipmentTimes] = useState({
+        shipmentTime: '',
+        productionTime: '',
+    });
     const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
 
     useEffect(() => {
@@ -255,6 +295,7 @@ export default function AddPurchase() {
                     setStockQuantities(options?.stock_quantities && typeof options.stock_quantities === 'object'
                         ? options.stock_quantities
                         : {});
+
                     if (!user && currentUser) {
                         setUser(currentUser);
                     }
@@ -266,6 +307,25 @@ export default function AddPurchase() {
             } finally {
                 if (!ignore) {
                     setIsLoadingOptions(false);
+                }
+            }
+
+            try {
+                const shipmentTimes = await fetchShipmentTimes();
+
+                if (!ignore) {
+                    const latestShipment = Array.isArray(shipmentTimes) && shipmentTimes.length > 0
+                        ? shipmentTimes[0]
+                        : null;
+
+                    setLatestShipmentTimes({
+                        shipmentTime: latestShipment?.shipmentTime ?? latestShipment?.shipping_time ?? '',
+                        productionTime: latestShipment?.productionTime ?? latestShipment?.production_time ?? '',
+                    });
+                }
+            } catch {
+                if (!ignore) {
+                    setLatestShipmentTimes({ shipmentTime: '', productionTime: '' });
                 }
             }
         }
@@ -351,6 +411,12 @@ export default function AddPurchase() {
         return 'partial';
     }, [dueAmount, paidAmount]);
 
+    const shipmentDays = useMemo(() => parseShipmentDays(latestShipmentTimes.shipmentTime), [latestShipmentTimes.shipmentTime]);
+
+    const minExpectedDeliveryDate = useMemo(() => {
+        return toDateOnlyString(addDays(new Date(), shipmentDays));
+    }, [shipmentDays]);
+
     const handleChange = (event) => {
         const { name, value } = event.target;
         setForm((previous) => ({
@@ -434,7 +500,7 @@ export default function AddPurchase() {
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        const validationErrors = validateForm(form, isSuperAdmin);
+        const validationErrors = validateForm(form, isSuperAdmin, minExpectedDeliveryDate);
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
             setRequestError('');
@@ -458,6 +524,7 @@ export default function AddPurchase() {
                 payment_method: form.payment_method || null,
                 paid_amount: paidAmount,
                 po_number: form.po_number.trim(),
+                expected_delivery_date: form.expected_delivery_date.trim(),
                 status: form.status.trim(),
                 shipping_date: form.shipping_date || null,
                 received_date: form.received_date || null,
@@ -515,6 +582,9 @@ export default function AddPurchase() {
                 paidAmount={paidAmount}
                 dueAmount={dueAmount}
                 paymentStatus={paymentStatus}
+                shipmentTimeValue={latestShipmentTimes.shipmentTime}
+                productionTimeValue={latestShipmentTimes.productionTime}
+                minExpectedDeliveryDate={minExpectedDeliveryDate}
                 noProductInStock={false}
                 canViewWarehouseStock={Boolean(Number(form.purchase_form) > 0)}
                 onViewWarehouseStock={() => setIsWarehouseStockModalOpen(true)}

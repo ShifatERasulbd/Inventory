@@ -91,6 +91,11 @@ export async function fetchWarehouses() {
     return Array.isArray(payload) ? payload : [];
 }
 
+export async function fetchShipmentTimes() {
+    const payload = await requestJson('/api/shipments');
+    return Array.isArray(payload) ? payload : [];
+}
+
 export async function fetchProducts() {
     const payload = await requestJson('/api/products');
     return Array.isArray(payload) ? payload : [];

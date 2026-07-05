@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Cartoon;
 use App\Models\Product;
 use App\Models\Stock;
+use App\Models\WareHouse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -101,11 +102,68 @@ class StockController extends Controller
         return $ids;
     }
 
+    private function normalizeLookupValues(array $values): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            static fn ($value) => trim((string) $value),
+            $values
+        ))));
+    }
+
+    private function resolveProductForLocationLookup(array $item): ?Product
+    {
+        $codeCandidates = $this->normalizeLookupValues([
+            $item['sku'] ?? null,
+            $item['barcode'] ?? null,
+            $item['product_code'] ?? null,
+        ]);
+
+        foreach ($codeCandidates as $candidate) {
+            $product = Product::query()
+                ->where('barCode', $candidate)
+                ->first();
+
+            if ($product) {
+                return $product;
+            }
+        }
+
+        $nameCandidates = $this->normalizeLookupValues([
+            $item['name'] ?? null,
+            $item['title'] ?? null,
+        ]);
+
+        foreach ($nameCandidates as $candidate) {
+            $product = Product::query()
+                ->whereRaw('LOWER(name) = ?', [strtolower($candidate)])
+                ->first();
+
+            if ($product) {
+                return $product;
+            }
+        }
+
+        foreach ($nameCandidates as $candidate) {
+            $product = Product::query()
+                ->where('name', 'like', '%' . $candidate . '%')
+                ->orderBy('id')
+                ->first();
+
+            if ($product) {
+                return $product;
+            }
+        }
+
+        return null;
+    }
+
     public function index(Request $request): JsonResponse
     {
+        $visibleWarehouseIds = null;
         $query = Stock::query()
             ->with([
-                'product:id,name,size_id,color_id,barCode',
+                'product:id,name,size_id,color_id,barCode,warehouse_id,brand_id',
+                'product.brands:id,name',
                 'product.size:id,size',
                 'product.color:id,name,color_code',
                 'warehouse:id,name',
@@ -123,11 +181,45 @@ class StockController extends Controller
                 return response()->json([]);
             }
 
+            $visibleWarehouseIds = $warehouseIds;
             $query->whereIn('warehouse_id', $warehouseIds);
         }
 
-        $stocks = $query
+        $filteredStocks = $query
             ->get()
+            ->filter(function (Stock $stock): bool {
+                $productBrandIds = $stock->product?->brands
+                    ?->pluck('id')
+                    ?->map(fn ($id) => (int) $id)
+                    ?->filter(fn (int $id) => $id > 0)
+                    ?->unique()
+                    ?->values()
+                    ?->all() ?? [];
+
+                if ($productBrandIds === [] && ! empty($stock->product?->brand_id)) {
+                    $productBrandIds = [(int) $stock->product->brand_id];
+                }
+
+                // Legacy products may not have brand links yet; do not hide their stock rows.
+                if ($productBrandIds === []) {
+                    return true;
+                }
+
+                $stockBrandId = (int) ($stock->brand_id ?? 0);
+                return $stockBrandId > 0 && in_array($stockBrandId, $productBrandIds, true);
+            });
+
+        $existingKeyMap = [];
+        foreach ($filteredStocks as $stock) {
+            $key = implode('|', [
+                (int) $stock->product_id,
+                (int) $stock->warehouse_id,
+                (int) ($stock->brand_id ?? 0),
+            ]);
+            $existingKeyMap[$key] = true;
+        }
+
+        $stocks = $filteredStocks
             ->map(fn (Stock $stock) => [
                 'id' => $stock->id,
                 'product_id' => $stock->product_id,
@@ -137,6 +229,8 @@ class StockController extends Controller
                 'warehouse_brand_names' => $stock->warehouse?->brands?->pluck('name')?->values()?->all() ?? [],
                 'brand_id' => $stock->brand_id,
                 'brand_name' => $stock->brand?->name,
+                'product_brand_ids' => $stock->product?->brands?->pluck('id')?->values()?->all() ?? [],
+                'product_brand_names' => $stock->product?->brands?->pluck('name')?->values()?->all() ?? [],
                 'cartoon_id' => $stock->cartoon_id,
                 'barcode' => $stock->barcode,
                 'product_barcode' => $stock->product?->barCode,
@@ -148,9 +242,244 @@ class StockController extends Controller
                 'size' => $stock->product?->size?->size,
                 'color_variant' => $stock->product?->color?->color_code
                     ?? $stock->product?->color?->name,
+                'is_placeholder' => false,
             ]);
 
+        $warehouseContextQuery = WareHouse::query()->with('brands:id,name');
+
+        if (is_array($visibleWarehouseIds)) {
+            $warehouseContextQuery->whereIn('id', $visibleWarehouseIds);
+        }
+
+        $warehouseContexts = $warehouseContextQuery->get(['id', 'name']);
+
+        $visibleBrandIds = $warehouseContexts
+            ->flatMap(fn (WareHouse $warehouse) => $warehouse->brands->pluck('id'))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $productQuery = Product::query()
+            ->with([
+                'size:id,size',
+                'color:id,name,color_code',
+                'brands:id,name',
+            ]);
+
+        if ($visibleBrandIds !== []) {
+            $productQuery->where(function ($query) use ($visibleBrandIds) {
+                $query->whereHas('brands', fn ($brandQuery) => $brandQuery->whereIn('brands.id', $visibleBrandIds))
+                    ->orWhereIn('brand_id', $visibleBrandIds);
+            });
+        }
+
+        $products = $productQuery->get(['id', 'name', 'size_id', 'color_id', 'barCode', 'brand_id']);
+        $placeholders = collect();
+
+        foreach ($products as $product) {
+            $brandIds = $product->brands
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+
+            if ($brandIds === [] && ! empty($product->brand_id)) {
+                $brandIds = [(int) $product->brand_id];
+            }
+
+            if ($brandIds === []) {
+                continue;
+            }
+
+            foreach ($warehouseContexts as $warehouse) {
+                $warehouseBrandIds = $warehouse->brands
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn (int $id) => $id > 0)
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if ($warehouseBrandIds === []) {
+                    continue;
+                }
+
+                $matchedBrandIds = array_values(array_intersect($brandIds, $warehouseBrandIds));
+
+                foreach ($matchedBrandIds as $brandId) {
+                    $key = implode('|', [
+                        (int) $product->id,
+                        (int) $warehouse->id,
+                        (int) $brandId,
+                    ]);
+
+                    if (isset($existingKeyMap[$key])) {
+                        continue;
+                    }
+
+                    $brandName = $product->brands->firstWhere('id', $brandId)?->name
+                        ?? $warehouse->brands->firstWhere('id', $brandId)?->name;
+
+                    $placeholders->push([
+                        'id' => 'placeholder-' . $product->id . '-' . $warehouse->id . '-' . $brandId,
+                        'product_id' => (int) $product->id,
+                        'warehouse_id' => (int) $warehouse->id,
+                        'warehouse_name' => $warehouse->name,
+                        'warehouse_brand_ids' => $warehouse->brands->pluck('id')->values()->all(),
+                        'warehouse_brand_names' => $warehouse->brands->pluck('name')->values()->all(),
+                        'brand_id' => $brandId,
+                        'brand_name' => $brandName,
+                        'product_brand_ids' => $brandIds,
+                        'product_brand_names' => $product->brands->pluck('name')->values()->all(),
+                        'cartoon_id' => null,
+                        'barcode' => null,
+                        'product_barcode' => $product->barCode,
+                        'stocks' => 0,
+                        'available_stock' => 0,
+                        'buying_price' => 0,
+                        'selling_price' => 0,
+                        'name' => $product->name,
+                        'size' => $product->size?->size,
+                        'color_variant' => $product->color?->color_code
+                            ?? $product->color?->name,
+                        'is_placeholder' => true,
+                    ]);
+                }
+            }
+        }
+
+        $stocks = $stocks
+            ->concat($placeholders)
+            ->values();
+
         return response()->json($stocks);
+    }
+
+    public function locations(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.name' => ['nullable', 'string', 'max:255'],
+            'items.*.title' => ['nullable', 'string', 'max:255'],
+            'items.*.sku' => ['nullable', 'string', 'max:255'],
+            'items.*.barcode' => ['nullable', 'string', 'max:255'],
+            'items.*.product_code' => ['nullable', 'string', 'max:255'],
+            'items.*.quantity' => ['nullable', 'integer', 'min:1'],
+            'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
+        ]);
+
+        $items = array_values(is_array($validated['items']) ? $validated['items'] : []);
+        if ($items === []) {
+            return response()->json(['items' => []]);
+        }
+
+        $user = $request->user();
+        $warehouseFilterIds = null;
+
+        if ($user && ! $user->hasRole('super-admin')) {
+            $warehouseFilterIds = $this->resolveUserWarehouseIds($user);
+
+            if ($warehouseFilterIds === []) {
+                return response()->json(['items' => []]);
+            }
+        }
+
+        $requestedWarehouseId = (int) ($validated['warehouse_id'] ?? 0);
+        if ($requestedWarehouseId > 0) {
+            $warehouseFilterIds = [$requestedWarehouseId];
+        }
+
+        $responses = [];
+
+        foreach ($items as $item) {
+            $requestedQuantity = max(1, (int) ($item['quantity'] ?? 1));
+            $inputLabel = trim((string) ($item['name'] ?? $item['title'] ?? $item['sku'] ?? 'Unknown Product'));
+            $product = $this->resolveProductForLocationLookup($item);
+
+            if (! $product) {
+                $responses[] = [
+                    'input_label' => $inputLabel !== '' ? $inputLabel : 'Unknown Product',
+                    'requested_quantity' => $requestedQuantity,
+                    'resolved_product_name' => null,
+                    'product_barcode' => null,
+                    'matches' => [],
+                    'message' => 'No matching local product was found for this order item.',
+                ];
+
+                continue;
+            }
+
+            $lookupCodes = $this->normalizeLookupValues([
+                $item['sku'] ?? null,
+                $item['barcode'] ?? null,
+                $item['product_code'] ?? null,
+                $product->barCode,
+            ]);
+
+            $cartoonQuery = Cartoon::query()
+                ->with([
+                    'warehouse:id,name',
+                    'rack:id,name',
+                    'rackRow:id,row_number,code',
+                ])
+                ->whereNotNull('product_code');
+
+            if ($lookupCodes !== []) {
+                $cartoonQuery->where(function ($query) use ($lookupCodes) {
+                    foreach ($lookupCodes as $index => $code) {
+                        if ($index === 0) {
+                            $query->whereJsonContains('product_code', $code);
+                            continue;
+                        }
+
+                        $query->orWhereJsonContains('product_code', $code);
+                    }
+                });
+            }
+
+            if (is_array($warehouseFilterIds)) {
+                $cartoonQuery->whereIn('warehouse_id', $warehouseFilterIds);
+            }
+
+            $cartoons = $cartoonQuery->orderByDesc('id')->get();
+
+            $matches = $cartoons->map(function (Cartoon $cartoon) use ($lookupCodes, $product, $requestedQuantity): array {
+                $cartoonCodes = is_array($cartoon->product_code) ? $cartoon->product_code : [];
+                $matchedCodes = $lookupCodes !== []
+                    ? array_values(array_intersect($cartoonCodes, $lookupCodes))
+                    : [];
+
+                return [
+                    'cartoon_id' => $cartoon->id,
+                    'cartoon_number' => $cartoon->cartoon_number,
+                    'warehouse_id' => $cartoon->warehouse_id,
+                    'warehouse_name' => $cartoon->warehouse?->name,
+                    'rack_id' => $cartoon->rack_id,
+                    'rack_name' => $cartoon->rack?->name,
+                    'rack_row_id' => $cartoon->rack_row_id,
+                    'rack_row_number' => $cartoon->rackRow?->row_number,
+                    'rack_row_code' => $cartoon->rackRow?->code,
+                    'quantity' => count($matchedCodes) > 0 ? count($matchedCodes) : (int) ($cartoon->quantity ?? $requestedQuantity),
+                ];
+            })->all();
+
+            $responses[] = [
+                'input_label' => $inputLabel !== '' ? $inputLabel : ($product->name ?? 'Product'),
+                'requested_quantity' => $requestedQuantity,
+                'resolved_product_name' => $product->name,
+                'product_barcode' => $product->barCode,
+                'matches' => $matches,
+                'message' => $matches === [] ? 'No cartoons were found for this product in accessible warehouses.' : null,
+            ];
+        }
+
+        return response()->json([
+            'items' => $responses,
+        ]);
     }
 
     public function store(Request $request): JsonResponse

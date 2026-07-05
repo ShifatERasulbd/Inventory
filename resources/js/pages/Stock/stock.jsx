@@ -35,6 +35,7 @@ export default function Stock() {
     const [adjustErrorMessage, setAdjustErrorMessage] = useState('');
     const [isAdjusting, setIsAdjusting] = useState(false);
     const [sellingPriceDrafts, setSellingPriceDrafts] = useState({});
+    const [buyingPriceDrafts, setBuyingPriceDrafts] = useState({});
     const [savingSellingPriceIds, setSavingSellingPriceIds] = useState([]);
 
     useEffect(() => {
@@ -56,6 +57,12 @@ export default function Stock() {
                     setSellingPriceDrafts(
                         normalized.reduce((accumulator, stock) => {
                             accumulator[stock.id] = String(stock.selling_price ?? 0);
+                            return accumulator;
+                        }, {})
+                    );
+                    setBuyingPriceDrafts(
+                        normalized.reduce((accumulator, stock) => {
+                            accumulator[stock.id] = String(stock.buying_price ?? 0);
                             return accumulator;
                         }, {})
                     );
@@ -201,12 +208,29 @@ export default function Stock() {
         }));
     };
 
+    const handleBuyingPriceChange = (stockId, value) => {
+        setBuyingPriceDrafts((previous) => ({
+            ...previous,
+            [stockId]: value,
+        }));
+    };
+
+    const isArbellaWarehouse = (stock) => String(stock?.warehouse_name ?? '').toLowerCase().includes('arbella');
+
     const handleSaveSellingPrice = async (stock) => {
         const rawValue = String(sellingPriceDrafts[stock.id] ?? stock.selling_price ?? '0').trim();
         const parsed = Number(rawValue);
+        const shouldSaveBuyingPrice = isArbellaWarehouse(stock);
+        const buyingRawValue = String(buyingPriceDrafts[stock.id] ?? stock.buying_price ?? '0').trim();
+        const buyingParsed = Number(buyingRawValue);
 
         if (!Number.isFinite(parsed) || parsed < 0) {
             setErrorMessage('Selling price must be a valid non-negative number.');
+            return;
+        }
+
+        if (shouldSaveBuyingPrice && (!Number.isFinite(buyingParsed) || buyingParsed < 0)) {
+            setErrorMessage('Buying price must be a valid non-negative number.');
             return;
         }
 
@@ -216,6 +240,7 @@ export default function Stock() {
         try {
             const updated = await updateStock(stock.id, {
                 selling_price: parsed,
+                ...(shouldSaveBuyingPrice ? { buying_price: buyingParsed } : {}),
             });
 
             setStocks((previous) =>
@@ -227,11 +252,20 @@ export default function Stock() {
                 [stock.id]: String(updated.selling_price ?? parsed),
             }));
 
-            toast.success('Selling price updated successfully.', {
+            if (shouldSaveBuyingPrice) {
+                setBuyingPriceDrafts((previous) => ({
+                    ...previous,
+                    [stock.id]: String(updated.buying_price ?? buyingParsed),
+                }));
+            }
+
+            toast.success(shouldSaveBuyingPrice ? 'Buying and selling prices updated successfully.' : 'Selling price updated successfully.', {
                 style: { color: '#16a34a' },
             });
         } catch (error) {
-            const message = error.message || 'Failed to update selling price.';
+            const message = error.message || (shouldSaveBuyingPrice
+                ? 'Failed to update buying/selling prices.'
+                : 'Failed to update selling price.');
             setErrorMessage(message);
             toast.error(message, {
                 style: { color: '#dc2626' },
@@ -257,6 +291,8 @@ export default function Stock() {
                     sellingPriceDrafts={sellingPriceDrafts}
                     savingSellingPriceIds={savingSellingPriceIds}
                     onSellingPriceChange={handleSellingPriceChange}
+                    buyingPriceDrafts={buyingPriceDrafts}
+                    onBuyingPriceChange={handleBuyingPriceChange}
                     onSaveSellingPrice={handleSaveSellingPrice}
                 />
             </div>

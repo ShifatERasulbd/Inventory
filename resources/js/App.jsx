@@ -127,11 +127,20 @@ const Season =lazyWithRetry(()=>import ('@/pages/Season/season'),'season');
 const AddSeason = lazyWithRetry(() => import('@/pages/Season/addSeason'), 'season-add');
 const EditSeason = lazyWithRetry(() => import('@/pages/Season/editSeasons'), 'season-edit');
 
+// shipment
+const Shipments = lazyWithRetry(() => import('@/pages/Shipment/Shipment'), 'shipments');
+const AddShipments = lazyWithRetry(() => import('@/pages/Shipment/addShipment'), 'shipments-add');
+const EditShipments = lazyWithRetry(() => import('@/pages/Shipment/editShipment'), 'shipments-edit');
+
 // Supplier
 const Suppliers = lazyWithRetry(() => import('@/pages/Suppliers/suppliers'), 'suppliers');
 const AddSupplier = lazyWithRetry(() => import('@/pages/Suppliers/addSuppliers'), 'suppliers-add');
 const EditSupplier = lazyWithRetry(() => import('@/pages/Suppliers/editSuppliers'), 'suppliers-edit');
 const QuickBooksDashboard = lazyWithRetry(() => import('@/pages/QuickBooks/dashboardPage'), 'quickbooks-dashboard');
+const QuickBooksConnectPage = lazyWithRetry(() => import('@/pages/QuickBooks/connectPage'), 'quickbooks-connect-page');
+const QuickBooksTroubleshoot = lazyWithRetry(() => import('@/pages/QuickBooks/troubleshootPage'), 'quickbooks-troubleshoot');
+const RemoteOrders = lazyWithRetry(() => import('@/pages/1971coOrder/orders'), '1971co-orders');
+const EditRemoteOrder = lazyWithRetry(() => import('@/pages/1971coOrder/editOrder'), '1971co-orders-edit');
 
 export default function App() {
     return (
@@ -240,6 +249,8 @@ export default function App() {
                              <Route path="/purchases" element={<Purchase/>}/>
                              <Route path="/purchases/add" element={<AddPurchase/>}/>
                              <Route path="/purchases/:id/edit" element={<EditPurchase/>}/>
+                             <Route path="/remote-orders" element={<RemoteOrders/>}/>
+                             <Route path="/remote-orders/:id/edit" element={<EditRemoteOrder/>}/>
 
                             {/* Sells */}
                             <Route path="/sells" element={<Sell/>}/>
@@ -261,8 +272,17 @@ export default function App() {
 
                             {/* QuickBooks */}
                             <Route path="/quickbooks" element={<QuickBooksDashboard />} />
-                            <Route path="/quickbooks/connect" element={<QuickBooksDashboard />} />
+                            <Route path="/quickbooks/connect" element={<QuickBooksConnectPage />} />
+                            <Route path="/quickbook/connect" element={<QuickBooksConnectPage />} />
+                            <Route path="/quickbooks/troubleshoot" element={<QuickBooksTroubleshoot />} />
                             <Route path="/quickbooks/*" element={<QuickBooksDashboard />} />
+
+
+                            {/* shipment */}
+                            <Route path="/shipments" element={<Shipments />} />
+                            <Route path="/shipments/add" element={<AddShipments />} />
+                            <Route path="/shipments/:id/edit" element={<EditShipments />} />
+                            
                         </Route>
                     </Routes>
                 </Suspense>
