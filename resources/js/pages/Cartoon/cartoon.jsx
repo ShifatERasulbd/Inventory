@@ -504,7 +504,7 @@ export default function Cartoon() {
                 deletingId={deletingId}
                 isLoading={isLoading}
                 />
-                    </div>
+            </div>
 
             <AlertDialog open={isAdjustDialogOpen} onOpenChange={setIsAdjustDialogOpen}>
                 <AlertDialogContent>
@@ -567,21 +567,25 @@ export default function Cartoon() {
                 </AlertDialogContent>
             </AlertDialog>
 
-            <AlertDialog open={Boolean(barcodeCartoon)} onOpenChange={(open) => !open && setBarcodeCartoon(null)}>
-              <AlertDialogContent className="max-w-[95vw] sm:max-w-3xl">
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Cartoon Barcode</AlertDialogTitle>
+             <AlertDialog open={Boolean(barcodeCartoon)} onOpenChange={(open) => !open && setBarcodeCartoon(null)}>
+              <AlertDialogContent className="max-w-[95vw] sm:max-w-3xl flex flex-col max-h-[85vh]">
+                
+                {/* Pinned Header */}
+                <AlertDialogHeader className="pb-2">
+                  <AlertDialogTitle>Carton Barcode</AlertDialogTitle>
                   <AlertDialogDescription>
                     {barcodeCartoon?.cartoon_number || 'Selected cartoon'}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
 
-                <div className="w-full rounded-md border p-4 overflow-hidden">
+                {/* Scrollable Barcode Body */}
+                <div className="flex-1 overflow-y-auto pr-1 space-y-4 text-center border rounded-md p-4 bg-muted/10">
                   {barcodeCartoon?.cartoon_number ? (
-                    <div className="space-y-4 text-center">
-                      <div className="rounded-md border p-3">
+                    <>
+                      {/* 1. Cartoon Number */}
+                      <div className="rounded-md border p-3 bg-background">
                         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Cartoon Number</p>
-                        <div className="mx-auto flex justify-center overflow-hidden bg-white">
+                        <div className="mx-auto flex justify-center bg-white">
                           <Barcode
                             value={cleanBarcodeValue(barcodeCartoon.cartoon_number)}
                             format="CODE128"
@@ -595,9 +599,10 @@ export default function Cartoon() {
                         <p className="mt-2 text-xs text-muted-foreground break-all">{cleanBarcodeValue(barcodeCartoon.cartoon_number)}</p>
                       </div>
 
-                      <div className="rounded-md border p-3">
+                      {/* 2. Purchase Order Number */}
+                      <div className="rounded-md border p-3 bg-background">
                         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Purchase Order Number</p>
-                        <div className="mx-auto flex justify-center overflow-hidden bg-white">
+                        <div className="mx-auto flex justify-center bg-white">
                           <Barcode
                             value={cleanBarcodeValue(barcodeCartoon.purchase?.po_number ?? barcodeCartoon.p_o_number)}
                             format="CODE128"
@@ -611,9 +616,10 @@ export default function Cartoon() {
                         <p className="mt-2 text-xs text-muted-foreground break-all">{cleanBarcodeValue(barcodeCartoon.purchase?.po_number ?? barcodeCartoon.p_o_number)}</p>
                       </div>
 
-                      <div className="rounded-md border p-3">
+                      {/* 3. Product Barcode */}
+                      <div className="rounded-md border p-3 bg-background">
                         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Product Barcode</p>
-                        <div className="mx-auto flex justify-center overflow-hidden bg-white">
+                        <div className="mx-auto flex justify-center bg-white">
                           <Barcode
                             value={cleanBarcodeValue(Array.isArray(barcodeCartoon.product_code) ? barcodeCartoon.product_code[0] : barcodeCartoon.product_code)}
                             format="CODE128"
@@ -629,9 +635,10 @@ export default function Cartoon() {
                         </p>
                       </div>
 
-                      <div className="rounded-md border p-3">
+                      {/* 4. Quantity */}
+                      <div className="rounded-md border p-3 bg-background">
                         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Quantity</p>
-                        <div className="mx-auto flex justify-center overflow-hidden bg-white">
+                        <div className="mx-auto flex justify-center bg-white">
                           <Barcode
                             value={cleanBarcodeValue(String(barcodeCartoon.quantity ?? 0))}
                             format="CODE128"
@@ -644,13 +651,14 @@ export default function Cartoon() {
                         </div>
                         <p className="mt-2 text-xs text-muted-foreground break-all">{cleanBarcodeValue(String(barcodeCartoon.quantity ?? 0))}</p>
                       </div>
-                    </div>
+                    </>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No barcode is available for this cartoon.</p>
+                    <p className="text-sm text-muted-foreground py-8">No barcode is available for this cartoon.</p>
                   )}
                 </div>
 
-                <AlertDialogFooter>
+                {/* Pinned Footer */}
+                <AlertDialogFooter className="pt-2">
                   <Button
                     type="button"
                     variant="default"
@@ -662,6 +670,7 @@ export default function Cartoon() {
                   </Button>
                   <AlertDialogCancel>Close</AlertDialogCancel>
                 </AlertDialogFooter>
+
               </AlertDialogContent>
             </AlertDialog>
 
