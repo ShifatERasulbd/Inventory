@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Brand;
 use App\Models\Cartoon;
 use App\Models\Product;
-use App\Models\Purchase;
+use App\Models\Purchase;    
 use App\Models\Sell;
 use App\Models\Stock;
 use App\Models\WareHouse;

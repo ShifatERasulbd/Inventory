@@ -207,7 +207,7 @@ export default function AddPurchaseForm({
                             {errors.status && <p className="text-xs text-destructive">{errors.status[0]}</p>}
                         </div>
                         <div className="space-y-2 flex flex-col">
-                            <Label htmlFor="expected_delivery_date">Expected Delivery Date</Label>
+                            <Label htmlFor="expected_delivery_date">Required Delivery Date</Label>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button

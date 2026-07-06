@@ -79,6 +79,28 @@ function cleanBarcodeValue(value) {
   return normalized === '' ? 'NA' : normalized;
 }
 
+function getProductBarcodeGroups(value) {
+  const codes = Array.isArray(value) ? value : (value != null ? [value] : []);
+  const counts = codes.reduce((result, code) => {
+    const normalized = String(code ?? '').trim();
+    if (!normalized) {
+      return result;
+    }
+
+    result[normalized] = (result[normalized] ?? 0) + 1;
+    return result;
+  }, {});
+
+  return Object.entries(counts)
+    .map(([code, quantity]) => ({ code, quantity }))
+    .sort((a, b) => {
+      if (b.quantity !== a.quantity) {
+        return b.quantity - a.quantity;
+      }
+      return a.code.localeCompare(b.code);
+    });
+}
+
 function extractApiErrorMessage(error, fallbackMessage) {
   const detail = error?.payload?.errors;
 
@@ -286,7 +308,10 @@ export default function Cartoon() {
 
     const cartoonNumber = cleanBarcodeValue(barcodeCartoon.cartoon_number);
     const poNumber = cleanBarcodeValue(barcodeCartoon.purchase?.po_number ?? barcodeCartoon.p_o_number);
-    const productBarcode = cleanBarcodeValue(Array.isArray(barcodeCartoon.product_code) ? barcodeCartoon.product_code[0] : barcodeCartoon.product_code);
+    const productBarcodeGroups = getProductBarcodeGroups(barcodeCartoon.product_code);
+    const productBarcodeSummary = productBarcodeGroups.length === 0
+      ? 'NA'
+      : productBarcodeGroups.map((entry) => `${escapeHtml(entry.code)} (${entry.quantity})`).join('<br/>');
     const quantity = cleanBarcodeValue(String(barcodeCartoon.quantity ?? 0));
 
     const barcodeMarkup = barcodePrintSourceRef.current.innerHTML;
@@ -383,7 +408,7 @@ export default function Cartoon() {
               <div class="barcode-wrap">${barcodeMarkup}</div>
               <div class="barcode-value">Cartoon: ${escapeHtml(cartoonNumber)}</div>
               <div class="barcode-value">PO: ${escapeHtml(poNumber)}</div>
-              <div class="barcode-value">Product Barcode: ${escapeHtml(productBarcode)}</div>
+              <div class="barcode-value">Product Barcode(s):<br/>${productBarcodeSummary}</div>
               <div class="barcode-value">Quantity: ${escapeHtml(quantity)}</div>
             </div>
           </div>
@@ -617,22 +642,27 @@ export default function Cartoon() {
                       </div>
 
                       {/* 3. Product Barcode */}
-                      <div className="rounded-md border p-3 bg-background">
+                              <div className="rounded-md border p-3 bg-background">
                         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Product Barcode</p>
-                        <div className="mx-auto flex justify-center bg-white">
-                          <Barcode
-                            value={cleanBarcodeValue(Array.isArray(barcodeCartoon.product_code) ? barcodeCartoon.product_code[0] : barcodeCartoon.product_code)}
-                            format="CODE128"
-                            width={getBarcodeWidth(cleanBarcodeValue(Array.isArray(barcodeCartoon.product_code) ? barcodeCartoon.product_code[0] : barcodeCartoon.product_code))}
-                            height={72}
-                            fontSize={14}
-                            margin={0}
-                            displayValue
-                          />
-                        </div>
-                        <p className="mt-2 text-xs text-muted-foreground break-all">
-                          {cleanBarcodeValue(Array.isArray(barcodeCartoon.product_code) ? barcodeCartoon.product_code[0] : barcodeCartoon.product_code)}
-                        </p>
+                        {getProductBarcodeGroups(barcodeCartoon.product_code).map((group) => (
+                          <div key={group.code} className="mb-4 last:mb-0">
+                            <div className="mx-auto flex justify-center bg-white p-3">
+                              <Barcode
+                                value={cleanBarcodeValue(group.code)}
+                                format="CODE128"
+                                width={getBarcodeWidth(cleanBarcodeValue(group.code))}
+                                height={72}
+                                fontSize={14}
+                                margin={0}
+                                displayValue
+                              />
+                            </div>
+                            <p className="mt-2 text-xs text-muted-foreground break-all">
+                              {cleanBarcodeValue(group.code)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Quantity: {group.quantity}</p>
+                          </div>
+                        ))}
                       </div>
 
                       {/* 4. Quantity */}
@@ -793,17 +823,24 @@ export default function Cartoon() {
                     </div>
 
                     <div style={{ margin: '20px 0 10px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: '#52525b' }}>Product Barcode</div>
-                    <div style={{ display: 'flex', justifyContent: 'center' }}>
-                      <Barcode
-                        value={cleanBarcodeValue(Array.isArray(barcodeCartoon.product_code) ? barcodeCartoon.product_code[0] : barcodeCartoon.product_code)}
-                        format="CODE128"
-                        width={getPrintBarcodeWidth(cleanBarcodeValue(Array.isArray(barcodeCartoon.product_code) ? barcodeCartoon.product_code[0] : barcodeCartoon.product_code))}
-                        height={96}
-                        fontSize={16}
-                        margin={0}
-                        displayValue
-                      />
-                    </div>
+                    {getProductBarcodeGroups(barcodeCartoon.product_code).map((group) => (
+                      <div key={group.code} style={{ marginBottom: '22px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                          <Barcode
+                            value={cleanBarcodeValue(group.code)}
+                            format="CODE128"
+                            width={getPrintBarcodeWidth(cleanBarcodeValue(group.code))}
+                            height={96}
+                            fontSize={16}
+                            margin={0}
+                            displayValue
+                          />
+                        </div>
+                        <div style={{ marginTop: '8px', fontSize: '12px', color: '#71717a' }}>
+                          {cleanBarcodeValue(group.code)} — Qty: {group.quantity}
+                        </div>
+                      </div>
+                    ))}
 
                     <div style={{ margin: '20px 0 10px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: '#52525b' }}>Quantity</div>
                     <div style={{ display: 'flex', justifyContent: 'center' }}>

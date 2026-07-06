@@ -34,12 +34,18 @@ use App\Http\Controllers\RemoteOrderController;
 use App\Http\Controllers\ShipStationController;
 use App\Http\Controllers\UPSCourierController;
 use App\Http\Controllers\ShippingController;
+use App\Http\Controllers\PackingListController;
 
 Route::get('/', function () {
     return view('app');
 })->name('login');
 Route::post('/shipping/orders', [ShipStationController::class, 'storeOrder']);
 Route::post('/ups/shipments', [UPSCourierController::class, 'storeShipment']);
+
+// Packing list generation (no upload)
+Route::get('/purchases/{purchase}/packing-list', [App\Http\Controllers\PurchaseController::class, 'downloadPackingList'])
+    ->whereNumber('purchase');
+
 Route::prefix('api')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
 
@@ -87,6 +93,8 @@ Route::prefix('api')->group(function () {
         Route::post('/states/{id}/restore', [StateController::class, 'restore'])->middleware('resource.permission:states');
         Route::apiResource('/states', StateController::class)->middleware('resource.permission:states');
 
+     
+        
         // Warehouse Controller
         Route::apiResource('/warehouses', WarehouseController::class)->middleware('resource.permission:warehouses');
 
@@ -146,6 +154,7 @@ Route::prefix('api')->group(function () {
         Route::apiResource('/purchases', PurchaseController::class)->middleware('resource.permission:purchases');
         Route::get('/purchase-requests', [PurchaseController::class, 'getPurchaseRequests'])->middleware('resource.permission:purchases');
         Route::patch('/purchases/{purchase}/status', [PurchaseController::class, 'updateRequestStatus'])->middleware('resource.permission:purchases');
+        Route::get('/purchases/{purchase}/packing-list', [PurchaseController::class, 'downloadPackingList'])->middleware('resource.permission:purchases');
         Route::get('/accounts', [AccountController::class, 'index'])->middleware('resource.permission:purchases');
         Route::get('/recurring-payments', [RecurringPaymentController::class, 'index'])->middleware('resource.permission:purchases');
         Route::post('/recurring-payments', [RecurringPaymentController::class, 'store'])->middleware('resource.permission:purchases');

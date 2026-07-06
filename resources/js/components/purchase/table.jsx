@@ -1,6 +1,11 @@
-import { Pencil, Search, FileText, Trash2, DollarSign } from 'lucide-react';
+
+
+import { Pencil, Search, FileText, Trash2, DollarSign, Package } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { useState } from 'react';
+// Packing list generation button uses onPackingList handler from parent.
+// Toasts are intentionally not used here to avoid coupling to the sonner wrapper.
+
 import {
   Tooltip,
   TooltipContent,
@@ -29,21 +34,30 @@ import {
 export function PurchaseTable({
     purchases = [],
     isLoading,
+    // Parent should pass onPackingList(purchase)
+
     onEdit,
     onRequestDelete,
     deletingId,
     onAddNew,
-                               statusDrafts = {},
+    statusDrafts = {},
     updatingStatusId = null,
     onStatusDraftChange,
     onUpdateStatus,
     onPayRemaining,
+    onPackingList,
     userWarehouseIds = [],
     isSuperAdmin = false,
 }) {
     const [search, setSearch] = useState('');
     const [activeStatus, setActiveStatus] = useState('all');
     const [activeBrand, setActiveBrand] = useState('all');
+
+        const handlePackingList = async (purchase) => {
+            await onPackingList?.(purchase);
+        };
+
+
 
     const normalizeStatus = (value) => {
         const normalized = String(value || '').trim().toLowerCase();
@@ -200,7 +214,7 @@ export function PurchaseTable({
                             <TableHead className="w-[110px]">PO Date</TableHead>
                             <TableHead className="w-[90px]">Brand</TableHead>
                             <TableHead className="w-[240px]">Products</TableHead>
-                            <TableHead className="w-[140px]">Expected Delivery Date</TableHead>
+                            <TableHead className="w-[140px]">Required Delivery Date</TableHead>
                             <TableHead className="w-[130px]">Purchase From</TableHead>
                             <TableHead className="w-[130px]">Purchase To</TableHead>
                             <TableHead className="w-[120px]">Status</TableHead>
@@ -361,7 +375,27 @@ export function PurchaseTable({
                                                 </Tooltip>
                                             </TooltipProvider>
 
-                                             <TooltipProvider>
+                                            {normalizedStatus === 'approved' && (
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                aria-label={`Packing list for purchase ${purchase.po_number}`}
+onClick={() => handlePackingList(purchase)}
+                                                            >
+                                                                <Package />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="bottom">
+                                                            <p>Packing List</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            )}
+
+                                            <TooltipProvider>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                    <Button
@@ -378,6 +412,7 @@ export function PurchaseTable({
                                                     </TooltipContent>
                                                 </Tooltip>
                                             </TooltipProvider>
+
 
                                             <TooltipProvider>
                                                 <Tooltip>

@@ -19,7 +19,7 @@ function cleanColorPart(str) {
     return normalized || 'X';
 }
 
-function extractRefSuffix(refNumber) {
+function extractRefCode(refNumber) {
     const cleanedRef = cleanPart(refNumber);
 
     if (!cleanedRef || cleanedRef === 'X') {
@@ -27,6 +27,16 @@ function extractRefSuffix(refNumber) {
     }
 
     return cleanedRef.slice(-3);
+}
+
+function extractStylenumber(styleNumber) {
+    const cleanedStyle = cleanPart(styleNumber);
+
+    if (!cleanedStyle || cleanedStyle === 'X') {
+        return 'STYLE';
+    }
+
+    return cleanedStyle;
 }
 
 function findOptionLabel(options, value, labelKey, fallbackPrefix) {
@@ -37,15 +47,15 @@ function findOptionLabel(options, value, labelKey, fallbackPrefix) {
 /**
  * Generates the barcode string for a single product variant.
  *
- * Format: {STYLE}-{REF_LAST3}-{SIZE}-{COLOR_NAME}
- * Example: STYLE001-780-L-Black-Beauty
+ * Format: {STYLE}-{REF}-{COLOR}-{SIZE}
+ * Example: STYLE001-780-BLACK-L
  */
 export function generateBarcodeValue({ styleNumber, colorCode, refNumber, sizeName }) {
-    const style = cleanPart(styleNumber);
-    const ref = extractRefSuffix(refNumber);
-    const size = cleanPart(sizeName);
+    const style = extractStylenumber(styleNumber);
+    const ref = extractRefCode(refNumber);
     const color = cleanColorPart(colorCode);
-    return `${style}-${ref}-${size}-${color}`;
+    const size = cleanPart(sizeName);
+    return `${style}-${ref}-${color}-${size}`;
 }
 
 /**
@@ -60,7 +70,7 @@ export function generateBarcodesMap({ styleNumber, colorIds, fabricId, refNumber
     for (const colorId of validColors) {
         for (const sizeId of validSizes) {
             const key = `${colorId}_${sizeId}`;
-            const colorName = findOptionLabel(colors, colorId, 'name', 'COLOR');
+            const colorName = findOptionLabel(colors, colorId, 'color_code', 'COLOR');
             const sizeName = findOptionLabel(sizes, sizeId, 'size', 'SIZE');
 
             map[key] = generateBarcodeValue({
@@ -96,7 +106,7 @@ export default function BarcodePreview({ styleNumber, colorIds, fabricId, refNum
     const combos = [];
     for (const colorId of validColors) {
         for (const sizeId of validSizes) {
-            const colorName = findOptionLabel(colors, colorId, 'name', 'COLOR');
+            const colorName = findOptionLabel(colors, colorId, 'color_code', 'COLOR');
             const sizeName = findOptionLabel(sizes, sizeId, 'size', 'SIZE');
             const value = generateBarcodeValue({ styleNumber, colorCode: colorName, refNumber, sizeName });
             combos.push({ colorId, sizeId, colorName, sizeName, value });

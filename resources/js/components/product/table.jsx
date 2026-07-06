@@ -38,37 +38,42 @@ export function ProductTable({
     const multiSelectCheckboxClass = 'border-gray-400 bg-gray-200 data-[state=checked]:border-black data-[state=checked]:bg-black data-[state=checked]:text-white data-[state=indeterminate]:border-black data-[state=indeterminate]:bg-black data-[state=indeterminate]:text-white';
 
     const [search, setSearch] = useState('');
-    const [activeProduct, setActiveProduct] = useState('all');
+    const [activeBrand, setActiveBrand] = useState('all');
     const [expandedStyleKeys, setExpandedStyleKeys] = useState([]);
 
-    const productTabs = useMemo(() => {
+
+    const brandTabs = useMemo(() => {
         const counts = (products || []).reduce((accumulator, product) => {
-            const name = String(product?.name || '').trim();
-            if (!name) {
+            const brandName = String(product?.brand?.name || '').trim();
+            if (!brandName) {
                 return accumulator;
             }
 
-            if (!accumulator[name]) {
-                accumulator[name] = { value: name, label: name, count: 0 };
+            if (!accumulator[brandName]) {
+                accumulator[brandName] = { value: brandName, label: brandName, count: 0 };
             }
 
-            accumulator[name].count += 1;
+            accumulator[brandName].count += 1;
             return accumulator;
         }, {});
 
+        const allCount = (products || []).length;
         return [
-            { value: 'all', label: 'All Products', count: (products || []).length },
+            { value: 'all', label: 'All Brands', count: allCount },
             ...Object.values(counts).sort((a, b) => a.label.localeCompare(b.label)),
         ];
     }, [products]);
 
     useEffect(() => {
-        const hasActiveProduct = activeProduct === 'all' || productTabs.some((tab) => tab.value === activeProduct);
+        const hasActiveBrand =
+            activeBrand === 'all' || brandTabs.some((tab) => tab.value === activeBrand);
 
-        if (!hasActiveProduct) {
-            setActiveProduct('all');
+        if (!hasActiveBrand) {
+            setActiveBrand('all');
         }
-    }, [activeProduct, productTabs]);
+    }, [activeBrand, brandTabs]);
+
+
 
     const getStyleGroupKey = (product) => {
         const normalizedStyle = (product?.style_number || '').trim().toLowerCase();
@@ -79,24 +84,28 @@ export function ProductTable({
         const q = search.toLowerCase();
 
         return products.filter((product) => {
-            const matchesProductTab = activeProduct === 'all' || String(product?.name || '') === activeProduct;
+            const matchesBrandTab =
+                activeBrand === 'all' || String(product?.brand?.name || '') === activeBrand;
 
-            if (!matchesProductTab) {
+            if (!matchesBrandTab) {
                 return false;
             }
 
+
             return (
-            product.name?.toLowerCase().includes(q) ||
-            product.style_number?.toLowerCase().includes(q) ||
-            product.barCode?.toLowerCase().includes(q) ||
-            product.color?.name?.toLowerCase().includes(q) ||
-            product.fabric?.name?.toLowerCase().includes(q) ||
-            product.size?.size?.toLowerCase().includes(q) ||
-            product.gender?.name?.toLowerCase().includes(q) ||
-            product.warehouse?.name?.toLowerCase().includes(q)
+                product.name?.toLowerCase().includes(q) ||
+                product.style_number?.toLowerCase().includes(q) ||
+                product.barCode?.toLowerCase().includes(q) ||
+                product.color?.name?.toLowerCase().includes(q) ||
+                product.fabric?.name?.toLowerCase().includes(q) ||
+                product.size?.size?.toLowerCase().includes(q) ||
+                product.gender?.name?.toLowerCase().includes(q) ||
+                product.warehouse?.name?.toLowerCase().includes(q)
             );
         });
-    }, [products, search, activeProduct]);
+    }, [products, search, activeBrand]);
+
+
 
     const variantGroups = useMemo(() => {
         const groups = {};
@@ -159,10 +168,13 @@ export function ProductTable({
             </div>
 
             <div className="overflow-x-auto space-y-2">
-                <span className="text-xs font-semibold text-muted-foreground block uppercase tracking-wider">Products</span>
+                <span className="text-xs font-semibold text-muted-foreground block uppercase tracking-wider">Brands</span>
+
+
                 <div className="inline-flex min-w-full gap-2 pb-1">
-                    {productTabs.map((tab) => {
-                        const isActive = activeProduct === tab.value;
+                    {brandTabs.map((tab) => {
+                        const isActive = activeBrand === tab.value;
+
 
                         return (
                             <Button
@@ -171,13 +183,15 @@ export function ProductTable({
                                 variant={isActive ? 'default' : 'outline'}
                                 size="sm"
                                 className="whitespace-nowrap"
-                                onClick={() => setActiveProduct(tab.value)}
+                                onClick={() => setActiveBrand(tab.value)}
+
                             >
                                 {tab.label} ({tab.count})
                             </Button>
                         );
                     })}
                 </div>
+
             </div>
 
             <div className="flex items-center justify-between">
@@ -226,6 +240,7 @@ export function ProductTable({
                             <TableHead className="w-[160px]">Action</TableHead>
                         </TableRow>
                     </TableHeader>
+
                     <TableBody>
                         {isLoading && (
                             <TableRow>

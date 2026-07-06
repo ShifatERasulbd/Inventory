@@ -30,7 +30,10 @@ class Purchase extends Model
         'shipping_date',
         'received_date',
         'note',
+        'packing_list_path',
+        'packing_list_generated_at',
         'quickbooks_sync_status',
+
         'quickbooks_synced_at',
         'quickbooks_txn_id',
         'quickbooks_last_error',
@@ -45,6 +48,7 @@ class Purchase extends Model
         'expected_delivery_date' => 'date',
         'shipping_date' => 'date',
         'received_date' => 'date',
+        'packing_list_generated_at' => 'datetime',
         'purchase_form' => 'integer',
         'purchase_to' => 'integer',
         'brand_id' => 'integer',
@@ -74,6 +78,8 @@ class Purchase extends Model
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }
+
+   
 }
 
 
