@@ -1,10 +1,15 @@
-
-
 import { Pencil, Search, FileText, Trash2, DollarSign, Package } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { useState } from 'react';
-// Packing list generation button uses onPackingList handler from parent.
-// Toasts are intentionally not used here to avoid coupling to the sonner wrapper.
+import {
+    AlertDialog,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 import {
   Tooltip,
@@ -34,8 +39,7 @@ import {
 export function PurchaseTable({
     purchases = [],
     isLoading,
-    // Parent should pass onPackingList(purchase)
-
+    onViewPdf,
     onEdit,
     onRequestDelete,
     deletingId,
@@ -46,19 +50,28 @@ export function PurchaseTable({
     onUpdateStatus,
     onPayRemaining,
     onPackingList,
+    onUploadPackingList,
     userWarehouseIds = [],
     isSuperAdmin = false,
 }) {
     const [search, setSearch] = useState('');
     const [activeStatus, setActiveStatus] = useState('all');
     const [activeBrand, setActiveBrand] = useState('all');
+    const [fileDrafts, setFileDrafts] = useState({});
+    const [viewingPdf, setViewingPdf] = useState(null);
+    
 
         const handlePackingList = async (purchase) => {
             await onPackingList?.(purchase);
         };
 
 
-
+    const handleFileChange = (purchaseId, file) => {
+        setFileDrafts(prev => ({
+            ...prev,
+            [purchaseId]: file
+        }));
+    };
     const normalizeStatus = (value) => {
         const normalized = String(value || '').trim().toLowerCase();
         if (normalized === 'canceled') {
@@ -302,35 +315,66 @@ export function PurchaseTable({
                                     <TableCell className="max-w-[130px] truncate">{purchase.purchase_form_name || `Warehouse #${purchase.purchase_form}`}</TableCell>
                                     <TableCell className="max-w-[130px] truncate">{purchase.purchase_to_name || `Warehouse #${purchase.purchase_to}`}</TableCell>
                                     <TableCell className="w-[120px] capitalize">
-                                        {showStatusAction ? (
+                                   {showStatusAction ? (
+                                        <div className="flex flex-col gap-4">
+                                            {/* Status Selection */}
                                             <div className="flex flex-col gap-2">
-                                                <Select
-                                                    value={currentStatusValue}
-                                                    onValueChange={(value) => onStatusDraftChange?.(purchase.id, value)}
-                                                >
-                                                    <SelectTrigger className="h-9 w-[140px]">
-                                                        <SelectValue placeholder="Select status" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {statusOptions.map((statusOption) => (
-                                                            <SelectItem key={`${purchase.id}-${statusOption}`} value={statusOption}>
-                                                                {statusOption.charAt(0).toUpperCase() + statusOption.slice(1)}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    className="w-fit"
-                                                    onClick={() => onUpdateStatus?.(purchase.id, purchase.status)}
-                                                    disabled={updatingStatusId === purchase.id}
-                                                >
-                                                    {updatingStatusId === purchase.id ? 'Updating...' : 'Update'}
-                                                </Button>
+                                            <label className="text-sm font-medium">Status</label>
+                                            <Select
+                                                value={currentStatusValue}
+                                                onValueChange={(value) => onStatusDraftChange?.(purchase.id, value)}
+                                            >
+                                                <SelectTrigger className="h-9 w-full">
+                                                <SelectValue placeholder="Select status" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                {statusOptions.map((statusOption) => (
+                                                    <SelectItem key={`${purchase.id}-${statusOption}`} value={statusOption}>
+                                                    {statusOption.charAt(0).toUpperCase() + statusOption.slice(1)}
+                                                    </SelectItem>
+                                                ))}
+                                                </SelectContent>
+                                            </Select>
                                             </div>
+
+                                            {/* File Upload Field */}
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-sm font-medium">Packing List (PDF)</label>
+                                                    <input
+                                                        type="file"
+                                                        required
+                                                        accept="application/pdf"
+                                                        onChange={async (e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (!file) return;
+
+                                                            // 1. Update the state using your custom helper
+                                                            handleFileChange(purchase.id, file);
+
+                                                            // 2. Perform the upload action
+                                                            await onUploadPackingList?.({ purchaseId: purchase.id, file });
+
+                                                            // 3. Reset the input value to allow re-uploading the same file
+                                                            e.target.value = '';
+                                                        }}
+                                                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                                    />
+                                            </div>
+
+
+                                            {/* Update Action */}
+                                            <Button
+                                            type="button"
+                                            size="sm"
+                                            className="w-full"
+                                            onClick={() => onUpdateStatus?.(purchase.id, purchase.status)}
+                                            disabled={updatingStatusId === purchase.id}
+                                            >
+                                            {updatingStatusId === purchase.id ? 'Updating...' : 'Update Record'}
+                                            </Button>
+                                        </div>
                                         ) : (
-                                            purchase.status
+                                        purchase.status
                                         )}
                                     </TableCell>
                                     <TableCell className="w-[110px]">{formatDate(purchase.shipping_date)}</TableCell>
@@ -375,6 +419,24 @@ export function PurchaseTable({
                                                 </Tooltip>
                                             </TooltipProvider>
 
+                                        {purchase.packing_list_path && (
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                // Use the prop 'onViewPdf' passed from the parent
+                                                                onClick={() => onViewPdf(`/${purchase.packing_list_path}`)}
+                                                            >
+                                                                <FileText className="h-4 w-4 text-blue-600" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>View Packing List</TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            )}
+
                                             {normalizedStatus === 'approved' && (
                                                 <TooltipProvider>
                                                     <Tooltip>
@@ -383,7 +445,7 @@ export function PurchaseTable({
                                                                 variant="ghost"
                                                                 size="icon"
                                                                 aria-label={`Packing list for purchase ${purchase.po_number}`}
-onClick={() => handlePackingList(purchase)}
+                                                                onClick={() => handlePackingList(purchase)}
                                                             >
                                                                 <Package />
                                                             </Button>
@@ -445,6 +507,9 @@ onClick={() => handlePackingList(purchase)}
                     </TableBody>
                 </Table>
             </Card>
+
+
+       
         </>
     );
 }

@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Models;
+
 use App\Models\Brand;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -33,7 +34,6 @@ class Purchase extends Model
         'packing_list_path',
         'packing_list_generated_at',
         'quickbooks_sync_status',
-
         'quickbooks_synced_at',
         'quickbooks_txn_id',
         'quickbooks_last_error',
@@ -70,19 +70,13 @@ class Purchase extends Model
         return $this->belongsTo(Brand::class);
     }
 
-     public function getActivitylogOptions(): LogOptions
+    public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
             ->useLogName('purchase')
-          ->logFillable()
+            ->logFillable()
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }
-
-   
 }
-
-
-
-
 

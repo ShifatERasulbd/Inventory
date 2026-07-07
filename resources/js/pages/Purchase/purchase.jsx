@@ -22,6 +22,7 @@ import {
     createRecurringPayment,
     fetchPurchases,
     updatePurchaseStatus,
+    uploadPurchasePackingList,
 } from './api';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,6 +58,8 @@ export default function Purchase() {
     const [paymentPurchase, setPaymentPurchase] = useState(null);
     const [paymentAmount, setPaymentAmount] = useState('');
     const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+    const [viewingPdf, setViewingPdf] = useState(null);
+
 
     useEffect(() => {
         setPageTitle('Purchases');
@@ -187,10 +190,25 @@ export default function Purchase() {
             String(currentStatus).toLowerCase() === 'shipped' &&
             String(nextStatus).toLowerCase() === 'received';
 
+        // Supporting Document (PDF) is mandatory before moving approved -> shipped
+        const isApprovedToShipped =
+            String(currentStatus).toLowerCase() === 'approved' &&
+            String(nextStatus).toLowerCase() === 'shipped';
+
+        if (isApprovedToShipped) {
+            const purchase = purchases?.find?.((p) => p.id === id);
+            if (!purchase?.packing_list_path) {
+                toast.error('Upload Packing list before Shipment.', {
+                    style: { color: '#dc2626' },
+                });
+                return;
+            }
+        }
         if (String(nextStatus).toLowerCase() === String(currentStatus).toLowerCase()) {
             toast.info('Please select a different status before updating.');
             return;
         }
+
 
         try {
             setUpdatingStatusId(id);
@@ -320,6 +338,8 @@ export default function Purchase() {
 
             <PurchaseTable
                 purchases={purchases}
+                onViewPdf={setViewingPdf}
+
                 isLoading={isLoading}
                 onAddNew={() => navigate('/purchases/add')}
                 onInvoice={setInvoicePurchase}
@@ -328,9 +348,24 @@ export default function Purchase() {
                 deletingId={deletingId}
                 statusDrafts={statusDrafts}
                 updatingStatusId={updatingStatusId}
+                
                 onStatusDraftChange={handleStatusDraftChange}
                 onUpdateStatus={handleUpdateStatus}
                 onPayRemaining={handleOpenPayRemaining}
+                onUploadPackingList={async ({ purchaseId, file }) => {
+                    try {
+                        await uploadPurchasePackingList(purchaseId, file);
+                        const updatedPurchases = await fetchPurchases();
+                        setPurchases(Array.isArray(updatedPurchases) ? updatedPurchases : []);
+                        toast.success('Packing list uploaded successfully.', {
+                            style: { color: '#16a34a' },
+                        });
+                    } catch (error) {
+                        toast.error(error.message || 'Failed to upload packing list.', {
+                            style: { color: '#dc2626' },
+                        });
+                    }
+                }}
                 userWarehouseIds={userWarehouseIds}
                 isSuperAdmin={isSuperAdmin}
             />
@@ -421,6 +456,25 @@ export default function Purchase() {
                 </AlertDialogContent>
             </AlertDialog>
 
+           {viewingPdf && (
+    <div className="fixed inset-0 z-50 flex flex-col bg-background p-4">
+        <div className="mb-3 flex justify-between items-center">
+            <h2 className="text-lg font-semibold">Packing List Viewer</h2>
+            <Button type="button" variant="outline" onClick={() => setViewingPdf(null)}>
+                Close
+            </Button>
         </div>
-    );
+
+        {/* This takes up all remaining space */}
+        <div className="flex-1 w-full overflow-hidden border rounded-md">
+            <iframe
+                src={viewingPdf}
+                className="w-full h-full"
+                title="Packing List PDF Viewer"
+            />
+        </div>
+    </div>
+)}
+        </div>
+        );
 }

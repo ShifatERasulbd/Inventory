@@ -24,7 +24,7 @@ async function requestJson(url, options = {}) {
     const payload = contentType.includes('application/json') ? await response.json() : null;
 
     if (!response.ok) {
-        const message = payload?.message || 'Request failed';
+        const message = payload?.message || payload?.error || 'Request failed';
         const error = new Error(message);
         error.status = response.status;
         error.payload = payload;
@@ -106,6 +106,49 @@ export async function fetchCartoons() {
     return Array.isArray(payload) ? payload : [];
 }
 
+
+
+export async function uploadPurchasePackingList(purchaseId, file) {
+    if (!file) {
+        throw new Error('No file selected.');
+    }
+
+    await ensureCsrfCookie();
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`/api/purchases/${purchaseId}/packing-list/upload`, {
+         method: 'POST',
+        credentials: 'include',
+        headers: {
+            // DO NOT set 'Content-Type' here. 
+            // The browser will set it to 'multipart/form-data' + boundary automatically.
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: formData,
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    const payload = contentType.includes('application/json') ? await response.json() : null;
+
+    if (!response.ok) {
+        const message =
+            payload?.message ||
+            payload?.error ||
+            (typeof payload === 'string' ? payload : null) ||
+            `Upload failed with status ${response.status}`;
+
+        const error = new Error(message);
+        error.status = response.status;
+        error.payload = payload;
+        throw error;
+    }
+
+    return payload;
+}
+
 export async function fetchRacks() {
     const payload = await requestJson('/api/racks');
     return Array.isArray(payload) ? payload : [];
@@ -123,3 +166,4 @@ export async function assignCartoonRack(cartoonId, data) {
         body: JSON.stringify(data),
     });
 }
+

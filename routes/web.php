@@ -155,6 +155,7 @@ Route::prefix('api')->group(function () {
         Route::get('/purchase-requests', [PurchaseController::class, 'getPurchaseRequests'])->middleware('resource.permission:purchases');
         Route::patch('/purchases/{purchase}/status', [PurchaseController::class, 'updateRequestStatus'])->middleware('resource.permission:purchases');
         Route::get('/purchases/{purchase}/packing-list', [PurchaseController::class, 'downloadPackingList'])->middleware('resource.permission:purchases');
+        Route::post('/purchases/{purchase}/packing-list/upload', [PurchaseController::class, 'uploadPackingList'])->middleware('resource.permission:purchases');
         Route::get('/accounts', [AccountController::class, 'index'])->middleware('resource.permission:purchases');
         Route::get('/recurring-payments', [RecurringPaymentController::class, 'index'])->middleware('resource.permission:purchases');
         Route::post('/recurring-payments', [RecurringPaymentController::class, 'store'])->middleware('resource.permission:purchases');

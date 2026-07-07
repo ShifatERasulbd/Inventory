@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\DB;
 
 class PurchaseController extends Controller
 {
+    // ... (All previous private helper methods remain unchanged)
+
     private function formatDateForResponse(mixed $value): ?string
     {
         if ($value === null || $value === '') {
@@ -429,7 +431,10 @@ class PurchaseController extends Controller
             'shipping_date'      => $this->formatDateForResponse($purchase->shipping_date),
             'received_date'      => $this->formatDateForResponse($purchase->received_date),
             'note'               => $purchase->note,
+            'packing_list_path' => $purchase->packing_list_path,
+            'packing_list_generated_at' => $purchase->packing_list_generated_at?->toDateTimeString(),
             'quickbooks_sync_status' => $purchase->quickbooks_sync_status,
+
             'quickbooks_synced_at' => $purchase->quickbooks_synced_at?->toDateTimeString(),
             'quickbooks_txn_id' => $purchase->quickbooks_txn_id,
             'quickbooks_last_error' => $purchase->quickbooks_last_error,
@@ -569,8 +574,10 @@ class PurchaseController extends Controller
 
     public function updateRequestStatus(Request $request, Purchase $purchase): JsonResponse
     {
+
         $user = $request->user();
         $previousStatus = (string) $purchase->status;
+
 
         if (! $user->hasRole('super-admin')) {
             $warehouseIds = $this->resolveUserWarehouseIds($user);
@@ -595,7 +602,22 @@ class PurchaseController extends Controller
         $validated = $this->normalizeStatusDates($validated, $purchase);
         $validated = $this->applyTransitionStatusDates($validated, $previousStatus);
 
+        // Supporting Document (PDF) is mandatory before moving from approved -> shipped
+        $nextStatus = strtolower((string) ($validated['status'] ?? ''));
+        $isApprovedToShipped = strtolower((string) $previousStatus) === 'approved' && $nextStatus === 'shipped';
+
+        if ($isApprovedToShipped) {
+            $packingListPath = $purchase->packing_list_path;
+
+            if (!is_string($packingListPath) || trim($packingListPath) === '') {
+                return response()->json([
+                    'message' => 'Upload Packing List Before Shipment.',
+                ], 422);
+            }
+        }
+
         $updatePayload = [
+
             'status' => $validated['status'],
             'shipping_date' => $validated['shipping_date'] ?? null,
             'received_date' => $validated['received_date'] ?? null,
@@ -823,9 +845,64 @@ class PurchaseController extends Controller
         return response()->json($this->formatPurchase($purchase, $productMap));
     }
 
+    public function uploadPackingList(Request $request, Purchase $purchase): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user->hasRole('super-admin')) {
+            $warehouseIds = $this->resolveUserWarehouseIds($user);
+
+            $hasAccess = in_array($purchase->purchase_to, $warehouseIds, true) ||
+                in_array($purchase->purchase_form, $warehouseIds, true);
+
+            if (! $hasAccess) {
+                return response()->json([
+                    'message' => 'You do not have permission to upload a packing list for this purchase.',
+                ], 403);
+            }
+        }
+        $request->validate([
+                'file' => ['required', 'file', 'mimetypes:application/pdf', 'max:10240'],
+            ]);
+
+            $file = $request->file('file');
+
+            // 1. Define the custom path: public/uploads/packinglist
+            $directory = public_path('uploads/packinglist');
+
+            // 2. Ensure the directory exists
+            if (!file_exists($directory)) {
+                mkdir($directory, 0755, true);
+            }
+
+            // 3. Generate a unique filename to prevent overwrites
+            $filename = $purchase->id . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            // 4. Move the file to the custom path
+            $file->move($directory, $filename);
+
+            // 5. Save the relative path to the database
+            $path = 'uploads/packinglist/' . $filename;
+
+            $purchase->update([
+                'packing_list_path' => $path,
+                'packing_list_generated_at' => now(),
+            ]);
+        $purchase->load([
+            'purchaseFromWarehouse:id,name',
+            'purchaseToWarehouse:id,name',
+            'brand:id,name',
+        ]);
+
+        $productMap = $this->buildProductMap([$purchase]);
+
+        return response()->json($this->formatPurchase($purchase, $productMap));
+    }
+
     public function destroy(Request $request, Purchase $purchase): JsonResponse
     {
         $user = $request->user();
+
 
         // Check permission: super-admin or user's warehouse involved
         if (! $user->hasRole('super-admin')) {
