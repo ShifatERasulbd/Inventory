@@ -235,6 +235,7 @@ export default function EditForm({
 
             <form onSubmit={onSubmit}>
                 <CardContent className="space-y-6 pt-6">
+
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-1">
                         <div className="space-y-2">
                             <Label htmlFor="product-name">Product Name</Label>
@@ -403,8 +404,76 @@ export default function EditForm({
                         {errors.barcodes && <p className="text-xs text-destructive">{errors.barcodes[0]}</p>}
                     </div>
 
+                    {/* SKU inputs per variant (color_id + size_id) */}
+                    <div className="space-y-3">
+                        <Label>SKUs per Variant</Label>
+                        <p className="text-xs text-muted-foreground">
+                            Enter SKU for each selected Color + Size combination.
+                        </p>
 
+                        {(() => {
+                            const colorIds = Array.isArray(form.color_ids) ? form.color_ids.filter(Boolean) : [];
+                            const sizeIds = Array.isArray(form.size_ids) ? form.size_ids.filter(Boolean) : [];
+                            const currentSkus = form.skus && typeof form.skus === 'object' ? form.skus : {};
 
+                            if (colorIds.length === 0 || sizeIds.length === 0) {
+                                return (
+                                    <p className="text-sm text-muted-foreground">Select at least one color and one size to enter SKUs.</p>
+                                );
+                            }
+
+                            return (
+                                <div className="space-y-3">
+                                    {colorIds.map((colorId) => {
+                                        const cId = String(colorId);
+                                        const colorName = (colors || []).find((c) => String(c.id) === cId);
+                                        const colorLabel = colorName
+                                            ? [toDisplayPart(colorName.name), toDisplayPart(colorName.color_code)].filter(Boolean).join(' - ')
+                                            : cId;
+
+                                        return (
+                                            <div key={`sku-color-${cId}`} className="space-y-2 rounded-md border p-3">
+                                                <p className="text-sm font-medium">Color: {colorLabel}</p>
+                                                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                                                    {sizeIds.map((sizeId) => {
+                                                        const sId = String(sizeId);
+                                                        const inputKey = `${cId}_${sId}`;
+                                                        const sizeName = (sizes || []).find((s) => String(s.id) === sId);
+                                                        const sizeLabel = sizeName ? stripHtmlTags(sizeName.size) : sId;
+
+                                                        return (
+                                                            <div key={`sku-${inputKey}`} className="space-y-1">
+                                                                <Label htmlFor={`sku-${inputKey}`} className="text-xs">
+                                                                    {sizeLabel}
+                                                                </Label>
+                                                                <Input
+                                                                    id={`sku-${inputKey}`}
+                                                                    name={`sku_${inputKey}`}
+                                                                    value={currentSkus?.[inputKey] ?? ''}
+                                                                    placeholder={`SKU (${colorLabel} / ${sizeLabel})`}
+                                                                    onChange={(e) => {
+                                                                        const nextValue = e.target.value;
+                                                                        const nextSkus = {
+                                                                            ...(form.skus && typeof form.skus === 'object' ? form.skus : {}),
+                                                                            [inputKey]: nextValue,
+                                                                        };
+
+                                                                        onChange?.({ target: { name: 'skus', value: nextSkus } });
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
+
+                        {errors.skus && <p className="text-xs text-destructive">{errors.skus[0]}</p>}
+                    </div>
 
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
 

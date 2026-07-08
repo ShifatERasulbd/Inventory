@@ -352,7 +352,9 @@ class ProductController extends Controller
             'cover_image' => ['nullable', 'image', 'max:3072'],
             'gallery_images' => ['nullable', 'array', 'max:8'],
             'gallery_images.*' => ['image', 'max:3072'],
+            'skus' => ['nullable', 'string'],
         ]);
+
     
         $colorIds = collect($validated['color_ids'] ?? [])->filter()->unique()->values()->all();
         $sizeIds = collect($validated['size_ids'] ?? [])->filter()->unique()->values()->all();
@@ -388,6 +390,9 @@ class ProductController extends Controller
                 $products = [];
                 $createdProductIds = [];
 
+                $decodedSkus = json_decode($validated['skus'] ?? '', true);
+                $skusMap = is_array($decodedSkus) ? $decodedSkus : [];
+
                 foreach ($colorIds as $colorId) {
                     foreach ($sizeIds as $sizeId) {
                         $product = Product::query()->create([
@@ -407,7 +412,8 @@ class ProductController extends Controller
                             'season_id'=>$validated['season_id'],
                             'cover_image' => $storedCoverImage,
                             'gallery_images' => $storedGalleryImages,
-                            'barCode' => $barcodesMap["{$colorId}_{$sizeId}"] ?? null,
+'barCode' => $barcodesMap["{$colorId}_{$sizeId}"] ?? null,
+                            'sku' => $skusMap[$sizeId] ?? $skusMap["{$colorId}_{$sizeId}"] ?? null,
                         ]);
 
                         $product->brands()->sync($brandIds);
@@ -608,7 +614,10 @@ class ProductController extends Controller
             $validated['barcodes']
         );
 
-        DB::transaction(function () use ($variantOnly, $product, $targetProductIds, $sharedAttributes, $primaryColorId, $primarySizeId, $barcodesMap, $primaryBarcodeKey, $colorIds, $sizeIds, $brandIds) {
+        $decodedSkus = json_decode($validated['skus'] ?? '', true);
+        $skusMap = is_array($decodedSkus) ? $decodedSkus : [];
+
+        DB::transaction(function () use ($variantOnly, $product, $targetProductIds, $sharedAttributes, $primaryColorId, $primarySizeId, $barcodesMap, $primaryBarcodeKey, $colorIds, $sizeIds, $brandIds, $skusMap) {
             $productsToUpdate = Product::query()
                 ->whereIn('id', $targetProductIds)
                 ->get();
@@ -622,6 +631,7 @@ class ProductController extends Controller
                     'color_id' => $colorId > 0 ? $colorId : $primaryColorId,
                     'size_id' => $sizeId > 0 ? $sizeId : $primarySizeId,
                     'barCode' => $barcodesMap[$pairKey] ?? $item->barCode ?? ($barcodesMap[$primaryBarcodeKey] ?? null),
+                    'sku' => $skusMap[$sizeId] ?? $skusMap[$pairKey] ?? $item->sku ?? null,
                 ]));
 
                 $item->brands()->sync($brandIds);

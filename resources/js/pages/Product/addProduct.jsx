@@ -19,8 +19,10 @@ import { fetchBrands } from '@/pages/Brand/api';
 import { createProducts } from './api';
 
 const initialForm = {
-   
+    
     category_id: '',
+    skus: {},
+
     style_number: '',
     hs_number: '',
     ref_number: '',
@@ -425,6 +427,7 @@ export default function AddProduct() {
                     fabrics,
                     sizes,
                 }),
+                skus: JSON.stringify(form.skus || {}),
             });
 
             toast.success('Product created successfully.', {

@@ -188,7 +188,12 @@ export default function EditProduct() {
                   
                     category_id: product.category_id ? String(product.category_id) : '',
                     style_number: product.style_number || '',
+
                     hs_number: product.hs_number || '',
+                    // SKUs per variant (color_id + size_id)
+                    // Backend may return either `skus` (object) or `sku` (string/nullable)
+                    skus: product.skus || {},
+
                     ref_number: product.ref_number || '',
                     name: product.name || '',
                     description: product.description || '',
@@ -202,9 +207,12 @@ export default function EditProduct() {
                     warehouse_id: product.warehouse_id ? String(product.warehouse_id) : '',
                     brand_id: initialBrandIds.find(Boolean) || '',
                     brand_ids: initialBrandIds,
-                    season_id: product.season_id ? String(product.season_id) : '',
+                season_id: product.season_id ? String(product.season_id) : '',
                     cover_image: null,
                     gallery_images: [],
+                    // Ensure nested object exists for SKU variant inputs
+                    skus: product.skus || {},
+
                 });
             } catch (error) {
                 if (!ignore) {
@@ -394,9 +402,11 @@ export default function EditProduct() {
 
         try {
             await updateProducts(id, {
-               
+                
                 category_id: form.category_id ? Number(form.category_id) : null,
+
                 style_number: form.style_number.trim(),
+
                 hs_number: form.hs_number.trim() || null,
                 ref_number: form.ref_number.trim() || null,
                 name: form.name.trim(),
@@ -423,7 +433,9 @@ export default function EditProduct() {
                 season_id: form.season_id ? Number(form.season_id) : null,
                 cover_image: form.cover_image,
                 gallery_images: form.gallery_images,
+                skus: JSON.stringify(form.skus || {}),
                 remove_cover_image: removeCoverImage,
+
                 remove_gallery_images: removeGalleryImages,
             }, { variantOnly });
 

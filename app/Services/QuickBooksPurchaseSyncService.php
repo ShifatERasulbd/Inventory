@@ -134,6 +134,8 @@ class QuickBooksPurchaseSyncService
             return (string) $token->access_token;
         }
 
+        // Always refresh using the *current* refresh_token stored for this realm.
+        // If the stored refresh_token is stale, Intuit returns invalid_grant.
         $response = Http::asForm()
             ->withBasicAuth(
                 (string) config('services.quickbooks_test1.client_id'),
@@ -145,19 +147,28 @@ class QuickBooksPurchaseSyncService
             ]);
 
         if ($response->failed()) {
-            throw new \RuntimeException('QuickBooks token refresh failed: '.$response->body());
+            $body = (string) $response->body();
+            throw new \RuntimeException('QuickBooks token refresh failed: '.$body);
         }
 
-        $data = $response->json();
+        $data = (array) $response->json();
+
+        $newAccessToken = (string) ($data['access_token'] ?? '');
+        $newRefreshToken = (string) ($data['refresh_token'] ?? '');
+
+        if ($newAccessToken === '' || $newRefreshToken === '') {
+            throw new \RuntimeException('QuickBooks token refresh failed: missing access_token or refresh_token in response.');
+        }
 
         $token->forceFill([
-            'access_token' => (string) ($data['access_token'] ?? ''),
-            'refresh_token' => (string) ($data['refresh_token'] ?? $token->refresh_token),
+            'access_token' => $newAccessToken,
+            // IMPORTANT: Intuit rotates refresh tokens. Persist the new one immediately.
+            'refresh_token' => $newRefreshToken,
             'access_token_expires_at' => now()->addSeconds((int) ($data['expires_in'] ?? 0)),
             'refresh_token_expires_at' => now()->addSeconds((int) ($data['x_refresh_token_expires_in'] ?? 0)),
         ])->save();
 
-        return (string) $token->access_token;
+        return $newAccessToken;
     }
 
     private function resolveVendorId(string $accessToken, string $realmId, Purchase $purchase): string

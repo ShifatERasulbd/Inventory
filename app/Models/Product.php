@@ -37,6 +37,7 @@ class Product extends Model
         'size_id',
         'gender_id',
         'barCode',
+        'sku',
         'warehouse_id',
         'cover_image',
         'gallery_images',
