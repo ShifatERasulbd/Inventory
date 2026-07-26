@@ -31,9 +31,16 @@ class CountryController extends Controller
     }
 
     public function show(Country $country): JsonResponse
-    {
-        return response()->json($country);
-    }
+{
+    return response()->json(
+        $country->only([
+            'id',
+            'name',
+            'code',
+            'currency_code',
+        ])
+    );
+}
 
     public function update(Request $request, Country $country): JsonResponse
     {

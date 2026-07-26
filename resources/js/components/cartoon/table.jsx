@@ -12,7 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Barcode, ChevronDown, ChevronRight, Minus, PackageCheck, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Barcode, ChevronDown, ChevronRight, Eye, Minus, PackageCheck, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -31,7 +31,7 @@ function getPurchaseGroupLabel(cartoon) {
     return cartoon.purchase?.po_number ?? cartoon.p_o_number ?? 'No Purchase Order';
 }
 
-export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuantity, onAssignRack, onViewBarcode, onEdit, onRequestDelete, deletingId, isLoading }) {
+export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuantity, onAssignRack, onViewBarcode, onEdit, onRequestDelete, deletingId, isLoading, onViewPurchaseDetails }) {
     const [search, setSearch] = useState('');
     const [expandedGroups, setExpandedGroups] = useState({});
 
@@ -94,8 +94,7 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="text-right">SL No.</TableHead>
-                       <TableHead className="text-center">Purchase Order</TableHead>
+                        <TableHead className="text-center">SL No.</TableHead>
                         <TableHead className="text-center">Cartoon Count</TableHead>
                         <TableHead className="text-center">Quantity Of Products</TableHead>
                         <TableHead className="text-center">Action</TableHead>
@@ -105,7 +104,7 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                 <TableBody>
                     {isLoading && (
                         <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                            <TableCell colSpan={4} className="text-center text-muted-foreground">
                                 Loading Cartoon...
                             </TableCell>
                         </TableRow>
@@ -113,7 +112,7 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
 
                     {!isLoading && cartoons.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                            <TableCell colSpan={4} className="text-center text-muted-foreground">
                                 No Cartoon found.
                             </TableCell>
                         </TableRow>
@@ -121,7 +120,7 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
 
                     {!isLoading && filtered.length === 0 && cartoons.length > 0 && (
                         <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                            <TableCell colSpan={4} className="text-center text-muted-foreground">
                                 No Cartoons match your search.
                             </TableCell>
                         </TableRow>
@@ -130,11 +129,11 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                     {!isLoading &&
                         groupedCartoons.map((group, index) => {
                             const isExpanded = expandedGroups[group.key] ?? true;
+                            const purchaseId = group.cartoons[0]?.purchase?.id;
 
                             return (
                                 <Fragment key={group.key}>
                                     <TableRow>
-                                        <TableCell className="font-medium text-right">{index + 1}</TableCell>
                                         <TableCell className="text-center">
                                             <div className="flex items-center justify-center gap-2">
                                                 <Button
@@ -147,40 +146,47 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                                                 >
                                                     {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                                 </Button>
-                                                <div className="text-left">
-                                                    <p className="font-medium">{group.purchaseOrder}</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {group.purchaseStatus || 'Status unavailable'}
-                                                    </p>
-                                                    {Array.isArray(group.cartoons[0]?.purchase?.products) && group.cartoons[0].purchase.products.length > 0 && (
-                                                        <div className="mt-1 space-y-1 text-xs text-muted-foreground">
-                                                            {group.cartoons[0].purchase.products.map((product, productIndex) => (
-                                                                <p key={`${group.key}-product-${product.product_id ?? productIndex}`}>
-                                                                    {formatProductLabel(product) || 'Product details unavailable'}
-                                                                </p>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                <span>{index + 1}</span>
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-center">{group.cartoons.length}</TableCell>
                                         <TableCell className="text-center">{group.totalQuantity}</TableCell>
                                         <TableCell className="text-center">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => toggleGroup(group.key)}
-                                            >
-                                                {isExpanded ? 'Hide details' : 'Show details'}
-                                            </Button>
+                                            <div className="flex items-center justify-center gap-2">
+                                                {purchaseId && (
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    aria-label={`View purchase order details for ${group.purchaseOrder}`}
+                                                                    onClick={() => onViewPurchaseDetails?.(purchaseId)}
+                                                                >
+                                                                    <Eye />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="bottom">
+                                                                <p>View Purchase Order</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                )}
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => toggleGroup(group.key)}
+                                                >
+                                                    {isExpanded ? 'Hide details' : 'Show details'}
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
 
                                     {isExpanded && (
                                         <TableRow>
-                                            <TableCell colSpan={5} className="bg-muted/20 p-0">
+                                            <TableCell colSpan={4} className="bg-muted/20 p-0">
                                                 <div className="p-3">
                                                     <Table>
                                                         <TableHeader>
@@ -202,15 +208,47 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                                                                     <TableCell className="text-right font-medium">{detailIndex + 1}</TableCell>
                                                                     <TableCell className="text-center">{cartoon.cartoon_number}</TableCell>
                                                                     <TableCell className="text-center">
-                                                                        {Array.isArray(cartoon.purchase?.products) && cartoon.purchase.products.length > 0 ? (
-                                                                            <div className="space-y-1 text-xs">
-                                                                                {cartoon.purchase.products.map((product, productIndex) => (
-                                                                                    <p key={`${cartoon.id}-product-${product.product_id ?? productIndex}`}>
-                                                                                        {formatProductLabel(product) || 'Product details unavailable'}
-                                                                                    </p>
-                                                                                ))}
-                                                                            </div>
-                                                                        ) : 'N/A'}
+                                                                        {(() => {
+                                                                            const scannedCodes = Array.isArray(cartoon.product_code)
+                                                                                ? cartoon.product_code
+                                                                                : (cartoon.product_code != null ? [cartoon.product_code] : []);
+
+                                                                            const normalizedScannedCodes = scannedCodes
+                                                                                .map((c) => String(c ?? '').trim())
+                                                                                .filter(Boolean);
+
+                                                                            if (!normalizedScannedCodes.length) {
+                                                                                return 'N/A';
+                                                                            }
+
+                                                                            const poProducts = Array.isArray(cartoon.purchase?.products)
+                                                                                ? cartoon.purchase.products
+                                                                                : [];
+
+                                                                            const filtered = poProducts.filter((product) => {
+                                                                                const barcode = String(product?.barcode ?? '').trim();
+                                                                                if (barcode) {
+                                                                                    return normalizedScannedCodes.includes(barcode);
+                                                                                }
+                                                                                // Fallback: if barcode is missing, try product_id matching by scanning product ids is not
+                                                                                // possible here reliably from product_code, so treat as non-match.
+                                                                                return false;
+                                                                            });
+
+                                                                            if (!filtered.length) {
+                                                                                return 'N/A';
+                                                                            }
+
+                                                                            return (
+                                                                                <div className="space-y-1 text-xs">
+                                                                                    {filtered.map((product, productIndex) => (
+                                                                                        <p key={`${cartoon.id}-product-${product.product_id ?? productIndex}`}>
+                                                                                            {formatProductLabel(product) || 'Product details unavailable'}
+                                                                                        </p>
+                                                                                    ))}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
                                                                     </TableCell>
                                                                     <TableCell className="text-center">{cartoon.warehouse?.name ?? cartoon.warehouse_name ?? 'N/A'}</TableCell>
                                                                     <TableCell className="text-center">{cartoon.quantity}</TableCell>

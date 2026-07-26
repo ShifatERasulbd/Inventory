@@ -6,18 +6,26 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Search, Settings2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
-export default function RackRowTable({ data = [], isLoading, onAdd, onEdit, onRequestDelete }) {
+export default function RackRowTable({
+    data = [],
+    isLoading,
+    onAdd,
+    onEdit,
+    onRequestDelete,
+    onManageColumns,
+}) {
     const [search, setSearch] = useState('');
     const filtered = data.filter((r) => {
         const q = search.toLowerCase();
         return (
             r.row_number?.toLowerCase().includes(q) ||
+            r.column?.toLowerCase().includes(q) ||
             r.code?.toLowerCase().includes(q)
         );
     });
@@ -45,6 +53,7 @@ export default function RackRowTable({ data = [], isLoading, onAdd, onEdit, onRe
                         <TableRow>
                             <TableHead className="w-[100px]">SL No</TableHead>
                             <TableHead>Row Number</TableHead>
+                            <TableHead>Column</TableHead>
                             <TableHead>Code</TableHead>
                             <TableHead>Action</TableHead>
                         </TableRow>
@@ -52,13 +61,13 @@ export default function RackRowTable({ data = [], isLoading, onAdd, onEdit, onRe
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan="4" className="text-center py-8 text-muted-foreground">
+                                <TableCell colSpan="5" className="text-center py-8 text-muted-foreground">
                                     Loading...
                                 </TableCell>
                             </TableRow>
                         ) : filtered.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan="4" className="text-center py-8 text-muted-foreground">
+                                <TableCell colSpan="5" className="text-center py-8 text-muted-foreground">
                                     {search ? 'No rows match your search.' : 'No rows found.'}
                                 </TableCell>
                             </TableRow>
@@ -67,9 +76,18 @@ export default function RackRowTable({ data = [], isLoading, onAdd, onEdit, onRe
                                 <TableRow key={row.id}>
                                     <TableCell className="font-medium">{index + 1}</TableCell>
                                     <TableCell>{row.row_number}</TableCell>
+                                    <TableCell>{row.column || '-'}</TableCell>
                                     <TableCell>{row.code}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => onManageColumns?.(row.id)}
+                                                title="Manage Columns"
+                                            >
+                                                <Settings2 />
+                                            </Button>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"

@@ -89,6 +89,11 @@ export async function fetchRackRows(rackId) {
     return Array.isArray(payload) ? payload : [];
 }
 
+export async function fetchRackColumns(rackId) {
+    const payload = await requestJson(`/api/racks/${rackId}/columns`);
+    return Array.isArray(payload) ? payload : [];
+}
+
 export async function assignCartoonRack(id, data) {
     await ensureCsrfCookie();
     return requestJson(`/api/cartoons/${id}/assign-rack`, {

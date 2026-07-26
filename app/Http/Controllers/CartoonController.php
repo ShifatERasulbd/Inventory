@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Cartoon;
 use App\Models\Product;
 use App\Models\Rack;
+use App\Models\RackColumn;
 use App\Models\RackRow;
 use App\Models\Stock;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -77,6 +78,7 @@ class CartoonController extends Controller
             'product_code' => is_array($cartoon->product_code) ? array_values($cartoon->product_code) : null,
             'rack_id' => $cartoon->rack_id,
             'rack_row_id' => $cartoon->rack_row_id,
+            'rack_column_id' => $cartoon->rack_column_id,
             'warehouse_id' => $cartoon->warehouse_id,
             'received_to_stock_at' => $cartoon->received_to_stock_at,
             'received_to_stock_by' => $cartoon->received_to_stock_by,
@@ -375,6 +377,44 @@ class CartoonController extends Controller
         return null;
     }
 
+    private function validateRackColumnAssignment(?int $rackId, ?int $rackRowId, ?int $rackColumnId): ?array
+    {
+        if (! $rackColumnId) {
+            return null;
+        }
+
+        if (! $rackId) {
+            return [
+                'field' => 'rack_column_id',
+                'message' => 'Please select a rack before selecting a rack column.',
+            ];
+        }
+
+        $rackColumn = RackColumn::query()->find($rackColumnId);
+        if (! $rackColumn) {
+            return [
+                'field' => 'rack_column_id',
+                'message' => 'Selected rack column was not found.',
+            ];
+        }
+
+        if ((int) $rackColumn->rack_id !== (int) $rackId) {
+            return [
+                'field' => 'rack_column_id',
+                'message' => 'Selected rack column does not belong to the selected rack.',
+            ];
+        }
+
+        if ($rackRowId && (int) $rackColumn->row_id !== (int) $rackRowId) {
+            return [
+                'field' => 'rack_column_id',
+                'message' => 'Selected rack column does not belong to the selected rack row.',
+            ];
+        }
+
+        return null;
+    }
+
     public function index(Request $request): JsonResponse
     {
         $query = Cartoon::with(['purchase', 'warehouse'])->orderByDesc('id');
@@ -609,6 +649,7 @@ class CartoonController extends Controller
             'warehouse:id,name',
             'rack:id,name',
             'rackRow:id,row_number,code',
+            'rackColumn:id,column_number,code,row_id',
         ]);
 
         if (! $request->user()?->hasRole('super-admin')) {
@@ -632,9 +673,14 @@ class CartoonController extends Controller
                 'po_status' => $cartoon->purchase?->status,
                 'purchase_form' => $cartoon->purchase?->purchase_form,
                 'purchase_to' => $cartoon->purchase?->purchase_to,
+                'rack_id' => $cartoon->rack_id,
                 'rack_name' => $cartoon->rack?->name,
+                'rack_row_id' => $cartoon->rack_row_id,
                 'rack_row_number' => $cartoon->rackRow?->row_number,
                 'rack_row_code' => $cartoon->rackRow?->code,
+                'rack_column_id' => $cartoon->rack_column_id,
+                'rack_column_number' => $cartoon->rackColumn?->column_number,
+                'rack_column_code' => $cartoon->rackColumn?->code,
                 'created_at' => $cartoon->created_at,
                 'updated_at' => $cartoon->updated_at,
             ];
@@ -701,7 +747,7 @@ class CartoonController extends Controller
             ], 403);
         }
 
-        return response()->json($this->formatSingleCartoon($cartoon->load(['purchase', 'warehouse'])));
+        return response()->json($this->formatSingleCartoon($cartoon->load(['purchase', 'warehouse', 'rack', 'rackRow', 'rackColumn'])));
     }
 
     public function update(Request $request, Cartoon $cartoon): JsonResponse
@@ -751,7 +797,7 @@ class CartoonController extends Controller
 
         $cartoon->update($validated);
 
-        return response()->json($this->formatSingleCartoon($cartoon->fresh()->load(['purchase', 'warehouse'])));
+        return response()->json($this->formatSingleCartoon($cartoon->fresh()->load(['purchase', 'warehouse', 'rack', 'rackRow', 'rackColumn'])));
     }
 
     public function destroy(Request $request, Cartoon $cartoon): JsonResponse
@@ -777,6 +823,7 @@ class CartoonController extends Controller
         $validated = $request->validate([
             'rack_id' => ['required', 'integer', 'exists:racks,id'],
             'rack_row_id' => ['nullable', 'integer', 'exists:rack_rows,id'],
+            'rack_column_id' => ['nullable', 'integer', 'exists:rack_columns,id'],
         ]);
 
         $rackValidationError = $this->validateRackAssignment(
@@ -784,6 +831,14 @@ class CartoonController extends Controller
             isset($validated['rack_id']) ? (int) $validated['rack_id'] : null,
             isset($validated['rack_row_id']) ? (int) $validated['rack_row_id'] : null
         );
+
+        if (! $rackValidationError) {
+            $rackValidationError = $this->validateRackColumnAssignment(
+                isset($validated['rack_id']) ? (int) $validated['rack_id'] : null,
+                isset($validated['rack_row_id']) ? (int) $validated['rack_row_id'] : null,
+                isset($validated['rack_column_id']) ? (int) $validated['rack_column_id'] : null
+            );
+        }
 
         if ($rackValidationError) {
             return response()->json([
@@ -794,14 +849,26 @@ class CartoonController extends Controller
             ], 422);
         }
 
+        $rackColumnId = array_key_exists('rack_column_id', $validated) && $validated['rack_column_id'] !== null
+            ? (int) $validated['rack_column_id']
+            : null;
+
+        $resolvedRackRowId = array_key_exists('rack_row_id', $validated) && $validated['rack_row_id'] !== null
+            ? (int) $validated['rack_row_id']
+            : null;
+
+        if ($rackColumnId) {
+            $rackColumn = RackColumn::query()->find($rackColumnId);
+            $resolvedRackRowId = $resolvedRackRowId ?: (int) $rackColumn?->row_id;
+        }
+
         $cartoon->update([
             'rack_id' => (int) $validated['rack_id'],
-            'rack_row_id' => array_key_exists('rack_row_id', $validated) && $validated['rack_row_id'] !== null
-                ? (int) $validated['rack_row_id']
-                : null,
+            'rack_row_id' => $resolvedRackRowId,
+            'rack_column_id' => $rackColumnId,
         ]);
 
-        return response()->json($this->formatSingleCartoon($cartoon->fresh()->load(['purchase', 'warehouse', 'rack', 'rackRow'])));
+        return response()->json($this->formatSingleCartoon($cartoon->fresh()->load(['purchase', 'warehouse', 'rack', 'rackRow', 'rackColumn'])));
     }
 
     public function adjustQuantity(Request $request, Cartoon $cartoon): JsonResponse
@@ -971,7 +1038,7 @@ class CartoonController extends Controller
                     $missingCodes = $deduction['missing_codes'] ?? [];
                     throw new HttpResponseException(
                         response()->json([
-                            'message' => 'Some scanned barcodes are not available in the purchase from warehouse stock.',
+                            'message' => 'The Scanned Product does not Match with the Purchase Order Product. Please Scan the correct product.',
                             'errors' => [
                                 'product_code' => [
                                     'Scanned barcode(s) not found in source stock: ' . implode(', ', $missingCodes),

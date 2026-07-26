@@ -17,6 +17,7 @@ class Cartoon extends Model
         'product_code',
         'rack_id',
         'rack_row_id',
+        'rack_column_id',
         'warehouse_id',
         'received_to_stock_at',
         'received_to_stock_by',
@@ -37,6 +38,10 @@ class Cartoon extends Model
 
     public function rackRow(){
         return $this->belongsTo(RackRow::class);
+    }
+
+    public function rackColumn(){
+        return $this->belongsTo(RackColumn::class);
     }
 
     public function warehouse(){

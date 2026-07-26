@@ -60,6 +60,18 @@ export default function AddCartoons() {
     const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
     const purchaseIdFromQuery = searchParams.get('purchase_id') || '';
 
+    const setCartoonNumberWithPrefix = (poNumber) => {
+        const prefix = String(poNumber ?? '').trim();
+        setForm((previous) => {
+            const existing = String(previous.cartoon_number ?? '');
+            const existingSuffix = existing.startsWith(prefix) ? existing.slice(prefix.length) : '';
+            return {
+                ...previous,
+                cartoon_number: prefix + existingSuffix,
+            };
+        });
+    };
+
     useEffect(() => {
         let ignore = false;
 
@@ -211,6 +223,11 @@ export default function AddCartoons() {
 
     const handlePurchaseChange = (value) => {
         setForm((previous) => ({ ...previous, p_o_number: value }));
+
+        const selected = purchases.find((p) => String(p.id) === String(value));
+        if (selected?.po_number) {
+            setCartoonNumberWithPrefix(selected.po_number);
+        }
         setErrors((previous) => {
             if (!previous.p_o_number && !previous.P_O_number) {
                 return previous;

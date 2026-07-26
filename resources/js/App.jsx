@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { AppProvider } from '@/context/AppContext';
 import AppLayout from '@/layouts/AppLayout';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import Preloader from '@/components/Preloader';
 
 function lazyWithRetry(importer, key) {
     return lazy(async () => {
@@ -67,6 +68,12 @@ const RackRows = lazyWithRetry(() => import('@/pages/RackRow/rackRows'), 'rack-r
 const AddRackRow = lazyWithRetry(() => import('@/pages/RackRow/addRackRow'), 'rack-rows-add');
 const EditRackRow = lazyWithRetry(() => import('@/pages/RackRow/editRackRow'), 'rack-rows-edit');
 
+// Rack Columns
+const RackColumns = lazyWithRetry(() => import('@/pages/RackColumn/rackColumns'), 'rack-columns');
+const AddRackColumn = lazyWithRetry(() => import('@/pages/RackColumn/addRackColumn'), 'rack-columns-add');
+const EditRackColumn = lazyWithRetry(() => import('@/pages/RackColumn/editRackColumn'), 'rack-columns-edit');
+
+
 // Brand
 const Brand=lazyWithRetry(()=>import ('@/pages/Brand/brand'),'brands');
 const AddBrand=lazyWithRetry(()=>import ('@/pages/Brand/addBrand'),'brands-add');
@@ -114,6 +121,7 @@ const EditStock = lazyWithRetry(() => import('@/pages/Stock/editStock'), 'stock-
 const Purchase = lazyWithRetry(() => import('@/pages/Purchase/purchase'), 'purchase');
 const AddPurchase = lazyWithRetry(() => import('@/pages/Purchase/addPurchase'), 'purchase-add');
 const EditPurchase = lazyWithRetry(() => import('@/pages/Purchase/editPurchase'), 'purchase-edit');
+const PurchaseDetails = lazyWithRetry(() => import('@/pages/Purchase/purchaseDetails'), 'purchase-details');
 
 // Sell
 const Sell = lazyWithRetry(() => import('@/pages/Sell/sell'), 'sell');
@@ -146,7 +154,7 @@ export default function App() {
     return (
         <AppProvider>
             <BrowserRouter>
-                <Suspense fallback={<div className="text-center p-10">Loading...</div>}>
+                <Suspense fallback={<Preloader message="Loading..." />}>
                     <Routes>
                         <Route
                             path="/"
@@ -203,6 +211,12 @@ export default function App() {
                             <Route path="/racks/:rack_id/rows/add" element={<AddRackRow/>}/>
                             <Route path="/racks/:rack_id/rows/:id/edit" element={<EditRackRow/>}/>
 
+                            {/* Rack Columns */}
+                            <Route path="/racks/:rack_id/columns" element={<RackColumns/>}/>
+                            <Route path="/racks/:rack_id/columns/add" element={<AddRackColumn/>}/>
+                            <Route path="/racks/:rack_id/columns/:id/edit" element={<EditRackColumn/>}/>
+
+
                             {/* Brand */}
                             <Route path="/brands" element={<Brand/>}/>
                             <Route path="/brands/add" element={<AddBrand/>}/>
@@ -248,6 +262,7 @@ export default function App() {
                             {/* Purchases */}
                              <Route path="/purchases" element={<Purchase/>}/>
                              <Route path="/purchases/add" element={<AddPurchase/>}/>
+                             <Route path="/purchases/:id" element={<PurchaseDetails/>}/>
                              <Route path="/purchases/:id/edit" element={<EditPurchase/>}/>
                              <Route path="/remote-orders" element={<RemoteOrders/>}/>
                              <Route path="/remote-orders/:id/edit" element={<EditRemoteOrder/>}/>

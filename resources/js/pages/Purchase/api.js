@@ -108,7 +108,7 @@ export async function fetchCartoons() {
 
 
 
-export async function uploadPurchasePackingList(purchaseId, file) {
+export async function uploadPurchasePackingList(purchaseId, file, onProgress) {
     if (!file) {
         throw new Error('No file selected.');
     }
@@ -118,35 +118,54 @@ export async function uploadPurchasePackingList(purchaseId, file) {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`/api/purchases/${purchaseId}/packing-list/upload`, {
-         method: 'POST',
-        credentials: 'include',
-        headers: {
-            // DO NOT set 'Content-Type' here. 
-            // The browser will set it to 'multipart/form-data' + boundary automatically.
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-        body: formData,
+    return new Promise((resolve, reject) => {
+        const request = new XMLHttpRequest();
+
+        request.open('POST', `/api/purchases/${purchaseId}/packing-list/upload`);
+        request.withCredentials = true;
+        request.responseType = 'json';
+        request.setRequestHeader('Accept', 'application/json');
+        request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+        request.upload.onprogress = (event) => {
+            if (!event.lengthComputable || typeof onProgress !== 'function') {
+                return;
+            }
+
+            const percent = Math.round((event.loaded / event.total) * 100);
+            onProgress(percent);
+        };
+
+        request.onload = () => {
+            const payload = request.response;
+
+            if (request.status < 200 || request.status >= 300) {
+                const message =
+                    payload?.message ||
+                    payload?.error ||
+                    (typeof payload === 'string' ? payload : null) ||
+                    `Upload failed with status ${request.status}`;
+
+                const error = new Error(message);
+                error.status = request.status;
+                error.payload = payload;
+                reject(error);
+                return;
+            }
+
+            if (typeof onProgress === 'function') {
+                onProgress(100);
+            }
+
+            resolve(payload);
+        };
+
+        request.onerror = () => {
+            reject(new Error('Network error while uploading packing list.'));
+        };
+
+        request.send(formData);
     });
-
-    const contentType = response.headers.get('content-type') || '';
-    const payload = contentType.includes('application/json') ? await response.json() : null;
-
-    if (!response.ok) {
-        const message =
-            payload?.message ||
-            payload?.error ||
-            (typeof payload === 'string' ? payload : null) ||
-            `Upload failed with status ${response.status}`;
-
-        const error = new Error(message);
-        error.status = response.status;
-        error.payload = payload;
-        throw error;
-    }
-
-    return payload;
 }
 
 export async function fetchRacks() {

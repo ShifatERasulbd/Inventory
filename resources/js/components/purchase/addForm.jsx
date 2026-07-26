@@ -24,6 +24,7 @@ export default function AddPurchaseForm({
     onSelectChange,
     onProductChange,
     onProductSelectChange,
+    onStyleSelectChange,
     onAddProduct,
     onRemoveProduct,
     onSubmit,
@@ -67,13 +68,32 @@ export default function AddPurchaseForm({
 
     const getProductOptionLabel = (product) => {
         const name = product?.name || `Product #${product?.id}`;
+        const styleNumber = String(product?.style_number || '').trim();
         const size = product?.size?.size || product?.size || product?.size_name;
         const color = product?.color?.color_code || product?.color?.name || product?.color_name;
 
-        return [name, color, size]
+        return [styleNumber ? `Style ${styleNumber}` : null, name, color, size]
             .filter(Boolean)
             .join(' - ');
     };
+
+    const styleGroups = React.useMemo(() => {
+        const grouped = new Map();
+
+        productOptions.forEach((product) => {
+            const rawStyle = String(product?.style_number ?? '').trim();
+            if (!rawStyle) {
+                return;
+            }
+
+            const key = rawStyle.toLowerCase();
+            const current = grouped.get(key) || { styleNumber: rawStyle, products: [] };
+            current.products.push(product);
+            grouped.set(key, current);
+        });
+
+        return Array.from(grouped.values()).sort((a, b) => a.styleNumber.localeCompare(b.styleNumber));
+    }, [productOptions]);
 
     const getAvailableStock = (productId) => {
         const warehouseId = Number(selectedPurchaseFromWarehouseId);
@@ -286,31 +306,35 @@ export default function AddPurchaseForm({
                         <div className="space-y-3">
                             {(form.products ?? []).map((row, index) => (
                                 (() => {
-                                    // Parse current selections safely to an array of strings
-                                    const selectedProductIds = Array.isArray(row.product_id)
-                                        ? row.product_id.map(String)
-                                        : row.product_id ? [String(row.product_id)] : [];
+                                    const selectedProductId = row.product_id ? String(row.product_id) : '';
 
                                     // Build set of cross-row choices if you wish to enforce absolute row exclusivity
                                     const selectedInOtherRows = new Set(
                                         (form.products ?? [])
                                             .flatMap((item, itemIndex) => {
                                                 if (itemIndex === index) return [];
-                                                return Array.isArray(item?.product_id) 
-                                                    ? item.product_id.map(String) 
-                                                    : item?.product_id ? [String(item.product_id)] : [];
+                                                return item?.product_id ? [String(item.product_id)] : [];
                                             })
                                             .filter(Boolean)
                                     );
 
                                     const availableProductOptions = productOptions.filter((product) => {
                                         const productId = String(product?.id ?? '');
-                                        return selectedProductIds.includes(productId) || !selectedInOtherRows.has(productId);
+                                        return productId === selectedProductId || !selectedInOtherRows.has(productId);
                                     });
 
+                                    const availableStyleGroups = styleGroups
+                                        .map((group) => ({
+                                            ...group,
+                                            products: group.products.filter((product) => {
+                                                const productId = String(product?.id ?? '');
+                                                return productId === selectedProductId || !selectedInOtherRows.has(productId);
+                                            }),
+                                        }))
+                                        .filter((group) => group.products.length > 0);
+
                                     // For total available stock metrics estimation, take first selection or look up selectively
-                                    const firstProductId = selectedProductIds[0] || '';
-                                    const availableStock = getAvailableStock(firstProductId);
+                                    const availableStock = getAvailableStock(selectedProductId);
 
                                     return (
                                         <div
@@ -347,37 +371,40 @@ export default function AddPurchaseForm({
                                                                 className="w-full justify-between font-normal text-left min-h-[40px] h-auto wrap bg-background"
                                                             >
                                                                 <span className="truncate max-w-[200px]">
-                                                                    {selectedProductIds.length === 0
+                                                                    {!selectedProductId
                                                                         ? "Select products..."
-                                                                        : selectedProductIds.length === 1
-                                                                        ? getProductOptionLabel(productOptions.find(p => String(p.id) === selectedProductIds[0]))
-                                                                        : `${selectedProductIds.length} items selected`}
+                                                                        : getProductOptionLabel(productOptions.find((p) => String(p.id) === selectedProductId))}
                                                                 </span>
                                                                 <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                             </Button>
                                                         </PopoverTrigger>
                                                         <PopoverContent className="w-[320px] p-0" align="start">
                                                             <Command>
-                                                                <CommandInput placeholder="Search product..." />
+                                                                <CommandInput placeholder="Search by product or style number..." />
                                                                 <CommandList>
-                                                                    <CommandEmpty>No product found.</CommandEmpty>
+                                                                    <CommandEmpty>No product or style number found.</CommandEmpty>
+                                                                    <CommandGroup heading="Style Numbers">
+                                                                        {availableStyleGroups.map((group) => (
+                                                                            <CommandItem
+                                                                                key={`style-${group.styleNumber}`}
+                                                                                value={`Style ${group.styleNumber} ${group.products.map((product) => getProductOptionLabel(product)).join(' ')}`}
+                                                                                onSelect={() => onStyleSelectChange(index, group.styleNumber)}
+                                                                                className="cursor-pointer"
+                                                                            >
+                                                                                <span className="text-xs">Style {group.styleNumber} ({group.products.length} products)</span>
+                                                                            </CommandItem>
+                                                                        ))}
+                                                                    </CommandGroup>
                                                                     <CommandGroup>
                                                                         {availableProductOptions.map((product) => {
                                                                             const pIdStr = String(product.id);
-                                                                            const isSelected = selectedProductIds.includes(pIdStr);
+                                                                            const isSelected = selectedProductId === pIdStr;
                                                                             return (
                                                                                 <CommandItem
                                                                                     key={product.id}
-                                                                                    value={getProductOptionLabel(product)}
+                                                                                    value={`${getProductOptionLabel(product)} ${String(product?.style_number ?? '')}`}
                                                                                     onSelect={() => {
-                                                                                        let nextValue;
-                                                                                        if (isSelected) {
-                                                                                            nextValue = selectedProductIds.filter(id => id !== pIdStr);
-                                                                                        } else {
-                                                                                            nextValue = [...selectedProductIds, pIdStr];
-                                                                                        }
-                                                                                        // Bubbles updated array up to parent component state
-                                                                                        onProductSelectChange(index, nextValue);
+                                                                                        onProductSelectChange(index, isSelected ? '' : pIdStr);
                                                                                     }}
                                                                                     className="cursor-pointer flex items-center justify-between"
                                                                                 >
@@ -412,7 +439,7 @@ export default function AddPurchaseForm({
                                                         onChange={(e) => onProductChange(index, 'quantity', e.target.value)}
                                                         placeholder="e.g. 100"
                                                     />
-                                                    {selectedProductIds.length > 0 && (
+                                                    {selectedProductId && (
                                                         <p className="text-xs text-muted-foreground">
                                                             Stock (1st item): {availableStock}
                                                         </p>

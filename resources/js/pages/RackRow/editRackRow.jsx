@@ -12,6 +12,10 @@ function validateForm(form) {
         errors.row_number = ['The Row Number is required'];
     }
 
+    if (!form.column.trim()) {
+        errors.column = ['The Column is required'];
+    }
+
     if (!form.code.trim()) {
         errors.code = ['The Code is required'];
     }
@@ -23,7 +27,7 @@ export default function EditRackRow() {
     const navigate = useNavigate();
     const { rack_id, id } = useParams();
     const { setPageTitle } = useAppContext();
-    const [form, setForm] = useState({ row_number: '', code: '' });
+    const [form, setForm] = useState({ row_number: '', column: '', code: '' });
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -40,6 +44,7 @@ export default function EditRackRow() {
                 const row = await fetchRackRow(rack_id, id);
                 setForm({
                     row_number: row.row_number,
+                    column: row.column ?? '',
                     code: row.code,
                 });
             } catch (error) {
@@ -81,6 +86,7 @@ export default function EditRackRow() {
         try {
             await updateRackRow(rack_id, id, {
                 row_number: form.row_number.trim(),
+                column: form.column.trim(),
                 code: form.code.trim(),
             });
             toast.success('Row updated successfully.', { style: { color: '#16a34a' } });

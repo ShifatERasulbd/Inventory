@@ -307,6 +307,40 @@ class ProductController extends Controller
             });
     }
 
+    private function parseSkusMap(?string $encodedSkus): array
+    {
+        $decodedSkus = json_decode($encodedSkus ?? '', true);
+
+        if (! is_array($decodedSkus)) {
+            return [];
+        }
+
+        return collect($decodedSkus)
+            ->mapWithKeys(function ($value, $key) {
+                $normalized = is_string($value) ? trim($value) : (is_scalar($value) ? trim((string) $value) : '');
+
+                return [(string) $key => ($normalized === '' ? null : $normalized)];
+            })
+            ->all();
+    }
+
+    private function resolveVariantSku(array $skusMap, int $colorId, int $sizeId, ?string $fallback = null): ?string
+    {
+        $pairKey = "{$colorId}_{$sizeId}";
+        $sizeKey = (string) $sizeId;
+
+        if (array_key_exists($pairKey, $skusMap)) {
+            return $skusMap[$pairKey];
+        }
+
+        // Backward compatibility for older payloads keyed only by size id.
+        if (array_key_exists($sizeKey, $skusMap)) {
+            return $skusMap[$sizeKey];
+        }
+
+        return $fallback;
+    }
+
     public function index(): JsonResponse
     {
         return response()->json(
@@ -390,8 +424,7 @@ class ProductController extends Controller
                 $products = [];
                 $createdProductIds = [];
 
-                $decodedSkus = json_decode($validated['skus'] ?? '', true);
-                $skusMap = is_array($decodedSkus) ? $decodedSkus : [];
+                $skusMap = $this->parseSkusMap($validated['skus'] ?? null);
 
                 foreach ($colorIds as $colorId) {
                     foreach ($sizeIds as $sizeId) {
@@ -413,7 +446,7 @@ class ProductController extends Controller
                             'cover_image' => $storedCoverImage,
                             'gallery_images' => $storedGalleryImages,
 'barCode' => $barcodesMap["{$colorId}_{$sizeId}"] ?? null,
-                            'sku' => $skusMap[$sizeId] ?? $skusMap["{$colorId}_{$sizeId}"] ?? null,
+                            'sku' => $this->resolveVariantSku($skusMap, (int) $colorId, (int) $sizeId),
                         ]);
 
                         $product->brands()->sync($brandIds);
@@ -450,6 +483,9 @@ class ProductController extends Controller
             $productData = $this->productWithRelations($product)->toArray();
             $productData['color_ids'] = $product->color_id ? [(int) $product->color_id] : [];
             $productData['size_ids'] = $product->size_id ? [(int) $product->size_id] : [];
+            $productData['skus'] = ($product->color_id && $product->size_id)
+                ? ["{$product->color_id}_{$product->size_id}" => $product->sku]
+                : [];
             $brandIds = $product->brands->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
             $productData['brand_ids'] = $brandIds !== []
                 ? $brandIds
@@ -460,11 +496,15 @@ class ProductController extends Controller
 
         $styleGroup = $this->styleGroupQuery($product)
             ->orderBy('id')
-            ->get(['id', 'color_id', 'size_id']);
+            ->get(['id', 'color_id', 'size_id', 'sku']);
 
         $productData = $this->productWithRelations($product)->toArray();
         $productData['color_ids'] = $styleGroup->pluck('color_id')->filter()->unique()->map(fn ($id) => (int) $id)->values()->all();
         $productData['size_ids'] = $styleGroup->pluck('size_id')->filter()->unique()->map(fn ($id) => (int) $id)->values()->all();
+        $productData['skus'] = $styleGroup
+            ->filter(fn ($item) => $item->color_id && $item->size_id)
+            ->mapWithKeys(fn ($item) => ["{$item->color_id}_{$item->size_id}" => $item->sku])
+            ->all();
         $brandIds = $product->brands->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
         $productData['brand_ids'] = $brandIds !== []
             ? $brandIds
@@ -504,6 +544,7 @@ class ProductController extends Controller
             'gallery_images.*' => ['image', 'max:3072'],
             'remove_cover_image' => ['nullable'],
             'remove_gallery_images' => ['nullable'],
+            'skus' => ['nullable', 'string'],
         ]);
 
         $currentGalleryImages = collect($product->gallery_images ?? [])
@@ -614,8 +655,7 @@ class ProductController extends Controller
             $validated['barcodes']
         );
 
-        $decodedSkus = json_decode($validated['skus'] ?? '', true);
-        $skusMap = is_array($decodedSkus) ? $decodedSkus : [];
+        $skusMap = $this->parseSkusMap($validated['skus'] ?? null);
 
         DB::transaction(function () use ($variantOnly, $product, $targetProductIds, $sharedAttributes, $primaryColorId, $primarySizeId, $barcodesMap, $primaryBarcodeKey, $colorIds, $sizeIds, $brandIds, $skusMap) {
             $productsToUpdate = Product::query()
@@ -631,7 +671,7 @@ class ProductController extends Controller
                     'color_id' => $colorId > 0 ? $colorId : $primaryColorId,
                     'size_id' => $sizeId > 0 ? $sizeId : $primarySizeId,
                     'barCode' => $barcodesMap[$pairKey] ?? $item->barCode ?? ($barcodesMap[$primaryBarcodeKey] ?? null),
-                    'sku' => $skusMap[$sizeId] ?? $skusMap[$pairKey] ?? $item->sku ?? null,
+                    'sku' => $this->resolveVariantSku($skusMap, $colorId > 0 ? $colorId : $primaryColorId, $sizeId > 0 ? $sizeId : $primarySizeId, $item->sku ?? null),
                 ]));
 
                 $item->brands()->sync($brandIds);
@@ -680,6 +720,7 @@ class ProductController extends Controller
                         'color_id' => $colorId,
                         'size_id' => $sizeId,
                         'barCode' => $barcodesMap[$pairKey] ?? null,
+                        'sku' => $this->resolveVariantSku($skusMap, (int) $colorId, (int) $sizeId),
                     ]));
 
                     $created->brands()->sync($brandIds);

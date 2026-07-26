@@ -7,6 +7,8 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Pencil } from 'lucide-react';
 
 function normalizeStatus(status) {
     const value = String(status ?? '').trim().toLowerCase();
@@ -32,7 +34,7 @@ function statusBadgeClass(status) {
     return 'bg-slate-100 text-slate-700';
 }
 
-export default function CartoonTrackingTable({ rows = [], isLoading = false }) {
+export default function CartoonTrackingTable({ rows = [], isLoading = false, onEditRack, updatingCartoonId = null }) {
     return (
         <Card>
             <Table>
@@ -45,13 +47,15 @@ export default function CartoonTrackingTable({ rows = [], isLoading = false }) {
                         <TableHead>Warehouse</TableHead>
                         <TableHead>Rack</TableHead>
                         <TableHead>Rack Row</TableHead>
+                        <TableHead>Column</TableHead>
                         <TableHead className="text-center">Quantity</TableHead>
+                        <TableHead className="text-center">Action</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {isLoading && (
                         <TableRow>
-                            <TableCell colSpan={8} className="text-center text-muted-foreground">
+                            <TableCell colSpan={10} className="text-center text-muted-foreground">
                                 Loading cartoon tracking...
                             </TableCell>
                         </TableRow>
@@ -59,7 +63,7 @@ export default function CartoonTrackingTable({ rows = [], isLoading = false }) {
 
                     {!isLoading && rows.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={8} className="text-center text-muted-foreground">
+                            <TableCell colSpan={10} className="text-center text-muted-foreground">
                                 No tracking records found.
                             </TableCell>
                         </TableRow>
@@ -82,7 +86,24 @@ export default function CartoonTrackingTable({ rows = [], isLoading = false }) {
                                     ? `${row.rack_row_number}${row.rack_row_code ? ` (${row.rack_row_code})` : ''}`
                                     : <span className="text-muted-foreground text-xs">—</span>}
                             </TableCell>
+                            <TableCell>
+                                {row.rack_column_number
+                                    ? `${row.rack_column_number}${row.rack_column_code ? ` (${row.rack_column_code})` : ''}`
+                                    : <span className="text-muted-foreground text-xs">—</span>}
+                            </TableCell>
                             <TableCell className="text-center">{Number(row.quantity ?? 0)}</TableCell>
+                            <TableCell className="text-center">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => onEditRack?.(row)}
+                                    disabled={updatingCartoonId === row.id}
+                                    aria-label="Edit rack placement"
+                                >
+                                    <Pencil className="h-4 w-4" />
+                                </Button>
+                            </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>

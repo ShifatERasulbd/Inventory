@@ -17,17 +17,6 @@ export default function AddForm({ form, onPurchaseChange, purchases = [], onChan
             <form onSubmit={onSubmit}>
                 <CardContent className="space-y-6 pt-6">
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="cartoon_number">Cartoon Number</Label>
-                            <Input
-                                id="cartoon_number"
-                                name="cartoon_number"
-                                value={form.cartoon_number}
-                                onChange={onChange}
-                                placeholder="e.g. Cartoon Number"
-                            />
-                            {errors.cartoon_number && <p className="text-xs text-destructive">{errors.cartoon_number[0]}</p>}
-                        </div>
 
                         <div className="space-y-2">
                             <Label htmlFor="P_O_number">Purchase Order Number</Label>
@@ -48,6 +37,20 @@ export default function AddForm({ form, onPurchaseChange, purchases = [], onChan
                             )}
                         </div>
 
+                        <div className="space-y-2">
+                            <Label htmlFor="cartoon_number">Cartoon Number</Label>
+                            <Input
+                                id="cartoon_number"
+                                name="cartoon_number"
+                                value={form.cartoon_number}
+                                onChange={onChange}
+                                placeholder="e.g. Cartoon Number"
+                            
+                            />
+                            {errors.cartoon_number && <p className="text-xs text-destructive">{errors.cartoon_number[0]}</p>}
+                        </div>
+
+                   
                         <div className="space-y-2">
                             <Label htmlFor="warehouse_id">Warehouse {isSuperAdmin ? '' : '(Login Warehouse)'}</Label>
                             {isSuperAdmin ? (

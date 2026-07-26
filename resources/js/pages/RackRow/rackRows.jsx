@@ -1,6 +1,8 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import RackRowTable from '@/components/rackrow/table';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
 import { fetchRackRows, deleteRackRow } from './api';
 import { fetchRack } from '@/pages/Rack/api';
 import { toast } from 'sonner';
@@ -54,6 +56,10 @@ export default function RackRows() {
         navigate(`/racks/${rack_id}/rows/${id}/edit`);
     };
 
+    const handleManageColumns = (rowId) => {
+        navigate(`/racks/${rack_id}/columns?row_id=${rowId}`);
+    };
+
     const handleRequestDelete = (id) => {
         setDeleteConfirm(id);
     };
@@ -88,6 +94,7 @@ export default function RackRows() {
                         onAdd={() => navigate(`/racks/${rack_id}/rows/add`)}
                         onEdit={handleEdit}
                         onRequestDelete={handleRequestDelete}
+                        onManageColumns={handleManageColumns}
                     />
                 </div>
                 {requestError && (

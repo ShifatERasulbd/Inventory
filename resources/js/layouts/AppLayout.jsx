@@ -1,17 +1,20 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AppSidebar } from '@/components/app-sidebar';
 import { UserMenu } from '@/components/user-menu';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { useAppContext } from '@/context/AppContext';
+import Preloader from '@/components/Preloader';
 
 export default function AppLayout() {
     const { pageTitle, user, setUser } = useAppContext();
+    const [isUserLoading, setIsUserLoading] = useState(false);
 
     useEffect(() => {
         let ignore = false;
 
         async function loadUser() {
+            setIsUserLoading(true);
             try {
                 const response = await fetch('/api/user', {
                     credentials: 'include',
@@ -31,11 +34,17 @@ export default function AppLayout() {
                 }
             } catch {
                 // Keep layout resilient even if user fetch fails.
+            } finally {
+                if (!ignore) {
+                    setIsUserLoading(false);
+                }
             }
         }
 
         if (!user) {
             loadUser();
+        } else {
+            setIsUserLoading(false);
         }
 
         return () => {
@@ -44,6 +53,10 @@ export default function AppLayout() {
     }, [setUser, user]);
 
     const warehouseName = user?.warehouse?.name || 'No Warehouse Assigned';
+
+    if (isUserLoading) {
+        return <Preloader message="Loading user..." />;
+    }
 
     return (
         <SidebarProvider>
@@ -59,8 +72,32 @@ export default function AppLayout() {
                     <UserMenu user={user} warehouseName={warehouseName} />
                 </header>
 
-                <div className="p-4 md:p-6">
+                <div className="flex min-h-[calc(100vh-56px)] flex-col p-4 md:p-6">
                     <Outlet />
+
+                    <footer className="mt-auto border-t border-border pt-4 text-xs text-muted-foreground">
+                        <div className="grid grid-cols-3 gap-4 text-center md:text-left">
+                            
+                            {/* Left Column */}
+                            <div className="flex flex-col items-center md:items-start">
+                            <div className="font-medium">Developed by Shifat E Rasul</div>
+                            <div>New Atlantic Inventory management V1.0.1</div>
+                            </div>
+
+                            {/* Center Column */}
+                            <div className="flex flex-col items-center">
+                            <div className="font-medium">Support Email</div>
+                            <a className="underline" href="mailto:it1@arbellafashion.com">it1@arbellafashion.com</a>
+                            </div>
+
+                            {/* Right Column */}
+                            <div className="flex flex-col items-center md:items-end">
+                            <div className="font-medium">Emergency Support</div>
+                            <a className="underline" href="https://wa.me/8801680752193">Whatsapp : +8801680752193</a>
+                            </div>
+                            
+                        </div>
+                    </footer>
                 </div>
             </SidebarInset>
         </SidebarProvider>

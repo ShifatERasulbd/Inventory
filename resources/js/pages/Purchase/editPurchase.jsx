@@ -87,6 +87,43 @@ function parseShipmentDays(rawValue) {
     return Math.floor(extracted);
 }
 
+function getStockSellingPrice(stockSellingPrices, warehouseId, productId, brandId = null) {
+    const sourceWarehouseId = Number(warehouseId);
+    const selectedProductId = Number(productId);
+
+    if (!Number.isInteger(sourceWarehouseId) || sourceWarehouseId <= 0) {
+        return null;
+    }
+
+    if (!Number.isInteger(selectedProductId) || selectedProductId <= 0) {
+        return null;
+    }
+
+    const normalizedBrandId = Number(brandId);
+    const hasSelectedBrand = Number.isInteger(normalizedBrandId) && normalizedBrandId > 0;
+    const exactBrandSegment = hasSelectedBrand ? String(normalizedBrandId) : 'none';
+    const exactKey = `${sourceWarehouseId}:${selectedProductId}:${exactBrandSegment}`;
+    const fallbackNoneKey = `${sourceWarehouseId}:${selectedProductId}:none`;
+
+    let value = stockSellingPrices?.[exactKey];
+
+    if (value == null && hasSelectedBrand) {
+        value = stockSellingPrices?.[fallbackNoneKey];
+    }
+
+    // Final fallback for legacy data: take any brand segment value for this warehouse/product.
+    if (value == null && stockSellingPrices && typeof stockSellingPrices === 'object') {
+        const prefix = `${sourceWarehouseId}:${selectedProductId}:`;
+        const matchedEntry = Object.entries(stockSellingPrices).find(([key, candidate]) => (
+            key.startsWith(prefix) && candidate != null
+        ));
+
+        value = matchedEntry ? matchedEntry[1] : null;
+    }
+
+    return value == null ? null : Number(value);
+}
+
 async function fetchCurrentUser() {
     const response = await fetch('/api/user', {
         credentials: 'include',
@@ -112,6 +149,8 @@ export default function EditPurchase() {
     const [warehouses, setWarehouses] = useState([]);
     const [brands, setBrands] = useState([]);
     const [products, setProducts] = useState([]);
+    const [stockSellingPrices, setStockSellingPrices] = useState({});
+    const [stockQuantities, setStockQuantities] = useState({});
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -166,6 +205,12 @@ export default function EditPurchase() {
                     setWarehouses(Array.isArray(options?.warehouses) ? options.warehouses : []);
                     setBrands(Array.isArray(options?.brands) ? options.brands : []);
                     setProducts(Array.isArray(options?.products) ? options.products : []);
+                    setStockSellingPrices(options?.stock_selling_prices && typeof options.stock_selling_prices === 'object'
+                        ? options.stock_selling_prices
+                        : {});
+                    setStockQuantities(options?.stock_quantities && typeof options.stock_quantities === 'object'
+                        ? options.stock_quantities
+                        : {});
                     if (!user && currentUser) {
                         setUser(currentUser);
                     }
@@ -270,10 +315,30 @@ export default function EditPurchase() {
     };
 
     const handleSelectChange = (name, value) => {
-        setForm((previous) => ({
-            ...previous,
-            [name]: value,
-        }));
+        setForm((previous) => {
+            if (name !== 'purchase_form') {
+                return {
+                    ...previous,
+                    [name]: value,
+                };
+            }
+
+            const updatedProducts = previous.products.map((row) => {
+                const autoPrice = getStockSellingPrice(stockSellingPrices, value, row.product_id, previous.brand_id);
+
+                return {
+                    ...row,
+                    purchase_price: autoPrice == null ? row.purchase_price : String(autoPrice),
+                    quantity: row.quantity,
+                };
+            });
+
+            return {
+                ...previous,
+                [name]: value,
+                products: updatedProducts,
+            };
+        });
     };
 
     const handleProductChange = (index, field, value) => {
@@ -286,7 +351,25 @@ export default function EditPurchase() {
     };
 
     const handleProductSelectChange = (index, value) => {
-        handleProductChange(index, 'product_id', value);
+        setForm((previous) => {
+            const autoPrice = getStockSellingPrice(stockSellingPrices, previous.purchase_form, value, previous.brand_id);
+            const updated = previous.products.map((row, i) => {
+                if (i !== index) {
+                    return row;
+                }
+
+                return {
+                    ...row,
+                    product_id: value,
+                    purchase_price: autoPrice == null ? row.purchase_price : String(autoPrice),
+                };
+            });
+
+            return {
+                ...previous,
+                products: updated,
+            };
+        });
     };
 
     const addProductRow = () => {

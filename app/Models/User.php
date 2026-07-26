@@ -18,6 +18,12 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes, LogsActivity;
 
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'warehouse_ids',
+    ];
     protected $appends = [
         'role_slugs',
         'permission_slugs',

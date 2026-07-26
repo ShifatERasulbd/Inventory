@@ -498,7 +498,7 @@ class PurchaseController extends Controller
                 'size:id,size',
             ])
             ->orderBy('name')
-            ->get(['id', 'name', 'color_id', 'size_id']);
+            ->get(['id', 'name', 'style_number', 'color_id', 'size_id']);
 
         $brands = Brand::query()
             ->orderBy('name')

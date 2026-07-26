@@ -28,6 +28,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\RecurringPaymentController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ReceivedCartoonIssueController;
+use App\Http\Controllers\RackColumnsController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\QuickBooksController;
 use App\Http\Controllers\RemoteOrderController;
@@ -109,6 +110,10 @@ Route::prefix('api')->group(function () {
 
         // Rack Row Controller
         Route::apiResource('/racks/{rack}/rows', RackRowController::class)->middleware('resource.permission:racks');
+
+        // Rack Columns Controller
+        Route::apiResource('/racks/{rack}/columns', RackColumnsController::class)->middleware('resource.permission:racks');
+
 
         // Brand Controller
         Route::apiResource('/brands', BrandController::class)->middleware('resource.permission:brands');

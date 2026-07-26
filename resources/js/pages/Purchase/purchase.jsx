@@ -59,6 +59,8 @@ export default function Purchase() {
     const [paymentAmount, setPaymentAmount] = useState('');
     const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
     const [viewingPdf, setViewingPdf] = useState(null);
+    const [uploadProgressByPurchaseId, setUploadProgressByPurchaseId] = useState({});
+    const [uploadingPackingListId, setUploadingPackingListId] = useState(null);
 
 
     useEffect(() => {
@@ -352,9 +354,22 @@ export default function Purchase() {
                 onStatusDraftChange={handleStatusDraftChange}
                 onUpdateStatus={handleUpdateStatus}
                 onPayRemaining={handleOpenPayRemaining}
+                onViewDetails={(id) => navigate(`/purchases/${id}`)}
                 onUploadPackingList={async ({ purchaseId, file }) => {
                     try {
-                        await uploadPurchasePackingList(purchaseId, file);
+                        setUploadingPackingListId(purchaseId);
+                        setUploadProgressByPurchaseId((previous) => ({
+                            ...previous,
+                            [purchaseId]: 0,
+                        }));
+
+                        await uploadPurchasePackingList(purchaseId, file, (progress) => {
+                            setUploadProgressByPurchaseId((previous) => ({
+                                ...previous,
+                                [purchaseId]: progress,
+                            }));
+                        });
+
                         const updatedPurchases = await fetchPurchases();
                         setPurchases(Array.isArray(updatedPurchases) ? updatedPurchases : []);
                         toast.success('Packing list uploaded successfully.', {
@@ -364,8 +379,17 @@ export default function Purchase() {
                         toast.error(error.message || 'Failed to upload packing list.', {
                             style: { color: '#dc2626' },
                         });
+                    } finally {
+                        setUploadProgressByPurchaseId((previous) => {
+                            const next = { ...previous };
+                            delete next[purchaseId];
+                            return next;
+                        });
+                        setUploadingPackingListId(null);
                     }
                 }}
+                uploadProgressByPurchaseId={uploadProgressByPurchaseId}
+                uploadingPackingListId={uploadingPackingListId}
                 userWarehouseIds={userWarehouseIds}
                 isSuperAdmin={isSuperAdmin}
             />

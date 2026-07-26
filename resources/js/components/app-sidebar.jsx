@@ -152,8 +152,12 @@ export function AppSidebar(props) {
             <SidebarHeader className="border-b border-sidebar-border px-3 py-3">
                 <div className="flex items-center gap-2 px-1">
                     <span className="inline-flex size-4 rounded-full border border-sidebar-foreground/60" />
-                    <span className="text-sm font-semibold">AVANT</span>
+                    <div className="flex flex-col">
+                        <span className="text-sm font-semibold leading-tight">New Atlantic Inventory</span>
+                        <span className="text-[10px] text-muted-foreground leading-tight">Version 1.0.1</span>
+                    </div>
                 </div>
+                
             </SidebarHeader>
 
             <SidebarContent className="scrollbar-hidden py-3">

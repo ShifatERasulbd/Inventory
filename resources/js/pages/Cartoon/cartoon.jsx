@@ -25,6 +25,7 @@ import {
   assignCartoonRack,
   deleteCartoon,
   fetchCartoons,
+  fetchRackColumns,
   fetchRackRows,
   fetchRacks,
 } from './api';
@@ -149,8 +150,10 @@ export default function Cartoon() {
   const [assignCartoonTarget, setAssignCartoonTarget] = useState(null);
   const [racks, setRacks] = useState([]);
   const [rackRows, setRackRows] = useState([]);
+  const [rackColumns, setRackColumns] = useState([]);
   const [selectedRackId, setSelectedRackId] = useState('');
   const [selectedRackRowId, setSelectedRackRowId] = useState('');
+  const [selectedRackColumnId, setSelectedRackColumnId] = useState('');
   const [isAssigningRack, setIsAssigningRack] = useState(false);
 
     useEffect(() => {
@@ -235,7 +238,7 @@ export default function Cartoon() {
       : [];
 
     if (allowedBarcodes.length > 0 && !allowedBarcodes.includes(normalized)) {
-      const message = 'Some scanned barcodes are not available in the purchase from warehouse stock.';
+      const message = 'The Scanned Product does not Match with the Purchase Order Product. Please Scan the correct product.';
       setErrorMessage(message);
       toast.error(message, { style: { color: '#dc2626' } });
       setCodeInput('');
@@ -435,7 +438,9 @@ export default function Cartoon() {
     setAssignCartoonTarget(cartoon);
     setSelectedRackId('');
     setSelectedRackRowId('');
+    setSelectedRackColumnId('');
     setRackRows([]);
+    setRackColumns([]);
 
     try {
       const rackData = await fetchRacks();
@@ -451,21 +456,37 @@ export default function Cartoon() {
   const handleRackChange = async (value) => {
     setSelectedRackId(value);
     setSelectedRackRowId('');
+    setSelectedRackColumnId('');
 
     if (!value) {
       setRackRows([]);
+      setRackColumns([]);
       return;
     }
 
     try {
-      const rows = await fetchRackRows(value);
+      const [rows, columns] = await Promise.all([
+        fetchRackRows(value),
+        fetchRackColumns(value),
+      ]);
       setRackRows(Array.isArray(rows) ? rows : []);
+      setRackColumns(Array.isArray(columns) ? columns : []);
     } catch (error) {
       setRackRows([]);
+      setRackColumns([]);
       toast.error(error.message || 'Failed to load rack rows.', {
         style: { color: '#dc2626' },
       });
     }
+  };
+
+  const handleRackRowChange = (value) => {
+    setSelectedRackRowId(value);
+    setSelectedRackColumnId('');
+  };
+
+  const handleRackColumnChange = (value) => {
+    setSelectedRackColumnId(value);
   };
 
   const handleAssignRack = async () => {
@@ -485,6 +506,7 @@ export default function Cartoon() {
       const updated = await assignCartoonRack(assignCartoonTarget.id, {
         rack_id: Number(selectedRackId),
         ...(selectedRackRowId ? { rack_row_id: Number(selectedRackRowId) } : {}),
+        ...(selectedRackColumnId ? { rack_column_id: Number(selectedRackColumnId) } : {}),
       });
 
       setCartoons((previous) => previous.map((cartoon) => (
@@ -498,7 +520,9 @@ export default function Cartoon() {
       setAssignCartoonTarget(null);
       setSelectedRackId('');
       setSelectedRackRowId('');
+      setSelectedRackColumnId('');
       setRackRows([]);
+      setRackColumns([]);
     } catch (error) {
       toast.error(error.message || 'Failed to assign rack.', {
         style: { color: '#dc2626' },
@@ -528,6 +552,7 @@ export default function Cartoon() {
                 onRequestDelete={setCartoonToDelete}
                 deletingId={deletingId}
                 isLoading={isLoading}
+                onViewPurchaseDetails={(purchaseId) => navigate(`/purchases/${purchaseId}`)}
                 />
             </div>
 
@@ -732,7 +757,9 @@ export default function Cartoon() {
                   setAssignCartoonTarget(null);
                   setSelectedRackId('');
                   setSelectedRackRowId('');
+                  setSelectedRackColumnId('');
                   setRackRows([]);
+                  setRackColumns([]);
                 }
               }}
             >
@@ -768,7 +795,7 @@ export default function Cartoon() {
 
                   <div className="space-y-2">
                     <Label>Rack Row (Optional)</Label>
-                    <Select value={selectedRackRowId} onValueChange={setSelectedRackRowId} disabled={!selectedRackId}>
+                    <Select value={selectedRackRowId} onValueChange={handleRackRowChange} disabled={!selectedRackId}>
                       <SelectTrigger>
                         <SelectValue placeholder={selectedRackId ? 'Select a rack row' : 'Select a rack first'} />
                       </SelectTrigger>
@@ -778,6 +805,28 @@ export default function Cartoon() {
                             Row {row.row_number}
                           </SelectItem>
                         ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Column (Optional)</Label>
+                    <Select
+                      value={selectedRackColumnId}
+                      onValueChange={handleRackColumnChange}
+                      disabled={!selectedRackRowId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={selectedRackRowId ? 'Select a column' : 'Select a rack row first'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {rackColumns
+                          .filter((column) => String(column.row_id) === String(selectedRackRowId))
+                          .map((column) => (
+                            <SelectItem key={column.id} value={String(column.id)}>
+                              Column {column.column_number}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>

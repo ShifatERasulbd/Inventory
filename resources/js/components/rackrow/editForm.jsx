@@ -39,6 +39,20 @@ export default function EditRackRowForm({ form, onChange, onSubmit, isSubmitting
                     </div>
 
                     <div className="space-y-1">
+                        <Label htmlFor="column">Column</Label>
+                        <Input
+                            id="column"
+                            name="column"
+                            value={form.column}
+                            onChange={onChange}
+                            placeholder="e.g. C1, 1, A"
+                        />
+                        {errors.column && (
+                            <p className="text-sm text-destructive">{errors.column[0]}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-1">
                         <Label htmlFor="code">Code</Label>
                         <Input
                             id="code"

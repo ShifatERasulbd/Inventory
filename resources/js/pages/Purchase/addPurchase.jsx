@@ -483,6 +483,73 @@ export default function AddPurchase() {
         });
     };
 
+    const handleStyleSelectChange = (index, styleNumber) => {
+        setForm((previous) => {
+            const style = String(styleNumber ?? '').trim().toLowerCase();
+            if (!style) {
+                return previous;
+            }
+
+            const matchedProducts = products.filter((product) => (
+                String(product?.style_number ?? '').trim().toLowerCase() === style
+            ));
+
+            if (matchedProducts.length === 0) {
+                return previous;
+            }
+
+            const selectedIds = new Set(
+                (previous.products ?? [])
+                    .map((row, rowIndex) => (rowIndex === index ? null : String(row?.product_id ?? '').trim()))
+                    .filter(Boolean)
+            );
+
+            const productsToInsert = matchedProducts.filter((product) => !selectedIds.has(String(product.id)));
+            if (productsToInsert.length === 0) {
+                return previous;
+            }
+
+            const firstProduct = productsToInsert[0];
+            const firstAutoPrice = getStockSellingPrice(
+                stockSellingPrices,
+                previous.purchase_form,
+                firstProduct.id,
+                previous.brand_id,
+            );
+
+            const currentRows = Array.isArray(previous.products) ? previous.products : [];
+            const beforeRows = currentRows.slice(0, index);
+            const afterRows = currentRows.slice(index + 1);
+
+            const replacementRow = {
+                ...currentRows[index],
+                product_id: String(firstProduct.id),
+                quantity: '',
+                purchase_price: firstAutoPrice == null ? '' : String(firstAutoPrice),
+            };
+
+            const extraRows = productsToInsert.slice(1).map((product) => {
+                const autoPrice = getStockSellingPrice(
+                    stockSellingPrices,
+                    previous.purchase_form,
+                    product.id,
+                    previous.brand_id,
+                );
+
+                return {
+                    product_id: String(product.id),
+                    quantity: '',
+                    purchase_price: autoPrice == null ? '' : String(autoPrice),
+                };
+            });
+
+            return {
+                ...previous,
+                products: [...beforeRows, replacementRow, ...extraRows, ...afterRows],
+            };
+        });
+    };
+
     const addProductRow = () => {
         setForm((previous) => ({
             ...previous,
@@ -562,6 +629,7 @@ export default function AddPurchase() {
                 onSelectChange={handleSelectChange}
                 onProductChange={handleProductChange}
                 onProductSelectChange={handleProductSelectChange}
+                onStyleSelectChange={handleStyleSelectChange}
                 onAddProduct={addProductRow}
                 onRemoveProduct={removeProductRow}
                 onSubmit={handleSubmit}

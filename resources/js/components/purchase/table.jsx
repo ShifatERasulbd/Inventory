@@ -1,4 +1,4 @@
-import { Pencil, Search, FileText, Trash2, DollarSign, Package } from 'lucide-react';
+import { Pencil, Search, FileText, Trash2, DollarSign, Package, Eye } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { useState } from 'react';
 import {
@@ -49,8 +49,11 @@ export function PurchaseTable({
     onStatusDraftChange,
     onUpdateStatus,
     onPayRemaining,
+    onViewDetails,
     onPackingList,
     onUploadPackingList,
+    uploadProgressByPurchaseId = {},
+    uploadingPackingListId = null,
     userWarehouseIds = [],
     isSuperAdmin = false,
 }) {
@@ -226,7 +229,6 @@ export function PurchaseTable({
                             <TableHead className="w-[150px]">PO Number</TableHead>
                             <TableHead className="w-[110px]">PO Date</TableHead>
                             <TableHead className="w-[90px]">Brand</TableHead>
-                            <TableHead className="w-[240px]">Products</TableHead>
                             <TableHead className="w-[140px]">Required Delivery Date</TableHead>
                             <TableHead className="w-[130px]">Purchase From</TableHead>
                             <TableHead className="w-[130px]">Purchase To</TableHead>
@@ -241,7 +243,7 @@ export function PurchaseTable({
                     <TableBody>
                         {isLoading && (
                             <TableRow>
-                                <TableCell colSpan={13} className="text-center text-muted-foreground">
+                                <TableCell colSpan={12} className="text-center text-muted-foreground">
                                     Loading purchases...
                                 </TableCell>
                             </TableRow>
@@ -249,7 +251,7 @@ export function PurchaseTable({
 
                         {!isLoading && purchases.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={13} className="text-center text-muted-foreground">
+                                <TableCell colSpan={12} className="text-center text-muted-foreground">
                                     No purchases found.
                                 </TableCell>
                             </TableRow>
@@ -257,7 +259,7 @@ export function PurchaseTable({
 
                         {!isLoading && filtered.length === 0 && purchases.length > 0 && (
                             <TableRow>
-                                <TableCell colSpan={13} className="text-center text-muted-foreground">
+                                <TableCell colSpan={12} className="text-center text-muted-foreground">
                                     No purchases match your current status tab/search.
                                 </TableCell>
                             </TableRow>
@@ -295,22 +297,6 @@ export function PurchaseTable({
                                     <TableCell className="max-w-[150px] truncate">{purchase.po_number}</TableCell>
                                     <TableCell>{formatDate(purchase.po_date)}</TableCell>
                                     <TableCell>{purchase.brand_name || 'N/A'}</TableCell>
-                                    <TableCell className="max-w-[240px]">
-                                        <div className="space-y-2">
-                                            {(purchase.products || []).map((item, itemIndex) => (
-                                                <div key={`${purchase.id}-${itemIndex}`} className="rounded-md border border-border/60 px-3 py-2 text-sm">
-                                                    <div className="font-medium">
-                                                        {item.product_name || `Product #${item.product_id}`}
-                                                    </div>
-                                                    <div className="mt-1 space-y-0.5 text-muted-foreground">
-                                                        <div>Qty: {Number(item.quantity ?? 0)}</div>
-                                                        <div>Size: {item.size || item.size_name || item?.size?.size || 'N/A'}</div>
-                                                        <div>Color: {item.color || item.color_name || item?.color?.name || 'N/A'}</div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </TableCell>
                                     <TableCell>{formatDate(purchase.expected_delivery_date)}</TableCell>
                                     <TableCell className="max-w-[130px] truncate">{purchase.purchase_form_name || `Warehouse #${purchase.purchase_form}`}</TableCell>
                                     <TableCell className="max-w-[130px] truncate">{purchase.purchase_to_name || `Warehouse #${purchase.purchase_to}`}</TableCell>
@@ -344,6 +330,7 @@ export function PurchaseTable({
                                                         type="file"
                                                         required
                                                         accept="application/pdf"
+                                                        disabled={uploadingPackingListId === purchase.id}
                                                         onChange={async (e) => {
                                                             const file = e.target.files?.[0];
                                                             if (!file) return;
@@ -359,6 +346,19 @@ export function PurchaseTable({
                                                         }}
                                                         className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                                                     />
+                                                {typeof uploadProgressByPurchaseId[purchase.id] === 'number' && (
+                                                    <div className="space-y-1">
+                                                        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                                                            <div
+                                                                className="h-full rounded-full bg-black transition-all duration-200"
+                                                                style={{ width: `${uploadProgressByPurchaseId[purchase.id]}%` }}
+                                                            />
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Uploading {uploadProgressByPurchaseId[purchase.id]}%
+                                                        </p>
+                                                    </div>
+                                                )}
                                             </div>
 
 
@@ -456,6 +456,24 @@ export function PurchaseTable({
                                                     </Tooltip>
                                                 </TooltipProvider>
                                             )}
+
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`View details for purchase ${purchase.po_number}`}
+                                                            onClick={() => onViewDetails?.(purchase.id)}
+                                                        >
+                                                            <Eye />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">
+                                                        <p>View Details</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
 
                                             <TooltipProvider>
                                                 <Tooltip>

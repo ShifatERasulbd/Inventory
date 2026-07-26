@@ -24,7 +24,40 @@ async function requestJson(url, options = {}) {
     return payload;
 }
 
+async function ensureCsrfCookie() {
+    await fetch('/sanctum/csrf-cookie', {
+        credentials: 'include',
+        headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    });
+}
+
 export async function fetchCartoonTracking() {
     const payload = await requestJson('/api/cartoon-tracking');
     return Array.isArray(payload) ? payload : [];
+}
+
+export async function fetchRacks() {
+    const payload = await requestJson('/api/racks');
+    return Array.isArray(payload) ? payload : [];
+}
+
+export async function fetchRackRows(rackId) {
+    const payload = await requestJson(`/api/racks/${rackId}/rows`);
+    return Array.isArray(payload) ? payload : [];
+}
+
+export async function fetchRackColumns(rackId) {
+    const payload = await requestJson(`/api/racks/${rackId}/columns`);
+    return Array.isArray(payload) ? payload : [];
+}
+
+export async function assignCartoonRack(id, data) {
+    await ensureCsrfCookie();
+    return requestJson(`/api/cartoons/${id}/assign-rack`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
 }

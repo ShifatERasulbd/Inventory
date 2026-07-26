@@ -7,7 +7,7 @@ import { useAppContext } from '@/context/AppContext';
 import { fetchPurchases } from '@/pages/Purchase/api';
 import { fetchWarehouses } from '@/pages/Purchase/api';
 
-import { fetchCartoon, updateCartoon } from './api';
+import { fetchCartoon, fetchRackColumns, updateCartoon } from './api';
 
 const initialForm = {
     cartoon_number: '',
@@ -15,6 +15,7 @@ const initialForm = {
     warehouse_id: '',
     rack_id: '',
     rack_row_id: '',
+    rack_column_id: '',
 };
 
 async function fetchCurrentUser() {
@@ -47,6 +48,7 @@ export default function EditCartoon() {
     const [warehouses, setWarehouses] = useState([]);
     const [racks, setRacks] = useState([]);
     const [rackRows, setRackRows] = useState([]);
+    const [rackColumns, setRackColumns] = useState([]);
     const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');
 
     useEffect(() => {
@@ -84,6 +86,18 @@ export default function EditCartoon() {
         };
     }, [setUser, user]);
 
+    const setCartoonNumberWithPrefix = (poNumber) => {
+        const prefix = String(poNumber ?? '').trim();
+        setForm((previous) => {
+            const existing = String(previous.cartoon_number ?? '');
+            const existingSuffix = existing.startsWith(prefix) ? existing.slice(prefix.length) : '';
+            return {
+                ...previous,
+                cartoon_number: prefix + existingSuffix,
+            };
+        });
+    };
+
     useEffect(() => {
         // Fetch all racks
         fetch('/api/racks')
@@ -100,17 +114,22 @@ export default function EditCartoon() {
     useEffect(() => {
         // Fetch rack rows when rack is selected
         if (form.rack_id) {
-            fetch(`/api/racks/${form.rack_id}/rows`)
-                .then((response) => response.json())
-                .then((data) => {
-                    setRackRows(Array.isArray(data) ? data : []);
+            Promise.all([
+                fetch(`/api/racks/${form.rack_id}/rows`).then((response) => response.json()),
+                fetchRackColumns(form.rack_id),
+            ])
+                .then(([rowsData, columnsData]) => {
+                    setRackRows(Array.isArray(rowsData) ? rowsData : []);
+                    setRackColumns(Array.isArray(columnsData) ? columnsData : []);
                 })
                 .catch((error) => {
-                    console.error('Failed to fetch rack rows:', error);
+                    console.error('Failed to fetch rack rows/columns:', error);
                     setRackRows([]);
+                    setRackColumns([]);
                 });
         } else {
             setRackRows([]);
+            setRackColumns([]);
         }
     }, [form.rack_id]);
 
@@ -134,6 +153,7 @@ export default function EditCartoon() {
                         warehouse_id: cartoon.warehouse_id ? String(cartoon.warehouse_id) : '',
                         rack_id: cartoon.rack_id ? String(cartoon.rack_id) : '',
                         rack_row_id: cartoon.rack_row_id ? String(cartoon.rack_row_id) : '',
+                        rack_column_id: cartoon.rack_column_id ? String(cartoon.rack_column_id) : '',
                     });
                 }
             } catch (error) {
@@ -167,6 +187,7 @@ export default function EditCartoon() {
             ...previous,
             rack_id: value,
             rack_row_id: '', // Reset rack row when rack changes
+            rack_column_id: '',
         }));
     };
 
@@ -174,6 +195,14 @@ export default function EditCartoon() {
         setForm((previous) => ({
             ...previous,
             rack_row_id: value,
+            rack_column_id: '',
+        }));
+    };
+
+    const handleRackColumnChange = (value) => {
+        setForm((previous) => ({
+            ...previous,
+            rack_column_id: value,
         }));
     };
 
@@ -214,6 +243,12 @@ export default function EditCartoon() {
 
     const handlePurchaseChange = (value) => {
         setForm((previous) => ({ ...previous, p_o_number: value }));
+
+        const selected = purchases.find((p) => String(p.id) === String(value));
+        if (selected?.po_number) {
+            setCartoonNumberWithPrefix(selected.po_number);
+        }
+
         setErrors((previous) => {
             if (!previous.p_o_number) return previous;
             const next = { ...previous };
@@ -235,6 +270,7 @@ export default function EditCartoon() {
                 ...(form.warehouse_id ? { warehouse_id: Number(form.warehouse_id) } : {}),
                 ...(form.rack_id ? { rack_id: Number(form.rack_id) } : { rack_id: null }),
                 ...(form.rack_row_id ? { rack_row_id: Number(form.rack_row_id) } : { rack_row_id: null }),
+                ...(form.rack_column_id ? { rack_column_id: Number(form.rack_column_id) } : { rack_column_id: null }),
             });
 
             toast.success('Cartoon updated successfully.', {
@@ -276,10 +312,12 @@ export default function EditCartoon() {
                 rackRows={rackRows}
                 onRackChange={handleRackChange}
                 onRackRowChange={handleRackRowChange}
+                onRackColumnChange={handleRackColumnChange}
                 warehouses={warehouses}
                 isSuperAdmin={isSuperAdmin}
                 warehouseLabel={warehouseLabel}
                 onWarehouseChange={handleWarehouseChange}
+                rackColumns={rackColumns}
             />
         </div>
     );

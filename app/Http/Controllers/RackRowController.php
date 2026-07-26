@@ -39,7 +39,7 @@ class RackRowController extends Controller
         $this->ensureRackVisible($request, $rack);
 
         return response()->json(
-            $rack->rows()->orderBy('row_number')->get()
+            $rack->rows()->orderBy('row_number')->orderBy('column')->get()
         );
     }
 
@@ -50,8 +50,13 @@ class RackRowController extends Controller
         $validated = $request->validate([
             'row_number' => [
                 'required', 'string', 'max:50',
-                Rule::unique('rack_rows', 'row_number')->where('rack_id', $rack->id),
+                Rule::unique('rack_rows', 'row_number')->where(function ($query) use ($rack, $request) {
+                    return $query
+                        ->where('rack_id', $rack->id)
+                        ->where('column', $request->input('column'));
+                }),
             ],
+            'column' => ['required', 'string', 'max:50'],
             'code' => ['required', 'string', 'max:100', 'unique:rack_rows,code'],
         ]);
 
@@ -76,8 +81,15 @@ class RackRowController extends Controller
         $validated = $request->validate([
             'row_number' => [
                 'required', 'string', 'max:50',
-                Rule::unique('rack_rows', 'row_number')->where('rack_id', $rack->id)->ignore($row->id),
+                Rule::unique('rack_rows', 'row_number')
+                    ->where(function ($query) use ($rack, $request) {
+                        return $query
+                            ->where('rack_id', $rack->id)
+                            ->where('column', $request->input('column'));
+                    })
+                    ->ignore($row->id),
             ],
+            'column' => ['required', 'string', 'max:50'],
             'code' => [
                 'required', 'string', 'max:100',
                 Rule::unique('rack_rows', 'code')->ignore($row->id),

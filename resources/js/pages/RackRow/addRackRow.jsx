@@ -7,6 +7,7 @@ import { createRackRow } from './api';
 
 const initialForm = {
     row_number: '',
+    column: '',
     code: '',
 };
 
@@ -15,6 +16,10 @@ function validateForm(form) {
 
     if (!form.row_number.trim()) {
         errors.row_number = ['The Row Number is required'];
+    }
+
+    if (!form.column.trim()) {
+        errors.column = ['The Column is required'];
     }
 
     if (!form.code.trim()) {
@@ -64,6 +69,7 @@ export default function AddRackRow() {
         try {
             await createRackRow(rack_id, {
                 row_number: form.row_number.trim(),
+                column: form.column.trim(),
                 code: form.code.trim(),
             });
             toast.success('Row created successfully.', { style: { color: '#16a34a' } });
