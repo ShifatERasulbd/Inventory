@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { fetchSells } from './api';
+import Preloader from '@/components/Preloader';
 
 function SellTable({ data, searchTerm }) {
     const filtered = data.filter((item) => {
@@ -92,8 +93,8 @@ export default function Sell() {
         loadSells();
     }, []);
 
-    if (loading) {
-        return <div className="flex items-center justify-center p-8">Loading...</div>;
+if (loading) {
+        return <Preloader message="Loading Sells..." />;
     }
 
     return (

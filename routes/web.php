@@ -75,6 +75,7 @@ Route::prefix('api')->group(function () {
 
         // 1971 order details
         Route::get('/remote-orders', [RemoteOrderController::class, 'index']);
+        Route::get('/remote-orders/approved-count', [RemoteOrderController::class, 'getApprovedCount']);
         Route::get('/remote-orders/pending', [RemoteOrderController::class, 'getPendingOrders']);
         Route::post('/remote-orders/sync', [RemoteOrderController::class, 'sync']);
         Route::get('/remote-orders/{id}', [RemoteOrderController::class, 'show'])->whereNumber('id');

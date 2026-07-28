@@ -15,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import Preloader from '@/components/Preloader';
 
 export default function RackColumns() {
   const navigate = useNavigate();
@@ -91,6 +92,14 @@ export default function RackColumns() {
       setDeleteConfirm(null);
     }
   };
+
+  if (isLoading) {
+     return (
+                       <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                           <Preloader message="Loading Rack Columns..." fullScreen={false} />
+                       </div>
+                   );
+  }
 
   return (
     <>

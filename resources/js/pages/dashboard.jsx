@@ -10,6 +10,7 @@ import { fetchWarehouses } from '@/pages/Warehouse/api';
 import { fetchUsers } from '@/pages/User/api';
 import { fetchPurchases } from '@/pages/Purchase/api';
 import { fetchSells } from '@/pages/Sell/api';
+import Preloader from '@/components/Preloader';
 
 export default function Dashboard() {
     const { setPageTitle } = useAppContext();
@@ -21,6 +22,7 @@ export default function Dashboard() {
     const [approvedPurchases, setApprovedPurchases] = useState(0);
     const [cancelledPurchases, setCancelledPurchases] = useState(0);
     const [totalSells, setTotalSells] = useState(0);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         setPageTitle('Dashboard');
@@ -143,6 +145,19 @@ export default function Dashboard() {
             ignore = true;
         };
     }, []);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setIsLoading(false), 800);
+        return () => clearTimeout(timer);
+    }, []);
+
+    if (isLoading) {
+          return (
+                            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                                <Preloader message="Loading Dashboard..." fullScreen={false} />
+                            </div>
+                        );
+    }
 
     return (
         <div className="space-y-5">

@@ -22,7 +22,7 @@ import {
     Key,
     History,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import {
@@ -34,6 +34,7 @@ import {
     SidebarGroupLabel,
     SidebarHeader,
     SidebarMenu,
+    SidebarMenuBadge,
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
@@ -94,8 +95,43 @@ const OrderItems = [
 export function AppSidebar(props) {
     const navigate = useNavigate();
     const location = useLocation();
-    const { user } = useAppContext();
+    const { user, setUser } = useAppContext();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [approvedCount, setApprovedCount] = useState(0);
+
+    useEffect(() => {
+        let cancelled = false;
+        let intervalId = null;
+
+        async function fetchApprovedCount() {
+            try {
+                const response = await fetch('/api/remote-orders/approved-count', {
+                    credentials: 'include',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+                if (!response.ok) return;
+
+                const payload = await response.json();
+                if (!cancelled && payload?.success) {
+                    setApprovedCount(payload.count ?? 0);
+                }
+            } catch {
+                // Silently fail; badge will just show 0 or previous value.
+            }
+        }
+
+        fetchApprovedCount();
+        intervalId = window.setInterval(fetchApprovedCount, 60_000);
+
+        return () => {
+            cancelled = true;
+            if (intervalId) window.clearInterval(intervalId);
+        };
+    }, []);
 
     const permissionSlugs = Array.isArray(user?.permission_slugs) ? user.permission_slugs : [];
     const roleSlugs = Array.isArray(user?.role_slugs) ? user.role_slugs : [];
@@ -143,6 +179,7 @@ export function AppSidebar(props) {
             });
         } finally {
             setIsLoggingOut(false);
+            setUser(null);
             navigate('/');
         }
     };
@@ -154,7 +191,7 @@ export function AppSidebar(props) {
                     <span className="inline-flex size-4 rounded-full border border-sidebar-foreground/60" />
                     <div className="flex flex-col">
                         <span className="text-sm font-semibold leading-tight">New Atlantic Inventory</span>
-                        <span className="text-[10px] text-muted-foreground leading-tight">Version 1.0.1</span>
+                        <span className="text-[10px] text-muted-foreground leading-tight">Version 1.1.1</span>
                     </div>
                 </div>
                 
@@ -330,6 +367,11 @@ export function AppSidebar(props) {
                                                 <span>{item.title}</span>
                                             </Link>
                                         </SidebarMenuButton>
+                                        {item.title === '1971co Orders' && approvedCount > 0 && (
+                                            <SidebarMenuBadge className="bg-primary text-primary-foreground">
+                                                {approvedCount}
+                                            </SidebarMenuBadge>
+                                        )}
                                     </SidebarMenuItem>
                                 ))}
                             </SidebarMenu>

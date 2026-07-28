@@ -31,9 +31,12 @@ function getPurchaseGroupLabel(cartoon) {
     return cartoon.purchase?.po_number ?? cartoon.p_o_number ?? 'No Purchase Order';
 }
 
+const PO_PAGE_SIZE = 20;
+
 export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuantity, onAssignRack, onViewBarcode, onEdit, onRequestDelete, deletingId, isLoading, onViewPurchaseDetails }) {
     const [search, setSearch] = useState('');
     const [expandedGroups, setExpandedGroups] = useState({});
+    const [poPageState, setPoPageState] = useState({});
 
     const filtered = cartoons.filter((c) => {
         const q = search.toLowerCase();
@@ -200,12 +203,18 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                                                             </TableRow>
                                                         </TableHeader>
                                                         <TableBody>
-                                                            {group.cartoons.map((cartoon, detailIndex) => {
+                                                            {(() => {
+                                                                const currentPoPage = poPageState[group.key] ?? 1;
+                                                                const totalPoPages = Math.max(1, Math.ceil(group.cartoons.length / PO_PAGE_SIZE));
+                                                                const startIndex = (currentPoPage - 1) * PO_PAGE_SIZE;
+                                                                const paginatedCartoons = group.cartoons.slice(startIndex, startIndex + PO_PAGE_SIZE);
+
+                                                                return paginatedCartoons.map((cartoon, detailIndex) => {
                                                                 const isShipped = String(cartoon.purchase?.status ?? '').toLowerCase() === 'shipped';
 
                                                                 return (
                                                                 <TableRow key={cartoon.id}>
-                                                                    <TableCell className="text-right font-medium">{detailIndex + 1}</TableCell>
+                                                                    <TableCell className="text-right font-medium">{startIndex + detailIndex + 1}</TableCell>
                                                                     <TableCell className="text-center">{cartoon.cartoon_number}</TableCell>
                                                                     <TableCell className="text-center">
                                                                         {(() => {
@@ -371,9 +380,42 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                                                                     </TableCell>
                                                                 </TableRow>
                                                                 );
-                                                            })}
+                                                            });
+                                                            })()}
                                                         </TableBody>
                                                     </Table>
+                                                    {group.cartoons.length > PO_PAGE_SIZE && (() => {
+                                                        const currentPoPage = poPageState[group.key] ?? 1;
+                                                        const totalPoPages = Math.max(1, Math.ceil(group.cartoons.length / PO_PAGE_SIZE));
+                                                        return (
+                                                            <div className="flex items-center justify-between gap-4 px-2 pt-2">
+                                                                <p className="text-sm text-muted-foreground">
+                                                                    Showing {Math.min((currentPoPage - 1) * PO_PAGE_SIZE + 1, group.cartoons.length)}-{Math.min(currentPoPage * PO_PAGE_SIZE, group.cartoons.length)} of {group.cartoons.length} cartoons
+                                                                </p>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => setPoPageState((prev) => ({ ...prev, [group.key]: currentPoPage - 1 }))}
+                                                                        disabled={currentPoPage <= 1}
+                                                                    >
+                                                                        Previous
+                                                                    </Button>
+                                                                    <span className="text-sm tabular-nums text-muted-foreground">
+                                                                        Page {currentPoPage} of {totalPoPages}
+                                                                    </span>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => setPoPageState((prev) => ({ ...prev, [group.key]: currentPoPage + 1 }))}
+                                                                        disabled={currentPoPage >= totalPoPages}
+                                                                    >
+                                                                        Next
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -384,6 +426,7 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                 </TableBody>
             </Table>
         </Card>
+
         </>
     );
 }

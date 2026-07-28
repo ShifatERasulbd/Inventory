@@ -20,6 +20,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useAppContext } from '@/context/AppContext';
+import Preloader from '@/components/Preloader';
 
 import { fetchRetailSales } from './api';
 
@@ -108,6 +109,14 @@ export default function RetailSales() {
                 || paymentMethod.includes(query);
         });
     }, [sales, search]);
+
+    if (isLoading) {
+        return (
+            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                <Preloader message="Loading Retail Sales..." fullScreen={false} />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-5">

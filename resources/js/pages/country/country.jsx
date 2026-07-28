@@ -16,6 +16,7 @@ import {
 import { useAppContext } from '@/context/AppContext';
 
 import { deleteCountry, fetchCountries, fetchTrashedCountries, restoreCountry } from './api';
+import Preloader from '@/components/Preloader';
 
 export default function Countries() {
   const navigate = useNavigate();
@@ -116,6 +117,14 @@ export default function Countries() {
     }
   };
 
+    if (isLoading) {
+         return (
+                    <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                        <Preloader message="Loading Country..." fullScreen={false} />
+                    </div>
+                );
+    }
+
   return (
     <div className="space-y-5">
       {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
@@ -163,3 +172,4 @@ export default function Countries() {
     </div>
   );
 }
+

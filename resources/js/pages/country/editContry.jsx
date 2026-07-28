@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 
 import EditForm from '@/components/country/editForm';
 import { useAppContext } from '@/context/AppContext';
+import Preloader from '@/components/Preloader';
 
 import { fetchCountry, updateCountry } from './api';
 
@@ -102,7 +103,11 @@ export default function EditContry() {
     };
 
     if (isLoading) {
-        return <p className="text-sm text-muted-foreground">Loading country...</p>;
+          return (
+                            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                                <Preloader message="Loading Edit Country..." fullScreen={false} />
+                            </div>
+                        );
     }
 
     return (
@@ -120,3 +125,4 @@ export default function EditContry() {
         </div>
     );
 }
+

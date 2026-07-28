@@ -27,6 +27,16 @@ class RemoteOrderController extends Controller
         return response()->json($orders);
     }
 
+    public function getApprovedCount(): JsonResponse
+    {
+        $count = RemoteOrder::where('status', 'approved')->count();
+
+        return response()->json([
+            'success' => true,
+            'count' => $count,
+        ]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([

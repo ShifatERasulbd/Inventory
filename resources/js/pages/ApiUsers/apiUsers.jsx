@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import { Trash2, Eye, Pencil } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
+import Preloader from '@/components/Preloader';
 
 import {
     createApiKey,
@@ -98,6 +99,14 @@ export default function ApiUsers() {
             ignore = true;
         };
     }, []);
+
+    if (isLoading) {
+          return (
+                            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                                <Preloader message="Loading API users..." fullScreen={false} />
+                            </div>
+                        );
+    }
 
     const userSummaries = useMemo(() => {
         const groupedByUser = apiKeys.reduce((accumulator, token) => {

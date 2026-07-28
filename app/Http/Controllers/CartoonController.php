@@ -417,21 +417,38 @@ class CartoonController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $perPage = (int) ($request->query('per_page', 20));
+        if ($perPage < 1) {
+            $perPage = 20;
+        }
+
         $query = Cartoon::with(['purchase', 'warehouse'])->orderByDesc('id');
 
         if (! $request->user()?->hasRole('super-admin')) {
             $warehouseIds = $this->getUserWarehouseIds($request);
 
             if ($warehouseIds === []) {
-                return response()->json([]);
+                return response()->json([
+                    'data' => [],
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => $perPage,
+                    'total' => 0,
+                ]);
             }
 
             $query->whereIn('warehouse_id', $warehouseIds);
         }
 
-        return response()->json(
-            $this->formatCartoonCollection($query->orderBy('id')->get())
-        );
+        $paginator = $query->orderBy('id')->paginate($perPage);
+
+        return response()->json([
+            'data' => $this->formatCartoonCollection($paginator->items()),
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+        ]);
     }
 
     public function receivedQueue(Request $request): JsonResponse

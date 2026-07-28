@@ -14,6 +14,7 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { deleteState, fetchStates, fetchTrashedStates, restoreState } from './api';
+import Preloader from '@/components/Preloader';
 
 export default function States() {
     const navigate = useNavigate();
@@ -111,6 +112,14 @@ export default function States() {
             setRestoringId(null);   
         }
     };
+
+    if (isLoading) {
+        return (
+            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                <Preloader message="Loading States..." fullScreen={false} />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-5">

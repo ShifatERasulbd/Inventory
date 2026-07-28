@@ -53,7 +53,7 @@ export default function RackRowTable({
                         <TableRow>
                             <TableHead className="w-[100px]">SL No</TableHead>
                             <TableHead>Row Number</TableHead>
-                            <TableHead>Column</TableHead>
+                           
                             <TableHead>Code</TableHead>
                             <TableHead>Action</TableHead>
                         </TableRow>
@@ -76,7 +76,7 @@ export default function RackRowTable({
                                 <TableRow key={row.id}>
                                     <TableCell className="font-medium">{index + 1}</TableCell>
                                     <TableCell>{row.row_number}</TableCell>
-                                    <TableCell>{row.column || '-'}</TableCell>
+                                  
                                     <TableCell>{row.code}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">

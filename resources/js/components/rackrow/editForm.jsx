@@ -39,28 +39,16 @@ export default function EditRackRowForm({ form, onChange, onSubmit, isSubmitting
                     </div>
 
                     <div className="space-y-1">
-                        <Label htmlFor="column">Column</Label>
-                        <Input
-                            id="column"
-                            name="column"
-                            value={form.column}
-                            onChange={onChange}
-                            placeholder="e.g. C1, 1, A"
-                        />
-                        {errors.column && (
-                            <p className="text-sm text-destructive">{errors.column[0]}</p>
-                        )}
-                    </div>
-
-                    <div className="space-y-1">
                         <Label htmlFor="code">Code</Label>
                         <Input
                             id="code"
                             name="code"
                             value={form.code}
                             onChange={onChange}
-                            placeholder="e.g. RACK-A-R1"
+                            placeholder="Auto-generated: rackname-rownumber"
+                            disabled
                         />
+                        <p className="text-xs text-muted-foreground">Automatically generated from rack name and row number.</p>
                         {errors.code && (
                             <p className="text-sm text-destructive">{errors.code[0]}</p>
                         )}

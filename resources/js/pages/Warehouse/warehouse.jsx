@@ -16,6 +16,7 @@ import {
 import WarehouseTable from '@/components/warehouse/table';
 
 import { deleteWarehouse, fetchWarehouses } from './api';
+import Preloader from '@/components/Preloader';
 
 export default function Warehouse() {
     const navigate = useNavigate();
@@ -87,10 +88,18 @@ export default function Warehouse() {
             toast.error(message, {
                 style: { color: '#dc2626' },
             });
-        } finally {
+} finally {
             setDeletingId(null);
         }
     };
+
+    if (isLoading) {
+          return (
+                            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                                <Preloader message="Loading Warehouse..." fullScreen={false} />
+                            </div>
+                        );
+    }
 
     return (
         <>

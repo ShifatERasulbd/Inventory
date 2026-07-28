@@ -17,7 +17,6 @@ class RackRow extends Model
     protected $fillable = [
         'rack_id',
         'row_number',
-        'column',
         'code',
     ];
 

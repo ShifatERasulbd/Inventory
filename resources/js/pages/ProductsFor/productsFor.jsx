@@ -16,6 +16,7 @@ import {
 import { useAppContext } from '@/context/AppContext';
 
 import { deleteProductsFor, fetchProductsFor } from './api';
+import Preloader from '@/components/Preloader';
 
 export default function ProductsFor() {
   const navigate = useNavigate();
@@ -87,6 +88,14 @@ export default function ProductsFor() {
       setDeletingId(null);
     }
   };
+
+    if (isLoading) {
+          return (
+                            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                                <Preloader message="Loading Gender..." fullScreen={false} />
+                            </div>
+                        );
+    }
 
     return (
     <div className="space-y-5">

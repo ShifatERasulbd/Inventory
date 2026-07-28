@@ -11,6 +11,7 @@ import OrdersTable from '@/components/1971coOrders/table';
 import StockLocationModal from '@/components/1971coOrders/stockLocationModal';
 
 import { fetchRemoteOrders, syncRemoteOrders, bulkUpdateStatus, bulkDelete, fetchStockLocationsForOrder } from './api';
+import Preloader from '@/components/Preloader';
 
 // Packages for handling PDF generation
 import { jsPDF } from 'jspdf';
@@ -226,6 +227,14 @@ export default function RemoteOrdersPage() {
             }
         };
     }, []);
+
+    if (isLoading) {  
+         return (
+                           <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                               <Preloader message="Loading 1971 Orders..." fullScreen={false} />
+                           </div>
+                       );
+    }
 
     // Selection Handlers
     function handleSelectOrder(id, isChecked) {

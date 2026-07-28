@@ -19,7 +19,7 @@ class QuickBooksPurchaseSyncService
                     ->orWhere('quickbooks_sync_status', 'pending_connection')
                     ->orWhereNull('quickbooks_sync_status');
             })
-            ->whereRaw('LOWER(status) IN (?, ?, ?)', ['approve', 'approved', 'active'])
+            ->whereRaw('LOWER(status) IN (?, ?, ?, ?)', ['approve', 'approved', 'active', 'shipped'])
             ->orderByDesc('id')
             ->limit(max(1, $limit))
             ->get();
@@ -107,7 +107,7 @@ class QuickBooksPurchaseSyncService
 
     private function isApprovedStatus(string $status): bool
     {
-        return in_array(strtolower($status), ['approve', 'approved', 'active'], true);
+        return in_array(strtolower($status), ['approve', 'approved', 'active', 'shipped'], true);
     }
 
     private function markSyncFailure(Purchase $purchase, string $message): void

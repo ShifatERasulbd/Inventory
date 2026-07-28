@@ -26,6 +26,7 @@ import {
 } from './api';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Preloader from '@/components/Preloader';
 
 async function fetchCurrentUser() {
     const response = await fetch('/api/user', {
@@ -197,74 +198,78 @@ export default function Purchase() {
             String(currentStatus).toLowerCase() === 'approved' &&
             String(nextStatus).toLowerCase() === 'shipped';
 
-        if (isApprovedToShipped) {
-            const purchase = purchases?.find?.((p) => p.id === id);
-            if (!purchase?.packing_list_path) {
-                toast.error('Upload Packing list before Shipment.', {
-                    style: { color: '#dc2626' },
-                });
-                return;
-            }
-        }
-        if (String(nextStatus).toLowerCase() === String(currentStatus).toLowerCase()) {
-            toast.info('Please select a different status before updating.');
-            return;
-        }
-
-
-        try {
-            setUpdatingStatusId(id);
-            const updated = await updatePurchaseStatus(id, { status: nextStatus });
-
-            setPurchases((previous) => previous.map((item) => (item.id === id ? updated : item)));
-            setStatusDrafts((previous) => {
-                const next = { ...previous };
-                delete next[id];
-                return next;
-            });
-
-            toast.success('Purchase status updated successfully.', {
-                style: { color: '#16a34a' },
-            });
-
-            if (isShippedToReceived) {
-                navigate(`/received-cartoons?purchase_id=${id}`);
-                return;
-            }
-
-            if (isPendingToApproved) {
-                if (updated?.quickbooks_sync_status === 'success') {
-                    toast.success('Purchase approved and sent to QuickBooks as Accounts Payable successfully.', {
-                        style: { color: '#16a34a' },
-                    });
-                } else if (updated?.quickbooks_sync_status === 'pending_connection') {
-                    const qbError = updated?.quickbooks_last_error || 'QuickBooks is not connected.';
-                    toast.info(`Purchase approved. QuickBooks sync is waiting for connection: ${qbError}`, {
-                        style: { color: '#0f766e' },
-                    });
-
-                    toast.info('Redirecting to QuickBooks to connect your account...', {
-                        style: { color: '#0f766e' },
-                    });
-                    await startQuickBooksConnect();
-                    return;
-                } else if (updated?.quickbooks_sync_status === 'failed') {
-                    const qbError = updated?.quickbooks_last_error || 'QuickBooks sync failed.';
-                    toast.error(`Purchase approved, but QuickBooks sync failed: ${qbError}`, {
+            if (isApprovedToShipped) {
+                const purchase = purchases?.find?.((p) => p.id === id);
+                if (!purchase?.packing_list_path) {
+                    toast.error('Upload Packing list before Shipment.', {
                         style: { color: '#dc2626' },
                     });
+                    return;
+                }
+            }
+            if (String(nextStatus).toLowerCase() === String(currentStatus).toLowerCase()) {
+                    toast.info('Please select a different status before updating.');
+                    return;
+                }
 
-                    if (String(qbError).toLowerCase().includes('quickbooks is not connected')) {
+
+            try {
+                setUpdatingStatusId(id);
+                const updated = await updatePurchaseStatus(id, { status: nextStatus });
+
+                setPurchases((previous) => previous.map((item) => (item.id === id ? updated : item)));
+                setStatusDrafts((previous) => {
+                    const next = { ...previous };
+                    delete next[id];
+                    return next;
+                });
+
+                toast.success('Purchase status updated successfully.', {
+                    style: { color: '#16a34a' },
+                });
+
+                if (isShippedToReceived) {
+                    navigate(`/received-cartoons?purchase_id=${id}`);
+                    return;
+                }
+
+                if (isApprovedToShipped) {
+                    if (updated?.quickbooks_sync_status === 'success') {
+                        toast.success('Purchase shipped and sent to QuickBooks as Accounts Payable successfully.', {
+                            style: { color: '#16a34a' },
+                        });
+                    } else if (updated?.quickbooks_sync_status === 'pending_connection') {
+                        const qbError = updated?.quickbooks_last_error || 'QuickBooks is not connected.';
+                        toast.info(`Purchase shipped. QuickBooks sync is waiting for connection: ${qbError}`, {
+                            style: { color: '#0f766e' },
+                        });
+
                         toast.info('Redirecting to QuickBooks to connect your account...', {
                             style: { color: '#0f766e' },
                         });
                         await startQuickBooksConnect();
                         return;
+                    } else if (updated?.quickbooks_sync_status === 'failed') {
+                        const qbError = updated?.quickbooks_last_error || 'QuickBooks sync failed.';
+                        toast.error(`Purchase shipped, but QuickBooks sync failed: ${qbError}`, {
+                            style: { color: '#dc2626' },
+                        });
+
+                        if (String(qbError).toLowerCase().includes('quickbooks is not connected')) {
+                            toast.info('Redirecting to QuickBooks to connect your account...', {
+                                style: { color: '#0f766e' },
+                            });
+                            await startQuickBooksConnect();
+                            return;
+                        }
                     }
+
+                    return;
                 }
 
-                navigate(`/cartoons/add?purchase_id=${id}`);
-            }
+                if (isPendingToApproved) {
+                    navigate(`/cartoons/add?purchase_id=${id}`);
+                }
         } catch (error) {
             toast.error(error.message || 'Failed to update purchase status.', {
                 style: { color: '#dc2626' },
@@ -284,6 +289,14 @@ export default function Purchase() {
         setPaymentPurchase(purchase);
         setPaymentAmount(String(Number(purchase?.due_amount ?? 0).toFixed(2)));
     };
+
+    if (isLoading) {
+          return (
+                            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                                <Preloader message="Loading Purchase..." fullScreen={false} />
+                            </div>
+                        );
+    }
 
     const handleSubmitRemainingPayment = async () => {
         if (!paymentPurchase) {

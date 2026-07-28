@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAppContext } from '@/context/AppContext';
 import { createRackRow } from './api';
+import { fetchRack } from '@/pages/Rack/api';
 
 const initialForm = {
     row_number: '',
-    column: '',
     code: '',
 };
 
@@ -16,14 +16,6 @@ function validateForm(form) {
 
     if (!form.row_number.trim()) {
         errors.row_number = ['The Row Number is required'];
-    }
-
-    if (!form.column.trim()) {
-        errors.column = ['The Column is required'];
-    }
-
-    if (!form.code.trim()) {
-        errors.code = ['The Code is required'];
     }
 
     return errors;
@@ -37,14 +29,36 @@ export default function AddRackRow() {
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [requestError, setRequestError] = useState('');
+    const [rackName, setRackName] = useState('');
 
     useEffect(() => {
         setPageTitle('Add Rack Row');
-    }, [setPageTitle]);
+
+        const loadRack = async () => {
+            try {
+                const rack = await fetchRack(rack_id);
+                setRackName(rack?.name || 'RACK');
+            } catch {
+                setRackName('RACK');
+            }
+        };
+        loadRack();
+    }, [setPageTitle, rack_id]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
-        setForm((previous) => ({ ...previous, [name]: value }));
+
+        setForm((previous) => {
+            const updated = { ...previous, [name]: value };
+
+            // Auto-generate code when row_number changes
+            if (name === 'row_number') {
+                updated.code = value.trim() ? `${rackName}-${value.trim()}` : '';
+            }
+
+            return updated;
+        });
+
         setErrors((previous) => {
             if (!previous[name]) return previous;
             const next = { ...previous };
@@ -55,6 +69,9 @@ export default function AddRackRow() {
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+
+        // Auto-fill code before submit if it's still empty
+        const code = form.code.trim() || (form.row_number.trim() ? `${rackName}-${form.row_number.trim()}` : '');
 
         const validationErrors = validateForm(form);
         if (Object.keys(validationErrors).length > 0) {
@@ -69,8 +86,7 @@ export default function AddRackRow() {
         try {
             await createRackRow(rack_id, {
                 row_number: form.row_number.trim(),
-                column: form.column.trim(),
-                code: form.code.trim(),
+                code: code,
             });
             toast.success('Row created successfully.', { style: { color: '#16a34a' } });
             navigate(`/racks/${rack_id}/rows`);

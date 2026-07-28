@@ -15,6 +15,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import Preloader from '@/components/Preloader';
 import {
     Table,
     TableBody,
@@ -100,6 +101,14 @@ export default function ReceivedCartoons() {
     }, [purchaseId]);
 
     const pendingCount = useMemo(() => rows.length, [rows]);
+
+    if (isLoading) {
+          return (
+                            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                                <Preloader message="Loading Received Cartons..." fullScreen={false} />
+                            </div>
+                        );
+    }
 
     const handleScanSubmit = async (event) => {
         event.preventDefault();

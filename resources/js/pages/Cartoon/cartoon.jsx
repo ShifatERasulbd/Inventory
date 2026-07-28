@@ -155,6 +155,7 @@ export default function Cartoon() {
   const [selectedRackRowId, setSelectedRackRowId] = useState('');
   const [selectedRackColumnId, setSelectedRackColumnId] = useState('');
   const [isAssigningRack, setIsAssigningRack] = useState(false);
+  const allCartoonsFetched = useRef(false);
 
     useEffect(() => {
     setPageTitle('Cartoons');
@@ -168,9 +169,10 @@ export default function Cartoon() {
       setErrorMessage('');
 
       try {
-        const data = await fetchCartoons();
+        const payload = await fetchCartoons({ page: 1, per_page: 999999 });
         if (!ignore) {
-          setCartoons(Array.isArray(data) ? data : []);
+          setCartoons(Array.isArray(payload.data) ? payload.data : []);
+          allCartoonsFetched.current = true;
         }
       } catch (error) {
         if (!ignore) {
@@ -183,7 +185,9 @@ export default function Cartoon() {
       }
     }
 
-    loadCartoons();
+    if (!allCartoonsFetched.current) {
+      loadCartoons();
+    }
 
     return () => {
       ignore = true;

@@ -34,11 +34,23 @@ async function requestJson(url, options = {}) {
     return payload;
 }
 
-export async function fetchCartoons() {
-    const payload = await requestJson('/api/cartoons');
+export async function fetchCartoons({ page = 1, per_page = 20 } = {}) {
+    const params = new URLSearchParams({ page, per_page: String(per_page) });
+    const payload = await requestJson(`/api/cartoons?${params}`);
 
-    // Keep UI stable even if the backend/auth layer returns an unexpected payload.
-    return Array.isArray(payload) ? payload : [];
+    // Return the full paginated payload; fall back to a safe shape if unexpected.
+    if (payload && typeof payload === 'object' && 'data' in payload) {
+        return payload;
+    }
+
+    // Backward-compatible: if the backend still returns a plain array, wrap it.
+    return {
+        data: Array.isArray(payload) ? payload : [],
+        current_page: 1,
+        last_page: 1,
+        per_page,
+        total: Array.isArray(payload) ? payload.length : 0,
+    };
 }
 
 // Backward-compatible export while older imports are being migrated.

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useAppContext } from '@/context/AppContext';
 import { createRackColumn } from './api';
 import { fetchRackRows } from '@/pages/RackRow/api';
+import { fetchRack } from '@/pages/Rack/api';
 
 const initialForm = {
   row_id: '',
@@ -24,10 +25,6 @@ function validateForm(form) {
     errors.column_number = ['The Column Number is required'];
   }
 
-  if (!form.code.trim()) {
-    errors.code = ['The Code is required'];
-  }
-
   return errors;
 }
 
@@ -44,6 +41,7 @@ export default function AddRackColumn() {
     row_id: selectedRowId,
   }));
   const [rows, setRows] = useState([]);
+  const [rackName, setRackName] = useState('');
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,7 +49,17 @@ export default function AddRackColumn() {
 
   useEffect(() => {
     setPageTitle('Add Rack Column');
-  }, [setPageTitle]);
+
+    const loadRack = async () => {
+      try {
+        const rack = await fetchRack(rack_id);
+        setRackName(rack?.name || 'RACK');
+      } catch {
+        setRackName('RACK');
+      }
+    };
+    loadRack();
+  }, [setPageTitle, rack_id]);
 
   useEffect(() => {
     const loadRows = async () => {
@@ -73,9 +81,27 @@ export default function AddRackColumn() {
     loadRows();
   }, [rack_id, selectedRowId]);
 
+  const getRowNumber = (rowId) => {
+    const found = rows.find((r) => String(r.id) === String(rowId));
+    return found ? found.row_number : '';
+  };
+
+  const generateCode = (rowId, columnNumber) => {
+    const rowNum = getRowNumber(rowId);
+    if (!rowNum || !columnNumber.trim()) return '';
+    return `${rackName}-${rowNum}-${columnNumber.trim()}`;
+  };
+
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      const updated = { ...prev, [name]: value };
+      // Auto-generate code when column_number changes
+      if (name === 'column_number') {
+        updated.code = generateCode(prev.row_id, value);
+      }
+      return updated;
+    });
     setErrors((prev) => {
       if (!prev[name]) return prev;
       const next = { ...prev };
@@ -85,7 +111,12 @@ export default function AddRackColumn() {
   };
 
   const handleRowChange = (value) => {
-    setForm((prev) => ({ ...prev, row_id: value }));
+    setForm((prev) => {
+      const updated = { ...prev, row_id: value };
+      // Auto-generate code when row changes
+      updated.code = generateCode(value, prev.column_number);
+      return updated;
+    });
     setErrors((prev) => {
       if (!prev.row_id) return prev;
       const next = { ...prev };
@@ -116,7 +147,7 @@ export default function AddRackColumn() {
 
 
       toast.success('Column created successfully.', { style: { color: '#16a34a' } });
-      navigate(`/racks/${rack_id}/columns`);
+      navigate(`/racks/${rack_id}/columns${selectedRowId ? `?row_id=${selectedRowId}` : ''}`);
     } catch (error) {
       setErrors(error.payload?.errors || {});
       if (!error.payload?.errors) {

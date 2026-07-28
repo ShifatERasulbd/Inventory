@@ -50,15 +50,18 @@ class RackRowController extends Controller
         $validated = $request->validate([
             'row_number' => [
                 'required', 'string', 'max:50',
-                Rule::unique('rack_rows', 'row_number')->where(function ($query) use ($rack, $request) {
+                Rule::unique('rack_rows', 'row_number')->where(function ($query) use ($rack) {
                     return $query
-                        ->where('rack_id', $rack->id)
-                        ->where('column', $request->input('column'));
+                        ->where('rack_id', $rack->id);
                 }),
             ],
-            'column' => ['required', 'string', 'max:50'],
-            'code' => ['required', 'string', 'max:100', 'unique:rack_rows,code'],
+            'code' => ['nullable', 'string', 'max:100'],
         ]);
+
+        // Auto-generate code if not provided: {rack-name}-{row-number}
+        if (empty($validated['code'])) {
+            $validated['code'] = $rack->name . '-' . $validated['row_number'];
+        }
 
         $validated['rack_id'] = $rack->id;
         $row = RackRow::query()->create($validated);
@@ -82,19 +85,21 @@ class RackRowController extends Controller
             'row_number' => [
                 'required', 'string', 'max:50',
                 Rule::unique('rack_rows', 'row_number')
-                    ->where(function ($query) use ($rack, $request) {
+                    ->where(function ($query) use ($rack) {
                         return $query
-                            ->where('rack_id', $rack->id)
-                            ->where('column', $request->input('column'));
+                            ->where('rack_id', $rack->id);
                     })
                     ->ignore($row->id),
             ],
-            'column' => ['required', 'string', 'max:50'],
             'code' => [
-                'required', 'string', 'max:100',
-                Rule::unique('rack_rows', 'code')->ignore($row->id),
+                'nullable', 'string', 'max:100',
             ],
         ]);
+
+        // Auto-generate code if not provided: {rack-name}-{row-number}
+        if (empty($validated['code'])) {
+            $validated['code'] = $rack->name . '-' . $validated['row_number'];
+        }
 
         $row->update($validated);
 

@@ -1,4 +1,4 @@
-import { Edit2, MapPinned } from 'lucide-react';
+import { Edit2, MapPinned, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox'; 
 import {
@@ -15,6 +15,7 @@ export default function OrdersTable({
     isLoading, 
     onEdit, 
     onViewStockLocations,
+    onSendToPos,
     selectedIds, 
     onSelectOrder, 
     onSelectAllOrders 
@@ -121,6 +122,15 @@ export default function OrdersTable({
                                     variant="ghost" 
                                     size="sm"
                                     className="h-8 gap-1.5"
+                                    onClick={() => onSendToPos?.(order)}
+                                >
+                                    <ShoppingCart className="h-3.5 w-3.5" />
+                                    POS
+                                </Button>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="h-8 gap-1.5"
                                     onClick={() => onViewStockLocations?.(order)}
                                 >
                                     <MapPinned className="h-3.5 w-3.5" />
@@ -135,7 +145,7 @@ export default function OrdersTable({
                                     <Edit2 className="h-3.5 w-3.5" />
                                     Edit
                                 </Button>
-                            </TableCell>
+                            </TableCell> REPLACE
                         </TableRow>
                     );
                 })}

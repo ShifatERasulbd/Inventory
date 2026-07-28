@@ -18,6 +18,7 @@ import { useAppContext } from '@/context/AppContext';
 import Barcode from 'react-barcode';
 
 import { bulkDeleteProducts, deleteProducts, fetchProducts } from './api';
+import Preloader from '@/components/Preloader';
 
 function getBarcodeWidth(value) {
   const length = value?.length || 0;
@@ -319,6 +320,14 @@ export default function Product() {
   const selectedProducts = products.filter((product) => selectedIds.includes(product.id));
   const selectedProductsWithBarcode = selectedProducts.filter((product) => Boolean(product?.barCode));
   const barcodeDialogProductsWithBarcode = barcodeDialogProducts.filter((product) => Boolean(product?.barCode));
+
+  if (isLoading) {
+      return (
+                        <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                            <Preloader message="Loading Products..." fullScreen={false} />
+                        </div>
+                    );
+  }
 
   const handlePrintBulkBarcodes = () => {
     if (selectedProducts.length === 0 || !bulkBarcodePrintSourceRef.current) {

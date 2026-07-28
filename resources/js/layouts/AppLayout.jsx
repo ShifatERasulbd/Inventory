@@ -81,7 +81,7 @@ export default function AppLayout() {
                             {/* Left Column */}
                             <div className="flex flex-col items-center md:items-start">
                             <div className="font-medium">Developed by Shifat E Rasul</div>
-                            <div>New Atlantic Inventory management V1.0.1</div>
+                            <div>New Atlantic Inventory management V1.1.1</div>
                             </div>
 
                             {/* Center Column */}

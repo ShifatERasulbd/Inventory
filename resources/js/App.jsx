@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react'
-import { LoginForm } from '@/components/login-form';
+import RootRedirect from '@/components/RootRedirect';
 import { Toaster } from '@/components/ui/sonner';
 import { AppProvider } from '@/context/AppContext';
 import AppLayout from '@/layouts/AppLayout';
@@ -136,7 +136,7 @@ const AddSeason = lazyWithRetry(() => import('@/pages/Season/addSeason'), 'seaso
 const EditSeason = lazyWithRetry(() => import('@/pages/Season/editSeasons'), 'season-edit');
 
 // shipment
-const Shipments = lazyWithRetry(() => import('@/pages/Shipment/Shipment'), 'shipments');
+const Shipments = lazyWithRetry(() => import('@/pages/Shipment/shipment'), 'shipments');
 const AddShipments = lazyWithRetry(() => import('@/pages/Shipment/addShipment'), 'shipments-add');
 const EditShipments = lazyWithRetry(() => import('@/pages/Shipment/editShipment'), 'shipments-edit');
 
@@ -158,11 +158,7 @@ export default function App() {
                     <Routes>
                         <Route
                             path="/"
-                            element={
-                                <main className="flex min-h-screen items-center justify-center bg-background text-foreground">
-                                    <LoginForm />
-                                </main>
-                            }
+                            element={<RootRedirect />}
                         />
 
                         <Route element={<AppLayout />}>

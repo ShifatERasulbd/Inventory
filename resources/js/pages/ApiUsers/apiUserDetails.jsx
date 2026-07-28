@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/table';
 import { Copy, Eye, EyeOff, ArrowLeft, Trash2 } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
+import Preloader from '@/components/Preloader';
 
 import { deleteApiKey, fetchApiKeys, getApiKeyWithDecrypted } from './api';
 
@@ -78,7 +79,15 @@ export default function ApiUserDetails() {
         };
     }, [userId]);
 
-    const userInfo = apiKeys.length > 0 ? apiKeys[0].user : null;
+    if (isLoading) {
+         return (
+                           <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                               <Preloader message="Loading API users..." fullScreen={false} />
+                           </div>
+                       );
+    }
+
+const userInfo = apiKeys.length > 0 ? apiKeys[0].user : null;
 
     const refreshApiKeys = async () => {
         const keys = await fetchApiKeys();

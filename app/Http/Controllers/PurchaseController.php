@@ -276,12 +276,6 @@ class PurchaseController extends Controller
         app(QuickBooksPurchaseSyncService::class)->syncApprovedPurchaseIfEligible($purchase);
     }
 
-    private function shouldSyncQuickBooksOnStatusTransition(string $previousStatus, string $currentStatus): bool
-    {
-        return strtolower(trim($previousStatus)) === 'pending'
-            && $this->isApprovedStatus($currentStatus);
-    }
-
     private function resolvePurchaseTo(Request $request, array $validated): ?int
     {
         if ($request->user()?->hasRole('super-admin')) {
@@ -631,10 +625,12 @@ class PurchaseController extends Controller
 
         app(AccountingService::class)->syncPurchaseAccount($purchase->fresh());
 
-        $this->syncApprovedPurchaseToSellAndStock($purchase);
-        if ($this->shouldSyncQuickBooksOnStatusTransition($previousStatus, (string) $purchase->status)) {
+        // Sync to QuickBooks only when status transitions to shipped
+        if ($this->isShippedStatus($nextStatus) && !$this->isShippedStatus($previousStatus)) {
             $this->syncApprovedPurchaseToQuickBooks($purchase->fresh(['brand']));
         }
+
+        $this->syncApprovedPurchaseToSellAndStock($purchase);
         $this->syncReceivedPurchaseToCartoonWarehouse($purchase);
 
         $purchase->load([

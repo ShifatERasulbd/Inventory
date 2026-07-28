@@ -16,6 +16,7 @@ import {
 import { useAppContext } from '@/context/AppContext';
 
 import { deleteRole, fetchRoles } from './api';
+import Preloader from '@/components/Preloader';
 
 export default function Roles() {
   const navigate = useNavigate();
@@ -86,10 +87,18 @@ export default function Roles() {
       toast.error(message, {
         style: { color: '#dc2626' },
       });
-    } finally {
+} finally {
       setDeletingId(null);
     }
   };
+
+  if (isLoading) {
+      return (
+                        <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                            <Preloader message="Loading Role..." fullScreen={false} />
+                        </div>
+                    );
+  }
 
   return (
     <div className="space-y-5">

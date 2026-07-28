@@ -4,20 +4,13 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAppContext } from '@/context/AppContext';
 import { fetchRackRow, updateRackRow } from './api';
+import { fetchRack } from '@/pages/Rack/api';
 
 function validateForm(form) {
     const errors = {};
 
     if (!form.row_number.trim()) {
         errors.row_number = ['The Row Number is required'];
-    }
-
-    if (!form.column.trim()) {
-        errors.column = ['The Column is required'];
-    }
-
-    if (!form.code.trim()) {
-        errors.code = ['The Code is required'];
     }
 
     return errors;
@@ -27,15 +20,26 @@ export default function EditRackRow() {
     const navigate = useNavigate();
     const { rack_id, id } = useParams();
     const { setPageTitle } = useAppContext();
-    const [form, setForm] = useState({ row_number: '', column: '', code: '' });
+    const [form, setForm] = useState({ row_number: '', code: '' });
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [requestError, setRequestError] = useState('');
+    const [rackName, setRackName] = useState('');
 
     useEffect(() => {
         setPageTitle('Edit Rack Row');
-    }, [setPageTitle]);
+
+        const loadRack = async () => {
+            try {
+                const rack = await fetchRack(rack_id);
+                setRackName(rack?.name || 'RACK');
+            } catch {
+                setRackName('RACK');
+            }
+        };
+        loadRack();
+    }, [setPageTitle, rack_id]);
 
     useEffect(() => {
         const loadData = async () => {
@@ -44,7 +48,6 @@ export default function EditRackRow() {
                 const row = await fetchRackRow(rack_id, id);
                 setForm({
                     row_number: row.row_number,
-                    column: row.column ?? '',
                     code: row.code,
                 });
             } catch (error) {
@@ -61,7 +64,18 @@ export default function EditRackRow() {
 
     const handleChange = (event) => {
         const { name, value } = event.target;
-        setForm((previous) => ({ ...previous, [name]: value }));
+
+        setForm((previous) => {
+            const updated = { ...previous, [name]: value };
+
+            // Auto-generate code when row_number changes
+            if (name === 'row_number') {
+                updated.code = value.trim() ? `${rackName}-${value.trim()}` : '';
+            }
+
+            return updated;
+        });
+
         setErrors((previous) => {
             if (!previous[name]) return previous;
             const next = { ...previous };
@@ -72,6 +86,9 @@ export default function EditRackRow() {
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+
+        // Auto-fill code before submit if it's still empty
+        const code = form.code.trim() || (form.row_number.trim() ? `${rackName}-${form.row_number.trim()}` : '');
 
         const validationErrors = validateForm(form);
         if (Object.keys(validationErrors).length > 0) {
@@ -86,8 +103,7 @@ export default function EditRackRow() {
         try {
             await updateRackRow(rack_id, id, {
                 row_number: form.row_number.trim(),
-                column: form.column.trim(),
-                code: form.code.trim(),
+                code: code,
             });
             toast.success('Row updated successfully.', { style: { color: '#16a34a' } });
             navigate(`/racks/${rack_id}/rows`);

@@ -5,6 +5,7 @@ import { fetchRacks, deleteRack } from './api'
 import { toast } from 'sonner'
 import { useAppContext } from '@/context/AppContext'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import Preloader from '@/components/Preloader'
 
 export default function Rack(){
     const navigate = useNavigate();
@@ -64,6 +65,14 @@ export default function Rack(){
         } finally {
             setDeleteConfirm(null);
         }
+    }
+
+    if (isLoading) {
+          return (
+                            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                                <Preloader message="Loading Racks..." fullScreen={false} />
+                            </div>
+                        );
     }
 
     return (

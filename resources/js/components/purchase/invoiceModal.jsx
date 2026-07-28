@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { X, Printer } from 'lucide-react';
-import { Dialog } from 'radix-ui';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 const A4_W = 794;
 const A4_H = 1123;
@@ -108,29 +108,28 @@ export default function PurchaseInvoiceModal({ purchase, open, onClose }) {
     };
 
     return (
-        <Dialog.Root open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-            <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0">
-                    <Dialog.Content
-                        className="relative mx-auto my-8 outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
-                        style={{ width: A4_W }}
-                    >
+        <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+            <DialogContent
+                showCloseButton={false}
+                className="max-h-[calc(100vh-4rem)] overflow-y-auto p-0 sm:max-w-none"
+                style={{ width: A4_W + 32, maxWidth: 'calc(100vw - 2rem)' }}
+            >
                         {/* Toolbar */}
                         <div className="mb-3 flex items-center justify-between">
-                            <Dialog.Title className="text-sm font-semibold text-white">
+                            <DialogTitle className="text-sm font-semibold">
                                 Purchase Invoice &nbsp;·&nbsp;
                                 <span className="font-normal opacity-75">PO: {purchase?.po_number ?? '—'}</span>
-                            </Dialog.Title>
+                            </DialogTitle>
                             <div className="flex items-center gap-2">
                                 <Button size="sm" onClick={handlePrint}>
                                     <Printer className="mr-1.5 h-3.5 w-3.5" />
                                     Print
                                 </Button>
-                                <Dialog.Close asChild>
+                                <DialogClose asChild>
                                     <Button variant="secondary" size="icon" aria-label="Close">
                                         <X className="h-4 w-4" />
                                     </Button>
-                                </Dialog.Close>
+                                </DialogClose>
                             </div>
                         </div>
 
@@ -247,10 +246,8 @@ export default function PurchaseInvoiceModal({ purchase, open, onClose }) {
                             </div>
 
                         </div>{/* /A4 sheet */}
-                    </Dialog.Content>
-                </Dialog.Overlay>
-            </Dialog.Portal>
-        </Dialog.Root>
+            </DialogContent>
+        </Dialog>
     );
 }
 

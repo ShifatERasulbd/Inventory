@@ -30,6 +30,7 @@ import {
     fetchRackRows,
     fetchRacks,
 } from './api';
+import Preloader from '@/components/Preloader';
 
 export default function CartoonTracking() {
     const { setPageTitle } = useAppContext();
@@ -228,6 +229,14 @@ export default function CartoonTracking() {
             Number(column?.row_id ?? 0) === Number(selectedRackRowId)
         ));
     }, [rackColumns, selectedRackRowId]);
+
+    if (isLoading) {
+        return (
+            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                <Preloader message="Loading Carton Tracking ..." fullScreen={false} />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-5">

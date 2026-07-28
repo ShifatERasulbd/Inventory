@@ -16,6 +16,7 @@ import {
 import { useAppContext } from '@/context/AppContext';
 
 import { deleteBrand, fetchBrands } from './api';
+import Preloader from '@/components/Preloader';
 
 export default function Brand() {
   const navigate = useNavigate();
@@ -87,6 +88,14 @@ export default function Brand() {
       setDeletingId(null);
     }
   };
+
+    if (isLoading) {
+          return (
+                            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                                <Preloader message="Loading Brands..." fullScreen={false} />
+                            </div>
+                        );
+    }
 
     return (
     <div className="space-y-5">

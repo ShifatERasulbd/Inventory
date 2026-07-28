@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { useAppContext } from '@/context/AppContext';
 
 import { deleteStock, fetchStocks, updateStock } from './api';
+import Preloader from '@/components/Preloader';
 
 export default function Stock() {
     const navigate = useNavigate();
@@ -216,6 +217,14 @@ export default function Stock() {
     };
 
     const isArbellaWarehouse = (stock) => String(stock?.warehouse_name ?? '').toLowerCase().includes('arbella');
+
+    if (isLoading) {
+          return (
+                            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                                <Preloader message="Loading Stocks..." fullScreen={false} />
+                            </div>
+                        );
+    }
 
     const handleSaveSellingPrice = async (stock) => {
         const rawValue = String(sellingPriceDrafts[stock.id] ?? stock.selling_price ?? '0').trim();

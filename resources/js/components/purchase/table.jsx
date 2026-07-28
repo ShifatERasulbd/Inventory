@@ -1,15 +1,7 @@
 import { Pencil, Search, FileText, Trash2, DollarSign, Package, Eye } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { useState } from 'react';
-import {
-    AlertDialog,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+
 
 import {
   Tooltip,
@@ -40,6 +32,7 @@ export function PurchaseTable({
     purchases = [],
     isLoading,
     onViewPdf,
+    onInvoice,
     onEdit,
     onRequestDelete,
     deletingId,
@@ -323,43 +316,45 @@ export function PurchaseTable({
                                             </Select>
                                             </div>
 
-                                            {/* File Upload Field */}
-                                            <div className="flex flex-col gap-2">
-                                                <label className="text-sm font-medium">Packing List (PDF)</label>
-                                                    <input
-                                                        type="file"
-                                                        required
-                                                        accept="application/pdf"
-                                                        disabled={uploadingPackingListId === purchase.id}
-                                                        onChange={async (e) => {
-                                                            const file = e.target.files?.[0];
-                                                            if (!file) return;
+                                            {/* File Upload Field - Show only when status is "approved" (user must upload packing list before moving to "shipped") */}
+                                            {normalizedStatus === 'approved' && (
+                                                <div className="flex flex-col gap-2">
+                                                    <label className="text-sm font-medium">Packing List (PDF)</label>
+                                                        <input
+                                                            type="file"
+                                                            required
+                                                            accept="application/pdf"
+                                                            disabled={uploadingPackingListId === purchase.id}
+                                                            onChange={async (e) => {
+                                                                const file = e.target.files?.[0];
+                                                                if (!file) return;
 
-                                                            // 1. Update the state using your custom helper
-                                                            handleFileChange(purchase.id, file);
+                                                                // 1. Update the state using your custom helper
+                                                                handleFileChange(purchase.id, file);
 
-                                                            // 2. Perform the upload action
-                                                            await onUploadPackingList?.({ purchaseId: purchase.id, file });
+                                                                // 2. Perform the upload action
+                                                                await onUploadPackingList?.({ purchaseId: purchase.id, file });
 
-                                                            // 3. Reset the input value to allow re-uploading the same file
-                                                            e.target.value = '';
-                                                        }}
-                                                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                                                    />
-                                                {typeof uploadProgressByPurchaseId[purchase.id] === 'number' && (
-                                                    <div className="space-y-1">
-                                                        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                                                            <div
-                                                                className="h-full rounded-full bg-black transition-all duration-200"
-                                                                style={{ width: `${uploadProgressByPurchaseId[purchase.id]}%` }}
-                                                            />
+                                                                // 3. Reset the input value to allow re-uploading the same file
+                                                                e.target.value = '';
+                                                            }}
+                                                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                                        />
+                                                    {typeof uploadProgressByPurchaseId[purchase.id] === 'number' && (
+                                                        <div className="space-y-1">
+                                                            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                                                                <div
+                                                                    className="h-full rounded-full bg-black transition-all duration-200"
+                                                                    style={{ width: `${uploadProgressByPurchaseId[purchase.id]}%` }}
+                                                                />
+                                                            </div>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                Uploading {uploadProgressByPurchaseId[purchase.id]}%
+                                                            </p>
                                                         </div>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            Uploading {uploadProgressByPurchaseId[purchase.id]}%
-                                                        </p>
-                                                    </div>
-                                                )}
-                                            </div>
+                                                    )}
+                                                </div>
+                                            )}
 
 
                                             {/* Update Action */}

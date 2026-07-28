@@ -16,6 +16,7 @@ import {
 import UserTable from '@/components/user/table';
 
 import { deleteUser, fetchUsers } from './api';
+import Preloader from '@/components/Preloader';
 
 export default function Users() {
     const navigate = useNavigate();
@@ -85,10 +86,18 @@ export default function Users() {
             toast.error(message, {
                 style: { color: '#dc2626' },
             });
-        } finally {
+} finally {
             setDeletingId(null);
         }
     };
+
+    if (isLoading) {
+         return (
+                           <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                               <Preloader message="Loading Users..." fullScreen={false} />
+                           </div>
+                       );
+    }
 
     return (
         <>

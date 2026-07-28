@@ -20,6 +20,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useAppContext } from '@/context/AppContext';
+import Preloader from '@/components/Preloader';
 
 import { fetchActivityLogs } from './api';
 
@@ -86,7 +87,7 @@ export default function ActivityLog() {
     const [meta, setMeta] = useState({
         current_page: 1,
         last_page: 1,
-        per_page: 10,
+        per_page: 25,
         total: 0,
     });
     const [isLoading, setIsLoading] = useState(true);
@@ -160,8 +161,8 @@ export default function ActivityLog() {
     const canGoNext = useMemo(() => meta.current_page < meta.last_page, [meta.current_page, meta.last_page]);
     const selectedLogChanges = useMemo(() => buildChangeRows(selectedLog), [selectedLog]);
 
-    if (!user) {
-        return <p className="text-sm text-muted-foreground">Loading user context...</p>;
+if (!user) {
+        return <Preloader message="Loading user context..." />;
     }
 
     if (!isSuperAdmin) {

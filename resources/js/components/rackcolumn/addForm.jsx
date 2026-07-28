@@ -70,8 +70,10 @@ export default function AddRackColumnForm({
               name="code"
               value={form.code}
               onChange={onChange}
-              placeholder="e.g. RACK-A-C1"
+              placeholder="Auto-generated: rackname-rownumber-columnnumber"
+              disabled
             />
+            <p className="text-xs text-muted-foreground">Automatically generated from rack name, row number, and column number.</p>
             {errors.code && (
               <p className="text-sm text-destructive">{errors.code[0]}</p>
             )}

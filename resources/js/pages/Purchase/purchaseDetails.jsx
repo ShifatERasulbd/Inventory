@@ -19,6 +19,7 @@ import { useAppContext } from '@/context/AppContext';
 import { formatDate } from '@/lib/utils';
 
 import { fetchPurchase } from './api';
+import Preloader from '@/components/Preloader';
 
 const statusVariantMap = {
     pending: 'secondary',
@@ -83,15 +84,11 @@ export default function PurchaseDetails() {
     }, [id]);
 
     if (isLoading) {
-        return (
-            <div className="space-y-4">
-                <Button variant="ghost" onClick={() => navigate('/purchases')}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Purchases
-                </Button>
-                <p className="text-sm text-muted-foreground">Loading purchase details...</p>
-            </div>
-        );
+          return (
+                            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
+                                <Preloader message="Loading Purchase Details..." fullScreen={false} />
+                            </div>
+                        );
     }
 
     if (error || !purchase) {
@@ -288,6 +285,9 @@ export default function PurchaseDetails() {
                                         const isMotherExpanded = expandedProductGroups[motherName] ?? false;
                                         const motherCollapsible = hasMultipleColors(motherGroup) ||
                                             Object.values(motherGroup.colorGroups).some((cg) => hasMultipleSizes(cg));
+                                        const colorGroups = Object.values(motherGroup.colorGroups);
+                                        const firstColorGroup = colorGroups[0] || null;
+                                        const firstItem = firstColorGroup?.items?.[0] || null;
 
                                         return (
                                             <Fragment key={motherName}>
@@ -311,12 +311,26 @@ export default function PurchaseDetails() {
                                                         )}
                                                     </TableCell>
                                                     <TableCell className="font-semibold">{motherGroup.name}</TableCell>
-                                                    <TableCell>-</TableCell>
-                                                    <TableCell>-</TableCell>
+                                                    <TableCell>
+                                                        {motherCollapsible
+                                                            ? '-'
+                                                            : (firstItem?.size || firstItem?.size_name || 'N/A')}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {motherCollapsible
+                                                            ? '-'
+                                                            : (firstItem?.color || firstItem?.color_name || 'N/A')}
+                                                    </TableCell>
                                                     <TableCell className="text-right font-semibold">{motherGroup.totalQuantity}</TableCell>
-                                                    <TableCell className="text-right">-</TableCell>
+                                                    <TableCell className="text-right">
+                                                        {motherCollapsible
+                                                            ? '-'
+                                                            : Number(firstItem?.purchase_price ?? 0).toFixed(2)}
+                                                    </TableCell>
                                                     <TableCell className="text-right font-semibold">
-                                                        {motherGroup.totalLineTotal.toFixed(2)}
+                                                        {motherCollapsible
+                                                            ? motherGroup.totalLineTotal.toFixed(2)
+                                                            : Number(firstItem?.line_total ?? motherGroup.totalLineTotal ?? 0).toFixed(2)}
                                                     </TableCell>
                                                 </TableRow>
 
