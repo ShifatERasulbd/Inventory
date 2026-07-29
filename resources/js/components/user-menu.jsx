@@ -11,6 +11,7 @@ export function UserMenu({ user, warehouseName }) {
     const [notifications, setNotifications] = useState([]);
     const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [approvedOrderCount, setApprovedOrderCount] = useState(0);
     const userMenuRef = useRef(null);
 
     const isSuperAdmin = Array.isArray(user?.role_slugs) && user.role_slugs.includes('super-admin');

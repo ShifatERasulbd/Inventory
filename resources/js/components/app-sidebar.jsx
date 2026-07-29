@@ -154,7 +154,8 @@ export function AppSidebar(props) {
     
 
     const handleLogout = async () => {
-        if (isLoggingOut) {
+        if (isLoggingOut) {  
+            
             return;
         }
 
@@ -368,7 +369,7 @@ export function AppSidebar(props) {
                                             </Link>
                                         </SidebarMenuButton>
                                         {item.title === '1971co Orders' && approvedCount > 0 && (
-                                            <SidebarMenuBadge className="bg-primary text-primary-foreground">
+                                            <SidebarMenuBadge className="bg-primary text-primary-foreground peer-hover/menu-button:!text-primary-foreground peer-data-[active=true]/menu-button:!text-primary-foreground">
                                                 {approvedCount}
                                             </SidebarMenuBadge>
                                         )}

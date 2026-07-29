@@ -145,7 +145,7 @@ export default function OrdersTable({
                                     <Edit2 className="h-3.5 w-3.5" />
                                     Edit
                                 </Button>
-                            </TableCell> REPLACE
+                            </TableCell> 
                         </TableRow>
                     );
                 })}

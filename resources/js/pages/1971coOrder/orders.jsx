@@ -92,6 +92,28 @@ function normalizeDateRange(dateFrom, dateTo) {
     };
 }
 
+    function buildRetailPosSelection(order) {
+        const rawPayload = order?.raw_payload && typeof order.raw_payload === 'object'
+            ? order.raw_payload
+            : {};
+
+        const normalizedItems = Array.isArray(rawPayload.items)
+            ? rawPayload.items
+            : (Array.isArray(order?.items) ? order.items : []);
+
+        return {
+            id: Number.parseInt(order?.id, 10) || 0,
+            remote_id: Number.parseInt(order?.remote_id, 10) || null,
+            order_number: String(order?.order_number || '').trim(),
+            customer_name: String(order?.customer_name || '').trim(),
+            total: Number.parseFloat(order?.total || 0) || 0,
+            raw_payload: {
+                ...rawPayload,
+                items: normalizedItems,
+            },
+        };
+    }
+
 export default function RemoteOrdersPage() {
     const navigate = useNavigate();
     const { setPageTitle } = useAppContext();
@@ -406,6 +428,21 @@ export default function RemoteOrdersPage() {
         }
     }
 
+            function handleSendToPos(order) {
+                const selection = buildRetailPosSelection(order);
+
+                if (!selection.id) {
+                    toast.error('This order is missing a local id and cannot be opened in POS.');
+                    return;
+                }
+
+                navigate('/retail', {
+                    state: {
+                        remoteOrderSelection: selection,
+                    },
+                });
+            }
+
     return (
         <div className="space-y-5">
             <Card>
@@ -529,6 +566,7 @@ export default function RemoteOrdersPage() {
                         onSelectOrder={handleSelectOrder}
                         onSelectAllOrders={handleSelectAllOrders}
                         onEdit={(order) => navigate(`/remote-orders/${order.remote_id ?? order.id}/edit`)}
+                        onSendToPos={handleSendToPos}
                         onViewStockLocations={handleViewStockLocations}
                     />
 

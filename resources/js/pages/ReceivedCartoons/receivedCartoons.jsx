@@ -233,7 +233,7 @@ export default function ReceivedCartoons() {
                                 <TableHead>PO Number</TableHead>
                                 <TableHead>Warehouse</TableHead>
                                 <TableHead>Quantity</TableHead>
-                                <TableHead>Products</TableHead>
+                              
                                 <TableHead>Issue</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -260,7 +260,7 @@ export default function ReceivedCartoons() {
                                     <TableCell>{row.purchase?.po_number || row.p_o_number || 'N/A'}</TableCell>
                                     <TableCell>{row.warehouse?.name || 'N/A'}</TableCell>
                                     <TableCell>{row.quantity ?? 0}</TableCell>
-                                    <TableCell>{formatProducts(row.purchase?.products)}</TableCell>
+                                  
                                     <TableCell>
                                         <Button type="button" size="sm" variant="outline" onClick={() => openIssueModal(row)}>
                                             Raise Issue

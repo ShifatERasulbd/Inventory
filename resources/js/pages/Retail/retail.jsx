@@ -145,6 +145,8 @@ export default function RetailPOS() {
 
     const barcodeRef = useRef(null);
     const prefillAppliedRef = useRef(false);
+    const remoteSelectionHydratedRef = useRef(false);
+    const remoteSelectionAppliedRef = useRef(false);
 
     useEffect(() => {
         setPageTitle('Retail POS');
@@ -324,6 +326,69 @@ export default function RetailPOS() {
         setNote(match.raw_payload?.notes || match.raw_payload?.comment || '');
         toast.success(`Selected approved order ${match.order_number || match.id}. Scan barcodes to match order items.`);
     };
+
+    useEffect(() => {
+        const selection = location?.state?.remoteOrderSelection;
+        if (!selection || remoteSelectionHydratedRef.current) {
+            return;
+        }
+
+        const selectionId = Number.parseInt(selection?.id, 10);
+        if (!Number.isInteger(selectionId) || selectionId <= 0) {
+            remoteSelectionHydratedRef.current = true;
+            return;
+        }
+
+        setPendingOrders((previous) => {
+            const alreadyPresent = previous.some((order) => Number.parseInt(order?.id, 10) === selectionId);
+            if (alreadyPresent) {
+                return previous;
+            }
+
+            const fallbackOrder = {
+                id: selectionId,
+                remote_id: Number.parseInt(selection?.remote_id, 10) || null,
+                order_number: String(selection?.order_number || '').trim(),
+                customer_name: String(selection?.customer_name || '').trim(),
+                total: Number.parseFloat(selection?.total || 0) || 0,
+                raw_payload: selection?.raw_payload && typeof selection.raw_payload === 'object'
+                    ? selection.raw_payload
+                    : {},
+            };
+
+            return [fallbackOrder, ...previous];
+        });
+
+        remoteSelectionHydratedRef.current = true;
+    }, [location]);
+
+    useEffect(() => {
+        const selection = location?.state?.remoteOrderSelection;
+        if (!selection || remoteSelectionAppliedRef.current) {
+            return;
+        }
+
+        if (!selectedWarehouse) {
+            return;
+        }
+
+        const selectionId = Number.parseInt(selection?.id, 10);
+        if (!Number.isInteger(selectionId) || selectionId <= 0) {
+            remoteSelectionAppliedRef.current = true;
+            return;
+        }
+
+        const match = pendingOrders.find((order) => Number.parseInt(order?.id, 10) === selectionId);
+        if (!match) {
+            return;
+        }
+
+        setSelectedPendingOrder(String(match.id));
+        setCart([]);
+        setNote(match.raw_payload?.notes || match.raw_payload?.comment || '');
+        toast.success(`Selected approved order ${match.order_number || match.id}. Scan barcodes to match order items.`);
+        remoteSelectionAppliedRef.current = true;
+    }, [location, pendingOrders, selectedWarehouse]);
 
     useEffect(() => {
         const prefill = location?.state?.remoteOrderPrefill;
