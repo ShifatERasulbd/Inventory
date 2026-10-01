@@ -61,6 +61,10 @@ export async function fetchRemoteOrders(params = {}) {
         query.set('status', params.status);
     }
 
+    if (params.order_from) {
+        query.set('order_from', params.order_from);
+    }
+
     if (params.date_from) {
         query.set('date_from', params.date_from);
     }
@@ -79,6 +83,19 @@ export async function fetchRemoteOrders(params = {}) {
 
     const suffix = query.toString() ? `?${query.toString()}` : '';
     return requestJson(`/api/remote-orders${suffix}`);
+}
+
+export async function createRemoteOrder(payload = {}) {
+    await ensureCsrfCookie();
+
+    return requestJson('/api/remote-orders', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function fetchProductOptions() {
+    return requestJson('/api/remote-orders/product-options');
 }
 
 export async function syncRemoteOrders(payload = {}) {
@@ -105,6 +122,22 @@ export async function bulkDelete(payload) {
     return requestJson('/api/remote-orders/bulk-delete', {
         method: 'POST',
         body: JSON.stringify(payload),
+    });
+}
+
+export async function sendPendingTrackingEmails() {
+    await ensureCsrfCookie();
+
+    return requestJson('/api/remote-orders/send-pending-tracking-emails', {
+        method: 'POST',
+    });
+}
+
+export async function sendTrackingEmailForOrder(id) {
+    await ensureCsrfCookie();
+
+    return requestJson(`/api/remote-orders/${id}/send-tracking-email`, {
+        method: 'POST',
     });
 }
 

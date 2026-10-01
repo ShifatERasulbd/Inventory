@@ -1,11 +1,21 @@
+let csrfCookiePromise = null;
+
+// Fetch the CSRF cookie at most once per session; never let a transient
+// network hiccup here block the actual request that follows it.
 async function ensureCsrfCookie() {
-    await fetch('/sanctum/csrf-cookie', {
-        credentials: 'include',
-        headers: {
-            Accept: 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-    });
+    if (!csrfCookiePromise) {
+        csrfCookiePromise = fetch('/sanctum/csrf-cookie', {
+            credentials: 'include',
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        }).catch(() => {
+            csrfCookiePromise = null;
+        });
+    }
+
+    await csrfCookiePromise;
 }
 
 async function requestJson(url, options = {}) {
@@ -39,13 +49,25 @@ export async function fetchPendingRemoteOrders() {
     return Array.isArray(payload) ? payload : [];
 }
 
-export async function updateRemoteOrderStatus(orderId, status) {
+export async function updateRemoteOrderStatus(orderId, status, extraPayload = {}) {
     await ensureCsrfCookie();
 
     return requestJson(`/api/remote-orders/${orderId}`, {
         method: 'PUT',
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, ...extraPayload }),
     });
+}
+
+export async function bookRemoteOrderVeeqoShipment(orderId) {
+    await ensureCsrfCookie();
+
+    return requestJson(`/api/remote-orders/${orderId}/veeqo-booking`, {
+        method: 'POST',
+    });
+}
+
+export async function fetchRemoteOrderById(orderId) {
+    return requestJson(`/api/remote-orders/${orderId}`);
 }
 
 
@@ -68,6 +90,14 @@ export async function createRetailSale(data) {
 export async function fetchRetailSales() {
     const payload = await requestJson('/api/retail/sales');
     return Array.isArray(payload) ? payload : [];
+}
+
+export async function updateRetailSaleStatus(saleId, status) {
+    await ensureCsrfCookie();
+    return requestJson(`/api/retail/sales/${saleId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+    });
 }
 
 export async function fetchWarehouses() {

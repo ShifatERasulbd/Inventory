@@ -9,7 +9,7 @@ export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitti
         <Card>
             <CardHeader>
                 <CardTitle>Create Stock</CardTitle>
-                <CardDescription>Add product, stock count, warehouse, cartoon, and barcode.</CardDescription>
+                <CardDescription>Add product, stock count, warehouse, carton, and barcode.</CardDescription>
             </CardHeader>
 
             <Separator />
@@ -104,7 +104,7 @@ export default function AddForm({ form, onChange, onSubmit, onCancel, isSubmitti
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="cartoon_id">Cartoon ID</Label>
+                            <Label htmlFor="cartoon_id">Carton ID</Label>
                             <Input
                                 id="cartoon_id"
                                 name="cartoon_id"

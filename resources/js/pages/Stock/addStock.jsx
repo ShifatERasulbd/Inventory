@@ -54,7 +54,7 @@ function validateForm(form) {
     }
 
     if (cartoonId !== null && (!Number.isInteger(cartoonId) || cartoonId <= 0)) {
-        validationErrors.cartoon_id = ['Cartoon ID must be a positive integer.'];
+        validationErrors.cartoon_id = ['Carton ID must be a positive integer.'];
     }
 
     if (barcode.length > 200) {

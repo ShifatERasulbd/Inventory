@@ -75,3 +75,22 @@ Artisan::command('remote-orders:sync {--since=} {--limit=100}', function (): int
 Schedule::command('remote-orders:sync --limit=100')
     ->everyMinute()
     ->withoutOverlapping();
+
+Artisan::command('return-requests:sync {--since=} {--limit=100}', function (): int {
+    $since = $this->option('since');
+    $limit = (int) $this->option('limit');
+
+    $result = app(\App\Services\ReturnRequestSyncService::class)->syncRecent(
+        $since !== null ? (int) $since : null,
+        $limit
+    );
+
+    $this->info('Return requests synced: '.$result['synced_count']);
+    $this->line('Latest remote id: '.$result['latest_remote_id']);
+
+    return self::SUCCESS;
+})->purpose('Sync 1971co return requests into local return_requests table');
+
+Schedule::command('return-requests:sync --limit=100')
+    ->everyMinute()
+    ->withoutOverlapping();

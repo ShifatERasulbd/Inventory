@@ -20,8 +20,8 @@ export default function Preloader({ message = 'Loading...', fullScreen = true })
                         <td className="h-full w-full align-middle text-center">
                             {/* NAI water-pouring animation */}
                             <div className="nai-preloader-wrapper">
-                                <span className="nai-preloader-outline" aria-hidden="true">NAI</span>
-                                <span className="nai-preloader-fill" aria-hidden="true">NAI</span>
+                                <span className="nai-preloader-outline" aria-hidden="true">NAGL</span>
+                                <span className="nai-preloader-fill" aria-hidden="true">NAGL</span>
                             </div>
                             {/* Loading message with animated dots under the NAI logo */}
                             <table className="mx-auto">

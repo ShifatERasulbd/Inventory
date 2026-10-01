@@ -1,0 +1,41 @@
+<?php
+
+$c = \App\Models\Cartoon::whereNotNull('received_to_stock_at')->whereNotNull('product_code')->first();
+$codes = $c->product_code;
+$p = \App\Models\Product::where('barCode', $codes[0])->first();
+echo 'cartoon_id=' . $c->id . ' warehouse=' . $c->warehouse_id . ' product_id=' . $p->id . PHP_EOL;
+
+$candidate = \App\Models\Product::whereNotIn('id', function ($q) use ($c) {
+    $q->select('product_id')->from('stocks')->where('warehouse_id', $c->warehouse_id);
+})->whereNotNull('barCode')->first();
+
+if (!$candidate) {
+    echo 'NO_CANDIDATE' . PHP_EOL;
+    return;
+}
+
+echo 'candidate_product_id=' . $candidate->id . ' brand_id=' . ($candidate->brand_id ?? 'null') . ' brands_pivot=' . $candidate->brands()->pluck('brands.id')->implode(',') . PHP_EOL;
+
+$cartoon2 = \App\Models\Cartoon::whereNotNull('received_to_stock_at')->where('warehouse_id', $c->warehouse_id)->first();
+$u = \App\Models\User::find(5);
+$ctrl = new \App\Http\Controllers\ReturnRequestController();
+$req = \Illuminate\Http\Request::create('/', 'POST', ['product_id' => $candidate->id, 'cartoon_id' => $cartoon2->id, 'quantity' => 3]);
+$req->setUserResolver(fn () => $u);
+$resp = $ctrl->restock($req, 1);
+echo 'restock_response=' . $resp->getContent() . PHP_EOL;
+
+$newStock = \App\Models\Stock::where('product_id', $candidate->id)->where('warehouse_id', $c->warehouse_id)->first();
+echo 'new_stock_row=' . ($newStock ? $newStock->toJson() : 'MISSING') . PHP_EOL;
+
+$indexReq = \Illuminate\Http\Request::create('/', 'GET');
+$indexReq->setUserResolver(fn () => $u);
+$stockCtrl = new \App\Http\Controllers\StockController();
+$indexResp = $stockCtrl->index($indexReq);
+$data = json_decode($indexResp->getContent(), true);
+$found = collect($data)->first(fn ($row) => ($row['product_id'] ?? null) == $candidate->id && ($row['warehouse_id'] ?? null) == $c->warehouse_id);
+echo 'visible_in_stock_index=' . ($found ? json_encode($found) : 'NOT_FOUND') . PHP_EOL;
+
+// cleanup
+$newStock?->delete();
+$cartoon2->update(['quantity' => $cartoon2->quantity - 3]);
+echo 'cleaned_up' . PHP_EOL;

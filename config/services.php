@@ -48,38 +48,41 @@ return [
         'url'   => env('MAIN_STORE_API_URL'),
         'token' => env('MAIN_STORE_API_TOKEN'),
         'api_key' => env('MAIN_STORE_API_KEY'),
+        'stripe_secret' => env('MAIN_STORE_STRIPE_SECRET'),
     ],
 
-    // ShipStation API configuration
-    'shipstation' => [
-        'base_url' => env('SHIPSTATION_BASE_URL', 'https://ssapi.shipstation.com'),
-        'api_key' => env('SHIPSTATION_API_KEY'),
-        'api_secret' => env('SHIPSTATION_API_SECRET'),
-        'verify_ssl' => env('SHIPSTATION_VERIFY_SSL', true),
-        'ca_bundle' => env('SHIPSTATION_CA_BUNDLE'),
+    // Standalone 1971co store (separate app/database from viveren)
+    'store_1971co' => [
+        'url'   => env('STORE_1971CO_API_URL'),
+        'token' => env('STORE_1971CO_API_TOKEN'),
+        'api_key' => env('STORE_1971CO_API_KEY'),
+        'stripe_secret' => env('STORE_1971CO_STRIPE_SECRET'),
     ],
 
-    // UPS API configuration
-    'ups' => [
-        'base_url' => env('UPS_BASE_URL', env('UPS_API_URL', 'https://wwwcie.ups.com')),
-        'oauth_base_url' => env('UPS_OAUTH_BASE_URL', env('UPS_API_URL', 'https://wwwcie.ups.com')),
-        'token_endpoint' => env('UPS_TOKEN_ENDPOINT', '/security/v1/oauth/token'),
-        'rate_endpoint' => env('UPS_RATE_ENDPOINT', '/api/rating/v2409/Rate'),
-        'shipment_endpoint' => env('UPS_SHIPMENT_ENDPOINT', '/api/shipments/v2409/ship'),
-        'verify_ssl' => env('UPS_VERIFY_SSL', true),
-        'ca_bundle' => env('UPS_CA_BUNDLE'),
-        'client_id' => env('UPS_CLIENT_ID'),
-        'client_secret' => env('UPS_CLIENT_SECRET'),
-        'shipper_number' => env('UPS_SHIPPER_NUMBER'),
-        'shipper_name' => env('UPS_SHIPPER_NAME', '1971Co'),
-        'origin_address_1' => env('UPS_ORIGIN_ADDRESS_1', '123 Warehouse Rd'),
-        'origin_city' => env('UPS_ORIGIN_CITY', 'New York'),
-        'origin_state' => env('UPS_ORIGIN_STATE', 'NY'),
-        'origin_postal_code' => env('UPS_ORIGIN_POSTAL_CODE', '10001'),
-        'origin_country' => env('UPS_ORIGIN_COUNTRY', 'US'),
-        'service_code' => env('UPS_SERVICE_CODE', '03'),
-        'service_description' => env('UPS_SERVICE_DESCRIPTION', 'UPS Ground'),
-        'packaging_code' => env('UPS_PACKAGING_CODE', '02'),
+    // Amazon Selling Partner API (Orders v0) - LWA-only auth (no AWS SigV4 required since 2021)
+    'amazon_sp_api' => [
+        'client_id' => env('AMAZON_SP_CLIENT_ID'),
+        'client_secret' => env('AMAZON_SP_CLIENT_SECRET'),
+        'refresh_token' => env('AMAZON_SP_REFRESH_TOKEN'),
+        // one of: na (North America), eu (Europe), fe (Far East)
+        'region' => env('AMAZON_SP_REGION', 'na'),
+        // comma-separated marketplace ids, e.g. ATVPDKIKX0DER for Amazon.com
+        'marketplace_ids' => env('AMAZON_SP_MARKETPLACE_IDS', 'ATVPDKIKX0DER'),
+        'seller_id' => env('AMAZON_SP_SELLER_ID'),
+    ],
+
+    'veeqo' => [
+        'key' => env('VEEQO_API_KEY'),
+        'url' => env('VEEQO_API_URL', 'https://api.veeqo.com'),
+        'dashboard_url' => env('VEEQO_DASHBOARD_URL', 'https://app.veeqo.com'),
+        'verify_ssl' => env('VEEQO_VERIFY_SSL', true),
+        'origin' => [
+            'address1' => env('VEEQO_ORIGIN_ADDRESS1'),
+            'city' => env('VEEQO_ORIGIN_CITY'),
+            'state' => env('VEEQO_ORIGIN_STATE'),
+            'zip' => env('VEEQO_ORIGIN_ZIP'),
+            'country' => env('VEEQO_ORIGIN_COUNTRY'),
+        ],
     ],
 
 

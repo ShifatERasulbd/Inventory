@@ -32,16 +32,15 @@ use App\Http\Controllers\RackColumnsController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\QuickBooksController;
 use App\Http\Controllers\RemoteOrderController;
-use App\Http\Controllers\ShipStationController;
-use App\Http\Controllers\UPSCourierController;
+use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ShippingController;
 use App\Http\Controllers\PackingListController;
+use App\Http\Controllers\RetrunOrderController;
+use App\Http\Controllers\ReturnRequestController;
 
 Route::get('/', function () {
     return view('app');
 })->name('login');
-Route::post('/shipping/orders', [ShipStationController::class, 'storeOrder']);
-Route::post('/ups/shipments', [UPSCourierController::class, 'storeShipment']);
 
 // Packing list generation (no upload)
 Route::get('/purchases/{purchase}/packing-list', [App\Http\Controllers\PurchaseController::class, 'downloadPackingList'])
@@ -73,13 +72,20 @@ Route::prefix('api')->group(function () {
         Route::post('/countries/{id}/restore', [CountryController::class, 'restore'])->middleware('resource.permission:countries');
         Route::apiResource('/countries', CountryController::class)->middleware('resource.permission:countries');
 
-        // 1971 order details
+        // 1971 order details (also covers Viveren/Joor/Amazon orders - all use RemoteOrderController).
+        // Permission checks are done per-request inside the controllers/BookingController since each
+        // route can touch orders from different stores (order_from), each with its own permission category.
         Route::get('/remote-orders', [RemoteOrderController::class, 'index']);
         Route::get('/remote-orders/approved-count', [RemoteOrderController::class, 'getApprovedCount']);
         Route::get('/remote-orders/pending', [RemoteOrderController::class, 'getPendingOrders']);
+        Route::get('/remote-orders/product-options', [RemoteOrderController::class, 'productOptions']);
         Route::post('/remote-orders/sync', [RemoteOrderController::class, 'sync']);
+        Route::post('/remote-orders', [RemoteOrderController::class, 'store']);
         Route::get('/remote-orders/{id}', [RemoteOrderController::class, 'show'])->whereNumber('id');
         Route::put('/remote-orders/{id}', [RemoteOrderController::class, 'update'])->whereNumber('id');
+        Route::post('/remote-orders/{id}/veeqo-booking', [BookingController::class, 'store'])->whereNumber('id');
+        Route::post('/remote-orders/{id}/send-tracking-email', [BookingController::class, 'sendTrackingEmailManually'])->whereNumber('id');
+        Route::post('/remote-orders/send-pending-tracking-emails', [BookingController::class, 'sendPendingTrackingEmails']);
         Route::post('/remote-orders/bulk-status', [RemoteOrderController::class, 'bulkUpdateStatus']);
         Route::post('/remote-orders/bulk-delete', [RemoteOrderController::class, 'bulkDelete']);
         
@@ -137,6 +143,19 @@ Route::prefix('api')->group(function () {
         // Supplier Controller
         Route::apiResource('/suppliers', SupplierController::class)->middleware('resource.permission:suppliers');
 
+        // Return  Controller
+        Route::apiResource('/return-orders', RetrunOrderController::class)->middleware('resource.permission:return-orders');
+        Route::get('/remote-orders/orderList', [RetrunOrderController::class,'getRemoteOrders'])->middleware('resource.permission:return-orders');
+
+        // 1971co Return Requests (fetched from the 1971co public return-requests-feed API).
+        Route::get('/return-requests', [ReturnRequestController::class, 'index'])->middleware('resource.permission:1971co-return-requests');
+        Route::post('/return-requests/sync', [ReturnRequestController::class, 'sync'])->middleware('resource.permission:1971co-return-requests');
+        Route::get('/return-requests/{id}/cartons', [ReturnRequestController::class, 'cartons'])->whereNumber('id')->middleware('resource.permission:1971co-return-requests');
+        Route::post('/return-requests/{id}/restock', [ReturnRequestController::class, 'restock'])->whereNumber('id')->middleware('resource.permission:1971co-return-requests');
+        Route::get('/return-requests/{id}/shipping-label', [ReturnRequestController::class, 'shippingLabel'])->whereNumber('id')->middleware('resource.permission:1971co-return-requests');
+        Route::get('/return-requests/{id}', [ReturnRequestController::class, 'show'])->whereNumber('id')->middleware('resource.permission:1971co-return-requests');
+        Route::put('/return-requests/{id}', [ReturnRequestController::class, 'update'])->whereNumber('id')->middleware('resource.permission:1971co-return-requests');
+
         // Product Controller
         Route::post('/products/bulk-delete', [ProductController::class, 'bulkDestroy'])->middleware('resource.permission:products');
         Route::apiResource('/products', ProductController::class)->middleware('resource.permission:products');
@@ -173,6 +192,7 @@ Route::prefix('api')->group(function () {
         Route::get('/retail/barcode-lookup', [RetailController::class, 'lookupBarcode'])->middleware('resource.permission:sales');
         Route::get('/retail/sales', [RetailController::class, 'index'])->middleware('resource.permission:sales');
         Route::post('/retail/sales', [RetailController::class, 'store'])->middleware('resource.permission:sales');
+        Route::put('/retail/sales/{id}/status', [RetailController::class, 'updateStatus'])->middleware('resource.permission:sales');
 
         // Season Controller
         Route::apiResource('/seasons', SeasonController::class)->middleware('resource.permission:seasons');

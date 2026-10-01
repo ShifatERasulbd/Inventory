@@ -42,7 +42,7 @@ export default function CartoonTrackingTable({ rows = [], isLoading = false, onE
                     <TableRow>
                         <TableHead className="w-[70px]">SL</TableHead>
                          <TableHead>PO Number</TableHead>
-                        <TableHead>Cartoon Number</TableHead>                       
+                        <TableHead>Carton Number</TableHead>                       
                         <TableHead>PO Status</TableHead>
                         <TableHead>Warehouse</TableHead>
                         <TableHead>Rack</TableHead>
@@ -56,7 +56,7 @@ export default function CartoonTrackingTable({ rows = [], isLoading = false, onE
                     {isLoading && (
                         <TableRow>
                             <TableCell colSpan={10} className="text-center text-muted-foreground">
-                                Loading cartoon tracking...
+                                Loading carton tracking...
                             </TableCell>
                         </TableRow>
                     )}

@@ -511,7 +511,6 @@ export function StockTable({
                                                                                     className="h-7 w-7"
                                                                                     aria-label={`Add stock for ${stock.name}`}
                                                                                     onClick={() => onAddStock(stock)}
-                                                                                    disabled={Boolean(stock?.is_placeholder)}
                                                                                 >
                                                                                     <Plus className="h-3.5 w-3.5" />
                                                                                 </Button>
@@ -531,7 +530,6 @@ export function StockTable({
                                                                                     className="h-7 w-7"
                                                                                     aria-label={`Deduct stock for ${stock.name}`}
                                                                                     onClick={() => onDeductStock(stock)}
-                                                                                    disabled={Boolean(stock?.is_placeholder)}
                                                                                 >
                                                                                     <Minus className="h-3.5 w-3.5" />
                                                                                 </Button>

@@ -37,11 +37,13 @@ class CartoonController extends Controller
         return Product::query()
             ->with(['size:id,size', 'color:id,name'])
             ->whereIn('id', array_values(array_unique($productIds)))
-            ->get(['id', 'name', 'barCode', 'size_id', 'color_id'])
+            ->get(['id', 'name', 'style_number', 'barCode', 'sku', 'size_id', 'color_id'])
             ->mapWithKeys(fn (Product $product) => [
                 $product->id => [
                     'name' => $product->name,
+                    'style_number' => $product->style_number,
                     'barcode' => $product->barCode,
+                    'sku' => $product->sku,
                     'size' => $product->size?->size,
                     'color' => $product->color?->name,
                 ],
@@ -59,7 +61,9 @@ class CartoonController extends Controller
                 'product_id' => $productId,
                 'quantity' => (int) ($item['quantity'] ?? 0),
                 'product_name' => $productData['name'] ?? null,
+                'style_number' => $productData['style_number'] ?? null,
                 'barcode' => $productData['barcode'] ?? null,
+                'sku' => $productData['sku'] ?? null,
                 'color' => $productData['color'] ?? null,
                 'size' => $productData['size'] ?? null,
             ];
@@ -163,21 +167,43 @@ class CartoonController extends Controller
             ->lockForUpdate()
             ->get();
 
+        $productIdentifiers = Product::query()
+            ->whereIn('id', $purchaseProductIds)
+            ->get(['id', 'barCode', 'sku'])
+            ->mapWithKeys(fn (Product $product) => [
+                (int) $product->id => [
+                    'barcode' => strtolower(trim((string) $product->barCode)),
+                    'sku' => strtolower(trim((string) $product->sku)),
+                ],
+            ])
+            ->all();
+
         $codesNotFound = [];
         $touchedStocks = [];
 
         foreach ($incomingCodes as $incomingCode) {
             $matchedStock = null;
+            $normalizedIncomingCode = strtolower(trim($incomingCode));
 
             foreach ($stocks as $stock) {
                 $barcodes = is_array($stock->barcode) ? $stock->barcode : [];
-                $index = array_search($incomingCode, $barcodes, true);
+                $index = collect($barcodes)->search(
+                    fn ($barcode) => strtolower(trim((string) $barcode)) === $normalizedIncomingCode
+                );
 
-                if ($index === false) {
+                $productIdentifiersForStock = $productIdentifiers[(int) $stock->product_id] ?? [];
+                $matchesProductBarcode = ($productIdentifiersForStock['barcode'] ?? '') === $normalizedIncomingCode;
+                $matchesProductSku = ($productIdentifiersForStock['sku'] ?? '') === $normalizedIncomingCode;
+
+                if ((int) $stock->stocks <= 0 || ($index === false && ! $matchesProductBarcode && ! $matchesProductSku)) {
                     continue;
                 }
 
-                unset($barcodes[$index]);
+                if ($index !== false) {
+                    unset($barcodes[$index]);
+                } elseif ($matchesProductSku && $barcodes !== []) {
+                    unset($barcodes[0]);
+                }
                 $stock->barcode = array_values($barcodes);
                 $stock->stocks = max(0, ((int) $stock->stocks) - 1);
                 $matchedStock = $stock;

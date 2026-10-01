@@ -52,7 +52,7 @@ export function ColorTable({ colors = [], onAdd, onEdit, onRequestDelete, deleti
                 <TableHeader>
                     <TableRow>
                         <TableHead className="w-[100px]">SL No.</TableHead>
-                        <TableHead>Color</TableHead>
+                        <TableHead>Colors</TableHead>
                         <TableHead>Color Code</TableHead>
                        
                         <TableHead className="w-[160px]">Action</TableHead>

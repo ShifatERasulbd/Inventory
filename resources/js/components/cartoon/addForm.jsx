@@ -8,8 +8,8 @@ export default function AddForm({ form, onPurchaseChange, purchases = [], onChan
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Create Cartoon</CardTitle>
-                <CardDescription>Fill in the cartoon details and save to create a new record.</CardDescription>
+                <CardTitle>Create Carton</CardTitle>
+                <CardDescription>Fill in the carton details and save to create a new record.</CardDescription>
             </CardHeader>
 
             <Separator />
@@ -38,13 +38,13 @@ export default function AddForm({ form, onPurchaseChange, purchases = [], onChan
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="cartoon_number">Cartoon Number</Label>
+                            <Label htmlFor="cartoon_number">Carton Number</Label>
                             <Input
                                 id="cartoon_number"
                                 name="cartoon_number"
                                 value={form.cartoon_number}
                                 onChange={onChange}
-                                placeholder="e.g. Cartoon Number"
+                                placeholder="e.g. Carton Number"
                             
                             />
                             {errors.cartoon_number && <p className="text-xs text-destructive">{errors.cartoon_number[0]}</p>}
@@ -82,7 +82,7 @@ export default function AddForm({ form, onPurchaseChange, purchases = [], onChan
                         Cancel
                     </Button>
                     <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? 'Creating...' : 'Create Cartoon'}
+                        {isSubmitting ? 'Creating...' : 'Create Carton'}
                     </Button>
                 </CardFooter>
             </form>

@@ -62,7 +62,7 @@ export default function ReceivedCartoons() {
     const [isSubmittingIssue, setIsSubmittingIssue] = useState(false);
 
     useEffect(() => {
-        setPageTitle('Received Cartoons');
+        setPageTitle('Received Cartons');
     }, [setPageTitle]);
 
     const loadRows = async () => {
@@ -73,7 +73,7 @@ export default function ReceivedCartoons() {
             const data = await fetchReceivedCartoons(purchaseId);
             setRows(Array.isArray(data) ? data : []);
         } catch (error) {
-            setErrorMessage(error.message || 'Failed to load received cartoons.');
+            setErrorMessage(error.message || 'Failed to load received cartons.');
         } finally {
             setIsLoading(false);
         }
@@ -124,12 +124,12 @@ export default function ReceivedCartoons() {
         try {
             await receiveCartoonByScan(value);
             setScanValue('');
-            toast.success('Cartoon received and stock updated.', {
+            toast.success('Carton received and stock updated.', {
                 style: { color: '#16a34a' },
             });
             await loadRows();
         } catch (error) {
-            const message = error.message || 'Failed to receive cartoon.';
+            const message = error.message || 'Failed to receive carton.';
             setErrorMessage(message);
             toast.error(message, {
                 style: { color: '#dc2626' },
@@ -191,20 +191,20 @@ export default function ReceivedCartoons() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Receive Cartoons To Stock</CardTitle>
+                    <CardTitle>Receive Cartons To Stock</CardTitle>
                     <CardDescription>
-                        Scan cartoon barcode to transfer scanned product barcodes into destination warehouse stock.
+                        Scan carton barcode to transfer scanned product barcodes into destination warehouse stock.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <form className="space-y-2" onSubmit={handleScanSubmit}>
-                        <Label htmlFor="scan-cartoon">Scan Cartoon Barcode</Label>
+                        <Label htmlFor="scan-cartoon">Scan Carton Barcode</Label>
                         <div className="flex gap-2">
                             <Input
                                 id="scan-cartoon"
                                 value={scanValue}
                                 onChange={(event) => setScanValue(event.target.value)}
-                                placeholder="Scan cartoon number"
+                                placeholder="Scan carton number"
                                 autoFocus
                             />
                             <Button type="submit" disabled={isSubmitting || !scanValue.trim()}>
@@ -213,23 +213,23 @@ export default function ReceivedCartoons() {
                         </div>
                     </form>
                     <p className="text-xs text-muted-foreground">
-                        Pending cartoons: <span className="font-semibold text-foreground">{pendingCount}</span>
+                        Pending cartons: <span className="font-semibold text-foreground">{pendingCount}</span>
                     </p>
                 </CardContent>
             </Card>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Pending Received Cartoons</CardTitle>
+                    <CardTitle>Pending Received Cartons</CardTitle>
                     <CardDescription>
-                        {purchaseId ? `Filtered by purchase ID: ${purchaseId}` : 'All received-status cartoons pending stock transfer'}
+                        {purchaseId ? `Filtered by purchase ID: ${purchaseId}` : 'All received-status cartons pending stock transfer'}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Cartoon</TableHead>
+                                <TableHead>Carton</TableHead>
                                 <TableHead>PO Number</TableHead>
                                 <TableHead>Warehouse</TableHead>
                                 <TableHead>Quantity</TableHead>
@@ -241,7 +241,7 @@ export default function ReceivedCartoons() {
                             {isLoading && (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center text-muted-foreground">
-                                        Loading received cartoons...
+                                        Loading received cartons...
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -249,7 +249,7 @@ export default function ReceivedCartoons() {
                             {!isLoading && rows.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center text-muted-foreground">
-                                        No pending cartoons found.
+                                        No pending cartons found.
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -285,7 +285,7 @@ export default function ReceivedCartoons() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>PO</TableHead>
-                                <TableHead>Cartoon</TableHead>
+                                <TableHead>Carton</TableHead>
                                 <TableHead>Warehouse</TableHead>
                                 <TableHead>Title</TableHead>
                                 <TableHead>Raised By</TableHead>

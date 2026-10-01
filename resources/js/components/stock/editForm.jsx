@@ -9,7 +9,7 @@ export default function EditForm({ form, existingBarcodes = [], onChange, onSubm
         <Card>
             <CardHeader>
                 <CardTitle>Edit Stock</CardTitle>
-                <CardDescription>Update product, stock count, warehouse, cartoon, and barcode.</CardDescription>
+                <CardDescription>Update product, stock count, warehouse, carton, and barcode.</CardDescription>
             </CardHeader>
 
             <Separator />
@@ -104,7 +104,7 @@ export default function EditForm({ form, existingBarcodes = [], onChange, onSubm
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="cartoon_id">Cartoon ID</Label>
+                            <Label htmlFor="cartoon_id">Carton ID</Label>
                             <Input
                                 id="cartoon_id"
                                 name="cartoon_id"
@@ -127,7 +127,7 @@ export default function EditForm({ form, existingBarcodes = [], onChange, onSubm
                                 placeholder="Scan or type new barcode(s) — comma-separate multiple"
                             />
                             <p className="text-xs text-muted-foreground">
-                                Enter only <strong>new</strong> barcodes to add. Each barcode counts as 1 stock unit and will be removed from the cartoon.
+                                Enter only <strong>new</strong> barcodes to add. Each barcode counts as 1 stock unit and will be removed from the carton.
                             </p>
                             {existingBarcodes.length > 0 && (
                                 <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Download } from 'lucide-react'; 
+import { Download, Plus } from 'lucide-react'; 
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,15 +10,15 @@ import { useAppContext } from '@/context/AppContext';
 import OrdersTable from '@/components/1971coOrders/table';
 import StockLocationModal from '@/components/1971coOrders/stockLocationModal';
 
-import { fetchRemoteOrders, syncRemoteOrders, bulkUpdateStatus, bulkDelete, fetchStockLocationsForOrder } from './api';
+import { fetchRemoteOrders, syncRemoteOrders, bulkUpdateStatus, bulkDelete, fetchStockLocationsForOrder, updateRemoteOrder, sendPendingTrackingEmails, sendTrackingEmailForOrder } from './api';
 import Preloader from '@/components/Preloader';
 
 // Packages for handling PDF generation
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const BULK_STATUS_OPTIONS = ['pending', 'approved', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
-const STATUS_TABS = ['all', 'pending', 'approved', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
+const BULK_STATUS_OPTIONS = ['pending', 'waiting for shipment', 'ready for shipment', 'shipped', 'delivered', 'cancelled', 'refunded'];
+const STATUS_TABS = ['all', 'pending', 'waiting for shipment', 'ready for shipment', 'shipped', 'delivered', 'cancelled', 'refunded'];
 
 function firstNonEmptyString(...values) {
     for (const value of values) {
@@ -107,6 +107,10 @@ function normalizeDateRange(dateFrom, dateTo) {
             order_number: String(order?.order_number || '').trim(),
             customer_name: String(order?.customer_name || '').trim(),
             total: Number.parseFloat(order?.total || 0) || 0,
+            state_tax: Number.parseFloat(order?.state_tax || 0) || 0,
+            stripe_charge: Number.parseFloat(order?.stripe_charge || 0) || 0,
+            delivery_cost: Number.parseFloat(order?.delivery_cost || 0) || 0,
+            processing_fee: Number.parseFloat(order?.processing_fee || 0) || 0,
             raw_payload: {
                 ...rawPayload,
                 items: normalizedItems,
@@ -114,15 +118,30 @@ function normalizeDateRange(dateFrom, dateTo) {
         };
     }
 
-export default function RemoteOrdersPage() {
+export default function RemoteOrdersPage({
+    orderFrom = null,
+    pageTitle = '1971co Orders',
+    heading = '1971co Remote Orders',
+    editBasePath = '/remote-orders',
+    loadingMessage = 'Loading 1971 Orders...',
+    reportTitle = '1971co Orders Report',
+    createPath = null,
+} = {}) {
     const navigate = useNavigate();
-    const { setPageTitle } = useAppContext();
-    
+    const { setPageTitle, can } = useAppContext();
+    // Each store menu shares this component but has its own permission category (mirrors
+    // App\Http\Traits\AuthorizesOrderCategory::ORDER_FROM_CATEGORIES on the backend).
+    const orderCategory = { '1971co': '1971co-orders', website: 'viveren-orders', joor: 'joor-orders', amazon: 'amazon-orders' }[orderFrom] || '1971co-orders';
+    const canCreate = can('create', orderCategory);
+    const canUpdate = can('update', orderCategory);
+    const canDelete = can('delete', orderCategory);
+
     const [orders, setOrders] = useState([]);
     const [selectedIds, setSelectedIds] = useState([]);
     const [pagination, setPagination] = useState({ current_page: 1, last_page: 1, total: 0 });
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isSendingTrackingEmails, setIsSendingTrackingEmails] = useState(false);
     const [isBulkProcessing, setIsBulkProcessing] = useState(false);
     const [search, setSearch] = useState('');
     const [searchInput, setSearchInput] = useState('');
@@ -140,10 +159,11 @@ export default function RemoteOrdersPage() {
     const paginationRef = useRef({ current_page: 1 });
     const autoSyncInProgressRef = useRef(false);
     const autoSyncTimerRef = useRef(null);
+    const updatingStatusIdRef = useRef(null);
 
     useEffect(() => {
-        setPageTitle('1971co Orders');
-    }, [setPageTitle]);
+        setPageTitle(pageTitle);
+    }, [setPageTitle, pageTitle]);
 
     const statusSummary = useMemo(() => {
         return orders.reduce((acc, order) => {
@@ -153,7 +173,8 @@ export default function RemoteOrdersPage() {
         }, {});
     }, [orders]);
 
-    async function loadOrders(page = 1, filters = {}) {
+    async function loadOrders(page = 1, filters = {}, options = {}) {
+        const silent = Boolean(options.silent);
         // Fix evaluation to accept empty strings when a filter is cleared
         const nextSearch = filters.hasOwnProperty('search') ? filters.search : search;
         const nextStatus = filters.hasOwnProperty('status') ? filters.status : (activeStatus === 'all' ? '' : activeStatus);
@@ -173,7 +194,9 @@ export default function RemoteOrdersPage() {
             toast.warning('Date From was after Date To, so the range was swapped automatically.');
         }
 
-        setIsLoading(true);
+        if (!silent) {
+            setIsLoading(true);
+        }
         setErrorMessage('');
         setSelectedIds([]); 
 
@@ -183,6 +206,7 @@ export default function RemoteOrdersPage() {
                 per_page: 20,
                 search: nextSearch || undefined,
                 status: nextStatus || undefined,
+                order_from: orderFrom || undefined,
                 date_from: normalizedRange.dateFrom || undefined,
                 date_to: normalizedRange.dateTo || undefined,
             });
@@ -196,7 +220,9 @@ export default function RemoteOrdersPage() {
         } catch (error) {
             setErrorMessage(error.message || 'Failed to load remote orders.');
         } finally {
-            setIsLoading(false);
+            if (!silent) {
+                setIsLoading(false);
+            }
         }
     }
 
@@ -227,7 +253,7 @@ export default function RemoteOrdersPage() {
 
                 if (!cancelled) {
                     const currentPage = Number(paginationRef.current?.current_page || 1);
-                    await loadOrdersRef.current?.(currentPage);
+                    await loadOrdersRef.current?.(currentPage, {}, { silent: true });
                 }
             } catch (error) {
                 if (!cancelled) {
@@ -239,6 +265,7 @@ export default function RemoteOrdersPage() {
         };
 
         runAutoSync();
+        // Auto-sync every minute (was accidentally 100ms, which hammered the server and caused 502s).
         autoSyncTimerRef.current = window.setInterval(runAutoSync, 60_000);
 
         return () => {
@@ -253,7 +280,7 @@ export default function RemoteOrdersPage() {
     if (isLoading) {  
          return (
                            <div className="relative min-h-[calc(100vh-220px)] overflow-hidden rounded-2xl bg-background">
-                               <Preloader message="Loading 1971 Orders..." fullScreen={false} />
+                               <Preloader message={loadingMessage} fullScreen={false} />
                            </div>
                        );
     }
@@ -281,7 +308,7 @@ export default function RemoteOrdersPage() {
 
     // Bulk Event Actions
     async function handleBulkStatusChange(status) {
-        if (selectedIds.length === 0 || isBulkProcessing) return;
+        if (selectedIds.length === 0 || isBulkProcessing || !canUpdate) return;
         setIsBulkProcessing(true);
         try {
             await bulkUpdateStatus({ ids: selectedIds, status });
@@ -294,8 +321,22 @@ export default function RemoteOrdersPage() {
         }
     }
 
+    async function handleUpdateOrderStatus(order, status) {
+        if (!canUpdate || !order?.id || updatingStatusIdRef.current === order.id) return;
+        updatingStatusIdRef.current = order.id;
+        try {
+            await updateRemoteOrder(order.id, { status });
+            toast.success(`Order status updated to "${status}".`);
+            await loadOrders(pagination.current_page, {}, { silent: true });
+        } catch (error) {
+            toast.error(error.message || 'Failed to update order status.');
+        } finally {
+            updatingStatusIdRef.current = null;
+        }
+    }
+
     async function handleBulkDelete() {
-        if (selectedIds.length === 0 || isBulkProcessing) return;
+        if (!canDelete || selectedIds.length === 0 || isBulkProcessing) return;
         if (!confirm(`Are you absolutely sure you want to delete ${selectedIds.length} locally cached orders?`)) return;
         
         setIsBulkProcessing(true);
@@ -311,6 +352,7 @@ export default function RemoteOrdersPage() {
     }
 
     async function handleSync() {
+        if (!canUpdate) return;
         setIsSyncing(true);
         setErrorMessage('');
         try {
@@ -325,6 +367,31 @@ export default function RemoteOrdersPage() {
             toast.error(message, { style: { color: '#dc2626' } });
         } finally {
             setIsSyncing(false);
+        }
+    }
+
+    async function handleSendTrackingEmails() {
+        if (!canUpdate) return;
+        setIsSendingTrackingEmails(true);
+        try {
+            const result = await sendPendingTrackingEmails();
+            toast.success(`Sent ${result?.sent || 0} tracking email(s). Skipped ${result?.skipped || 0} (no email on file).`, {
+                style: { color: '#16a34a' },
+            });
+        } catch (error) {
+            toast.error(error.message || 'Failed to send tracking emails.', { style: { color: '#dc2626' } });
+        } finally {
+            setIsSendingTrackingEmails(false);
+        }
+    }
+
+    async function handleSendTrackingEmailForOrder(order) {
+        if (!canUpdate) return;
+        try {
+            const result = await sendTrackingEmailForOrder(order.id);
+            toast.success(result?.message || 'Tracking email sent.', { style: { color: '#16a34a' } });
+        } catch (error) {
+            toast.error(error.message || 'Failed to send tracking email.', { style: { color: '#dc2626' } });
         }
     }
 
@@ -361,12 +428,12 @@ export default function RemoteOrdersPage() {
             const doc = new jsPDF('l', 'mm', 'a4');
 
             doc.setFontSize(16);
-            doc.text('1971co  Orders Report', 14, 15);
+            doc.text(reportTitle, 14, 15);
             doc.setFontSize(10);
             doc.text(`Generated on: ${new Date().toLocaleString()} | Total Table Items: ${orders.length}`, 14, 22);
 
             const tableHeaders = [
-                ['Order #', 'Customer', 'Products', 'Qty', 'Status', 'Courier', 'Total', 'Updated']
+                ['Order #', 'Customer', 'Products', 'Qty', 'Status', 'Total', 'Updated']
             ];
 
             const tableRows = orders.map(order => {
@@ -374,7 +441,6 @@ export default function RemoteOrdersPage() {
 
                 const productNames = items.map((item) => formatProductLineWithVariants(item)).join('\n');
                 const productQuantities = items.map(i => i.quantity || i.qty || 1).join('\n');
-                const courier = order.courier_company || order.raw_payload?.courier_company || order.raw_payload?.courier_service || '-';
                 const dateStr = order.updated_at ? new Date(order.updated_at).toLocaleString() : '-';
 
                 return [
@@ -383,7 +449,6 @@ export default function RemoteOrdersPage() {
                     productNames,
                     productQuantities,
                     order.status || '-',
-                    courier,
                     `$${Number(order.total || 0).toFixed(2)}`,
                     dateStr
                 ];
@@ -448,7 +513,7 @@ export default function RemoteOrdersPage() {
             <Card>
                 <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <CardTitle>1971co Remote Orders</CardTitle>
+                        <CardTitle>{heading}</CardTitle>
                         <CardDescription>
                             Orders are saved into the local Inventory database and auto-synced every minute.
                         </CardDescription>
@@ -458,9 +523,22 @@ export default function RemoteOrdersPage() {
                             <Download className="h-4 w-4" />
                             Download PDF
                         </Button>
-                        <Button type="button" onClick={handleSync} disabled={isSyncing}>
-                            {isSyncing ? 'Syncing...' : 'Sync Now'}
-                        </Button>
+                        {!!createPath && canCreate && (
+                            <Button type="button" variant="outline" onClick={() => navigate(createPath)} className="gap-1.5">
+                                <Plus className="h-4 w-4" />
+                                Create Order
+                            </Button>
+                        )}
+                        {canUpdate && (
+                            <Button type="button" variant="outline" onClick={handleSendTrackingEmails} disabled={isSendingTrackingEmails}>
+                                {isSendingTrackingEmails ? 'Sending...' : 'Send Tracking Emails'}
+                            </Button>
+                        )}
+                        {canUpdate && (
+                            <Button type="button" onClick={handleSync} disabled={isSyncing}>
+                                {isSyncing ? 'Syncing...' : 'Sync Now'}
+                            </Button>
+                        )}
                     </div>
                 </CardHeader>
 
@@ -511,37 +589,41 @@ export default function RemoteOrdersPage() {
                             </Button>
                         </form>
 
-                        {selectedIds.length > 0 && (
+                        {selectedIds.length > 0 && (canUpdate || canDelete) && (
                             <div className="flex items-center gap-2 p-2 rounded-md bg-muted animate-in fade-in-50 duration-200">
                                 <span className="text-xs font-medium px-2 text-muted-foreground">
                                     {selectedIds.length} Selected
                                 </span>
-                                <select
-                                    disabled={isBulkProcessing}
-                                    onChange={(e) => {
-                                        if(e.target.value) {
-                                            handleBulkStatusChange(e.target.value);
-                                            e.target.value = ''; 
-                                        }
-                                    }}
-                                    className="h-8 text-xs rounded border border-input bg-background px-2 outline-none focus:ring-1 focus:ring-ring"
-                                >
-                                    <option value="">Update Status...</option>
-                                    {BULK_STATUS_OPTIONS.map(opt => (
-                                        <option key={opt} value={opt}>
-                                            {opt.charAt(0).toUpperCase() + opt.slice(1)}
-                                        </option>
-                                    ))}
-                                </select>
-                                <Button 
-                                    variant="destructive" 
-                                    size="sm" 
-                                    className="h-8 text-xs"
-                                    disabled={isBulkProcessing}
-                                    onClick={handleBulkDelete}
-                                >
-                                    Delete
-                                </Button>
+                                {canUpdate && (
+                                    <select
+                                        disabled={isBulkProcessing}
+                                        onChange={(e) => {
+                                            if(e.target.value) {
+                                                handleBulkStatusChange(e.target.value);
+                                                e.target.value = ''; 
+                                            }
+                                        }}
+                                        className="h-8 text-xs rounded border border-input bg-background px-2 outline-none focus:ring-1 focus:ring-ring"
+                                    >
+                                        <option value="">Update Status...</option>
+                                        {BULK_STATUS_OPTIONS.map(opt => (
+                                            <option key={opt} value={opt}>
+                                                {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                                {canDelete && (
+                                    <Button 
+                                        variant="destructive" 
+                                        size="sm" 
+                                        className="h-8 text-xs"
+                                        disabled={isBulkProcessing}
+                                        onClick={handleBulkDelete}
+                                    >
+                                        Delete
+                                    </Button>
+                                )}
                             </div>
                         )}
                     </div>
@@ -565,9 +647,11 @@ export default function RemoteOrdersPage() {
                         selectedIds={selectedIds}
                         onSelectOrder={handleSelectOrder}
                         onSelectAllOrders={handleSelectAllOrders}
-                        onEdit={(order) => navigate(`/remote-orders/${order.remote_id ?? order.id}/edit`)}
+                        onUpdateStatus={handleUpdateOrderStatus}
                         onSendToPos={handleSendToPos}
                         onViewStockLocations={handleViewStockLocations}
+                        onSendTrackingEmail={handleSendTrackingEmailForOrder}
+                        canUpdate={canUpdate}
                     />
 
                     <StockLocationModal

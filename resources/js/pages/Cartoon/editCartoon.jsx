@@ -134,7 +134,7 @@ export default function EditCartoon() {
     }, [form.rack_id]);
 
     useEffect(() => {
-        setPageTitle('Edit Cartoon');
+        setPageTitle('Edit Carton');
     }, [setPageTitle]);
 
     useEffect(() => {
@@ -158,7 +158,7 @@ export default function EditCartoon() {
                 }
             } catch (error) {
                 if (!ignore) {
-                    setLoadError(error.message || 'Failed to load cartoon number.');
+                    setLoadError(error.message || 'Failed to load carton number.');
                 }
             } finally {
                 if (!ignore) {
@@ -273,14 +273,14 @@ export default function EditCartoon() {
                 ...(form.rack_column_id ? { rack_column_id: Number(form.rack_column_id) } : { rack_column_id: null }),
             });
 
-            toast.success('Cartoon updated successfully.', {
+            toast.success('Carton updated successfully.', {
                 style: { color: '#16a34a' },
             });
             navigate('/cartoons');
         } catch (error) {
             setErrors(error.payload?.errors || {});
             if (!error.payload?.errors) {
-                const message = error.message || 'Failed to update cartoon.';
+                const message = error.message || 'Failed to update carton.';
                 setLoadError(message);
                 toast.error(message, {
                     style: { color: '#dc2626' },
@@ -292,7 +292,7 @@ export default function EditCartoon() {
     };
 
     if (isLoading) {
-        return <p className="text-sm text-muted-foreground">Loading Cartoon...</p>;
+        return <p className="text-sm text-muted-foreground">Loading Carton...</p>;
     }
 
     return (

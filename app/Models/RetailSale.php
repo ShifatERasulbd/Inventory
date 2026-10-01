@@ -18,7 +18,10 @@ class RetailSale extends Model
         'items',
         'total_amount',
         'payment_method',
+        'is_amazon_order',
         'note',
+        'status',
+        'remote_order_id',
         'quickbooks_sync_status',
         'quickbooks_synced_at',
         'quickbooks_txn_id',
@@ -28,6 +31,7 @@ class RetailSale extends Model
     protected $casts = [
         'items'        => 'array',
         'total_amount' => 'decimal:2',
+        'is_amazon_order' => 'boolean',
         'quickbooks_synced_at' => 'datetime',
     ];
 
@@ -44,6 +48,11 @@ class RetailSale extends Model
     public function seller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sold_by');
+    }
+
+    public function remoteOrder(): BelongsTo
+    {
+        return $this->belongsTo(RemoteOrder::class, 'remote_order_id');
     }
      public function getActivitylogOptions(): LogOptions
     {

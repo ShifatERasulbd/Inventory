@@ -1,6 +1,15 @@
-import { Edit2, MapPinned, ShoppingCart } from 'lucide-react';
+import { Mail, MapPinned, MoreVertical, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { formatRemoteOrderStatus } from '@/lib/remoteOrderStatus';
 import { Checkbox } from '@/components/ui/checkbox'; 
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
     Table,
     TableBody,
@@ -10,15 +19,19 @@ import {
     TableRow,
 } from '@/components/ui/table';
 
+const STATUS_OPTIONS = ['pending', 'waiting for shipment', 'ready for shipment', 'shipped', 'delivered', 'cancelled', 'refunded'];
+
 export default function OrdersTable({ 
     orders, 
     isLoading, 
-    onEdit, 
+    onUpdateStatus,
     onViewStockLocations,
     onSendToPos,
+    onSendTrackingEmail,
     selectedIds, 
     onSelectOrder, 
-    onSelectAllOrders 
+    onSelectAllOrders,
+    canUpdate = true,
 }) {
     const allSelected = orders.length > 0 && selectedIds.length === orders.length;
 
@@ -34,12 +47,12 @@ export default function OrdersTable({
                     </TableHead>
                     <TableHead className="w-[60px]">#</TableHead>
                     <TableHead>Order #</TableHead>
+                    <TableHead>Stripe Payment ID</TableHead>
                     <TableHead>Customer</TableHead>
                     {/* New Columns */}
                     <TableHead>Products</TableHead>
                     <TableHead>Qty</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Courier</TableHead>
                     <TableHead>Total</TableHead>
                     <TableHead>Updated</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -70,6 +83,7 @@ export default function OrdersTable({
                             </TableCell>
                             <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                             <TableCell>{order.order_number || '-'}</TableCell>
+                            <TableCell>{order.stripe_payment_id }</TableCell>
                             <TableCell>{order.customer_name || '-'}</TableCell>
                             
                             {/* Products Column */}
@@ -107,17 +121,23 @@ export default function OrdersTable({
                                 )}
                             </TableCell>
 
-                            <TableCell>{order.status || '-'}</TableCell>
-                            <TableCell>
-                                {order.courier_company || 
-                                 order.raw_payload?.courier_company || 
-                                 order.raw_payload?.courier_service || '-'}
-                            </TableCell>
+                            <TableCell>{formatRemoteOrderStatus(order.status) || '-'}</TableCell>
                             <TableCell>${Number(order.total || 0).toFixed(2)}</TableCell>
                             <TableCell>
                                 {order.updated_at ? new Date(order.updated_at).toLocaleString() : '-'}
                             </TableCell>
                             <TableCell className="text-right">
+                                {canUpdate && (
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        className="h-8 gap-1.5"
+                                        onClick={() => onSendTrackingEmail?.(order)}
+                                    >
+                                        <Mail className="h-3.5 w-3.5" />
+                                        Send Email
+                                    </Button>
+                                )}
                                 <Button 
                                     variant="ghost" 
                                     size="sm"
@@ -136,15 +156,28 @@ export default function OrdersTable({
                                     <MapPinned className="h-3.5 w-3.5" />
                                     Stock
                                 </Button>
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    className="h-8 gap-1.5"
-                                    onClick={() => onEdit?.(order)}
-                                >
-                                    <Edit2 className="h-3.5 w-3.5" />
-                                    Edit
-                                </Button>
+                                {canUpdate && (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon-sm" className="h-8 w-8">
+                                                <MoreVertical className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>Update Status</DropdownMenuLabel>
+                                            <DropdownMenuSeparator />
+                                            {STATUS_OPTIONS.map((status) => (
+                                                <DropdownMenuItem
+                                                    key={status}
+                                                    variant={status === 'refunded' || status === 'cancelled' ? 'destructive' : 'default'}
+                                                    onSelect={() => onUpdateStatus?.(order, status)}
+                                                >
+                                                    {formatRemoteOrderStatus(status)}
+                                                </DropdownMenuItem>
+                                            ))}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                )}
                             </TableCell> 
                         </TableRow>
                     );

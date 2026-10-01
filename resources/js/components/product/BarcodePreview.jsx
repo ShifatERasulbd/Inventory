@@ -1,5 +1,8 @@
 import Barcode from 'react-barcode';
 
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
 /**
  * Cleans a string to only contain characters safe for CODE128 barcodes.
  * Keeps A-Z, 0-9, and dashes. Everything else is removed.
@@ -87,9 +90,24 @@ export function generateBarcodesMap({ styleNumber, colorIds, fabricId, refNumber
 
 /**
  * Shows a preview grid of all barcodes that will be generated
- * for each color × size combination.
+ * for each color × size combination. When `editable` is true (i.e. the
+ * current user has permission to edit products - super-admin or a role
+ * granted "update-products"), each barcode value can be overridden manually;
+ * otherwise it's a read-only preview of the auto-generated value.
  */
-export default function BarcodePreview({ styleNumber, colorIds, fabricId, refNumber, sizeIds, colors = [], fabrics = [], sizes = [] }) {
+export default function BarcodePreview({
+    styleNumber,
+    colorIds,
+    fabricId,
+    refNumber,
+    sizeIds,
+    colors = [],
+    fabrics = [],
+    sizes = [],
+    editable = false,
+    overrides = {},
+    onOverrideChange,
+}) {
     const validColors = (colorIds || []).filter(Boolean);
     const validSizes = (sizeIds || []).filter(Boolean);
 
@@ -106,16 +124,19 @@ export default function BarcodePreview({ styleNumber, colorIds, fabricId, refNum
     const combos = [];
     for (const colorId of validColors) {
         for (const sizeId of validSizes) {
+            const key = `${colorId}_${sizeId}`;
             const colorName = findOptionLabel(colors, colorId, 'color_code', 'COLOR');
             const sizeName = findOptionLabel(sizes, sizeId, 'size', 'SIZE');
-            const value = generateBarcodeValue({ styleNumber, colorCode: colorName, refNumber, sizeName });
-            combos.push({ colorId, sizeId, colorName, sizeName, value });
+            const generatedValue = generateBarcodeValue({ styleNumber, colorCode: colorName, refNumber, sizeName });
+            const overrideValue = overrides?.[key];
+            const value = (typeof overrideValue === 'string' && overrideValue.trim()) ? overrideValue : generatedValue;
+            combos.push({ key, colorId, sizeId, colorName, sizeName, generatedValue, overrideValue, value });
         }
     }
 
     return (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {combos.map(({ colorId, sizeId, colorName, sizeName, value }) => (
+            {combos.map(({ key, colorId, sizeId, colorName, sizeName, generatedValue, overrideValue, value }) => (
                 <div
                     key={`${colorId}-${sizeId}`}
                     className="flex w-full flex-col rounded-md border bg-white p-3 text-center"
@@ -135,7 +156,31 @@ export default function BarcodePreview({ styleNumber, colorIds, fabricId, refNum
                             />
                         </div>
                     </div>
-                    <p className="text-xs font-mono text-muted-foreground break-all text-center">{value}</p>
+                    {editable ? (
+                        <div className="mt-1 space-y-1 text-left">
+                            <Label htmlFor={`barcode-${key}`} className="sr-only">
+                                Barcode value for {colorName} / {sizeName}
+                            </Label>
+                            <Input
+                                id={`barcode-${key}`}
+                                value={overrideValue ?? generatedValue}
+                                onChange={(event) => onOverrideChange?.(key, event.target.value)}
+                                className="h-8 font-mono text-xs"
+                                placeholder={generatedValue}
+                            />
+                            {overrideValue && overrideValue.trim() && overrideValue.trim() !== generatedValue && (
+                                <button
+                                    type="button"
+                                    className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                                    onClick={() => onOverrideChange?.(key, '')}
+                                >
+                                    Reset to auto-generated ({generatedValue})
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <p className="text-xs font-mono text-muted-foreground break-all text-center">{value}</p>
+                    )}
                 </div>
             ))}
         </div>

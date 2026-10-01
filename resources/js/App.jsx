@@ -140,6 +140,14 @@ const Shipments = lazyWithRetry(() => import('@/pages/Shipment/shipment'), 'ship
 const AddShipments = lazyWithRetry(() => import('@/pages/Shipment/addShipment'), 'shipments-add');
 const EditShipments = lazyWithRetry(() => import('@/pages/Shipment/editShipment'), 'shipments-edit');
 
+// Return Orders
+const ReturnOrders = lazyWithRetry(() => import('@/pages/Return-Order/returnOrders'), 'return-orders'); 
+const AddReturnOrders =  lazyWithRetry(() => import('@/pages/Return-Order/addreturnOrders'), 'return-orders-add');
+
+// 1971co Return Requests
+const ReturnRequests = lazyWithRetry(() => import('@/pages/ReturnRequests/returnRequests'), 'return-requests');
+
+
 // Supplier
 const Suppliers = lazyWithRetry(() => import('@/pages/Suppliers/suppliers'), 'suppliers');
 const AddSupplier = lazyWithRetry(() => import('@/pages/Suppliers/addSuppliers'), 'suppliers-add');
@@ -149,6 +157,7 @@ const QuickBooksConnectPage = lazyWithRetry(() => import('@/pages/QuickBooks/con
 const QuickBooksTroubleshoot = lazyWithRetry(() => import('@/pages/QuickBooks/troubleshootPage'), 'quickbooks-troubleshoot');
 const RemoteOrders = lazyWithRetry(() => import('@/pages/1971coOrder/orders'), '1971co-orders');
 const EditRemoteOrder = lazyWithRetry(() => import('@/pages/1971coOrder/editOrder'), '1971co-orders-edit');
+const CreateRemoteOrder = lazyWithRetry(() => import('@/pages/1971coOrder/createOrder'), '1971co-orders-create');
 
 export default function App() {
     return (
@@ -254,14 +263,111 @@ export default function App() {
                              <Route path="/stocks" element={<Stock/>}/>
                              <Route path="/stocks/add" element={<AddStock/>}/>
                              <Route path="/stocks/:id/edit" element={<EditStock/>}/>
+                            
+                            {/* Return Orders */}
+                            <Route path="/return-orders" element={<ReturnOrders/>}/>
+                            <Route path="/return-orders/add" element={<AddReturnOrders/>}/>
+
+                            {/* 1971co Return Requests */}
+                            <Route path="/return-requests" element={<ReturnRequests/>}/>
+                            
 
                             {/* Purchases */}
                              <Route path="/purchases" element={<Purchase/>}/>
                              <Route path="/purchases/add" element={<AddPurchase/>}/>
                              <Route path="/purchases/:id" element={<PurchaseDetails/>}/>
                              <Route path="/purchases/:id/edit" element={<EditPurchase/>}/>
-                             <Route path="/remote-orders" element={<RemoteOrders/>}/>
+                             <Route
+                                 path="/remote-orders"
+                                 element={(
+                                     <RemoteOrders
+                                         orderFrom="1971co"
+                                     />
+                                 )}
+                             />
                              <Route path="/remote-orders/:id/edit" element={<EditRemoteOrder/>}/>
+                             <Route
+                                 path="/viveren-orders"
+                                 element={(
+                                     <RemoteOrders
+                                         orderFrom="website"
+                                         pageTitle="Viveren Orders"
+                                         heading="Viveren Remote Orders"
+                                         editBasePath="/viveren-orders"
+                                         loadingMessage="Loading Viveren Orders..."
+                                         reportTitle="Viveren Orders Report"
+                                     />
+                                 )}
+                             />
+                             <Route
+                                 path="/viveren-orders/:id/edit"
+                                 element={(
+                                     <EditRemoteOrder
+                                         backPath="/viveren-orders"
+                                         pageTitle="Edit Viveren Order"
+                                         sourceLabel="Viveren"
+                                     />
+                                 )}
+                             />
+                             <Route
+                                 path="/joor-orders"
+                                 element={(
+                                     <RemoteOrders
+                                         orderFrom="joor"
+                                         pageTitle="Joor Orders"
+                                         heading="Joor Remote Orders"
+                                         editBasePath="/joor-orders"
+                                         loadingMessage="Loading Joor Orders..."
+                                         reportTitle="Joor Orders Report"
+                                     />
+                                 )}
+                             />
+                             <Route
+                                 path="/joor-orders/:id/edit"
+                                 element={(
+                                     <EditRemoteOrder
+                                         backPath="/joor-orders"
+                                         pageTitle="Edit Joor Order"
+                                         sourceLabel="Joor"
+                                     />
+                                 )}
+                             />
+                             <Route
+                                 path="/amazon-orders"
+                                 element={(
+                                     <RemoteOrders
+                                         orderFrom="amazon"
+                                         pageTitle="Amazon Orders"
+                                         heading="Amazon Remote Orders"
+                                         editBasePath="/amazon-orders"
+                                         loadingMessage="Loading Amazon Orders..."
+                                         reportTitle="Amazon Orders Report"
+                                         createPath="/amazon-orders/create"
+                                     />
+                                 )}
+                             />
+                             <Route
+                                 path="/amazon-orders/create"
+                                 element={(
+                                     <CreateRemoteOrder
+                                         orderFrom="amazon"
+                                         pageTitle="Create Amazon Order"
+                                         heading="New Amazon Order"
+                                         backPath="/amazon-orders"
+                                         sourceLabel="Amazon"
+                                     />
+                                 )}
+                             />
+                             <Route
+                                 path="/amazon-orders/:id/edit"
+                                 element={(
+                                     <EditRemoteOrder
+                                         backPath="/amazon-orders"
+                                         pageTitle="Edit Amazon Order"
+                                         sourceLabel="Amazon"
+                                     />
+                                 )}
+                             />
 
                             {/* Sells */}
                             <Route path="/sells" element={<Sell/>}/>

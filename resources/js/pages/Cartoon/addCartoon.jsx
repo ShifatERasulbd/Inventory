@@ -37,7 +37,7 @@ function validateForm(form) {
     const validationErrors = {};
 
     if (!trimmedName) {
-        validationErrors.cartoon_number = ['The cartoon number field is required.'];
+        validationErrors.cartoon_number = ['The carton number field is required.'];
     }
 
     if (!trimmedPONumber) {
@@ -126,7 +126,7 @@ export default function AddCartoons() {
     }, [purchaseIdFromQuery, setUser, user]);
 
     useEffect(() => {
-        setPageTitle('Add Cartoon');
+        setPageTitle('Add Carton');
     }, [setPageTitle]);
 
     const warehouseLabel = (() => {
@@ -203,14 +203,14 @@ export default function AddCartoons() {
                 ...(form.warehouse_id ? { warehouse_id: Number(form.warehouse_id) } : {}),
             });
 
-            toast.success('Cartoon created successfully.', {
+            toast.success('Carton created successfully.', {
                 style: { color: '#16a34a' },
             });
             navigate('/cartoons');
         } catch (error) {
             setErrors(error.payload?.errors || {});
             if (!error.payload?.errors) {
-                const message = error.message || 'Failed to create Cartoon.';
+                const message = error.message || 'Failed to create Carton.';
                 setRequestError(message);
                 toast.error(message, {
                     style: { color: '#dc2626' },

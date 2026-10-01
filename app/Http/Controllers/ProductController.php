@@ -486,6 +486,9 @@ class ProductController extends Controller
             $productData['skus'] = ($product->color_id && $product->size_id)
                 ? ["{$product->color_id}_{$product->size_id}" => $product->sku]
                 : [];
+            $productData['barcodes'] = ($product->color_id && $product->size_id)
+                ? ["{$product->color_id}_{$product->size_id}" => $product->barCode]
+                : [];
             $brandIds = $product->brands->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
             $productData['brand_ids'] = $brandIds !== []
                 ? $brandIds
@@ -496,7 +499,7 @@ class ProductController extends Controller
 
         $styleGroup = $this->styleGroupQuery($product)
             ->orderBy('id')
-            ->get(['id', 'color_id', 'size_id', 'sku']);
+            ->get(['id', 'color_id', 'size_id', 'sku', 'barCode']);
 
         $productData = $this->productWithRelations($product)->toArray();
         $productData['color_ids'] = $styleGroup->pluck('color_id')->filter()->unique()->map(fn ($id) => (int) $id)->values()->all();
@@ -504,6 +507,10 @@ class ProductController extends Controller
         $productData['skus'] = $styleGroup
             ->filter(fn ($item) => $item->color_id && $item->size_id)
             ->mapWithKeys(fn ($item) => ["{$item->color_id}_{$item->size_id}" => $item->sku])
+            ->all();
+        $productData['barcodes'] = $styleGroup
+            ->filter(fn ($item) => $item->color_id && $item->size_id)
+            ->mapWithKeys(fn ($item) => ["{$item->color_id}_{$item->size_id}" => $item->barCode])
             ->all();
         $brandIds = $product->brands->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
         $productData['brand_ids'] = $brandIds !== []

@@ -47,7 +47,7 @@ export default function CartoonTracking() {
     const [isSavingPlacement, setIsSavingPlacement] = useState(false);
 
     useEffect(() => {
-        setPageTitle('Cartoon Tracking');
+        setPageTitle('Carton Tracking');
     }, [setPageTitle]);
 
     useEffect(() => {
@@ -64,7 +64,7 @@ export default function CartoonTracking() {
             } catch (error) {
                 if (!ignore) {
                     setRows([]);
-                    toast.error(error.message || 'Failed to load cartoon tracking.', {
+                    toast.error(error.message || 'Failed to load carton tracking.', {
                         style: { color: '#dc2626' },
                     });
                 }
@@ -242,7 +242,7 @@ export default function CartoonTracking() {
         <div className="space-y-5">
             <div className="max-w-sm">
                 <Input
-                    placeholder="Search by cartoon, PO number, status..."
+                    placeholder="Search by carton, PO number, status..."
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                 />
@@ -260,7 +260,7 @@ export default function CartoonTracking() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Edit Rack Placement</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Update rack, rack row, and rack column for cartoon {editingRow?.cartoon_number || 'N/A'}.
+                            Update rack, rack row, and rack column for carton {editingRow?.cartoon_number || 'N/A'}.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
 

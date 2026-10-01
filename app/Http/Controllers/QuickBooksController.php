@@ -195,6 +195,7 @@ class QuickBooksController extends Controller
 
         // Exchange Authorization Code for Access & Refresh Tokens
         $response = Http::asForm()
+            ->withOptions(['verify' => self::resolveCaBundlePath()])
             ->withBasicAuth(
                 config('services.quickbooks_test1.client_id'),
                 config('services.quickbooks_test1.client_secret')
@@ -310,6 +311,7 @@ class QuickBooksController extends Controller
     private function refreshToken(QuickBooksToken $token): void
     {
         $response = Http::asForm()
+            ->withOptions(['verify' => self::resolveCaBundlePath()])
             ->withBasicAuth(
                 (string) config('services.quickbooks_test1.client_id'),
                 (string) config('services.quickbooks_test1.client_secret')
@@ -344,5 +346,16 @@ class QuickBooksController extends Controller
         ]);
 
         $token->refresh();
+    }
+
+    /**
+     * Resolve a CA bundle for local/XAMPP environments where PHP has no system CA store
+     * configured, avoiding "cURL error 60: SSL certificate problem" against Intuit endpoints.
+     */
+    private static function resolveCaBundlePath(): string|bool
+    {
+        $bundled = base_path('vendor/quickbooks/v3-php-sdk/src/Core/OAuth/OAuth2/certs/cacert.pem');
+
+        return is_file($bundled) ? $bundled : true;
     }
 }

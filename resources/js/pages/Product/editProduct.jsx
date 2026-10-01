@@ -32,6 +32,7 @@ const initialForm = {
     size_ids: [''],
     gender_id: '',
     barCode: '',
+    barcodes: {},
     warehouse_id: '',
     brand_id: '',
     brand_ids: [''],
@@ -204,6 +205,7 @@ export default function EditProduct() {
                     size_ids: initialSizeIds,
                     gender_id: product.gender_id ? String(product.gender_id) : '',
                     barCode: product.barCode || '',
+                    barcodes: product.barcodes && typeof product.barcodes === 'object' ? product.barcodes : {},
                     warehouse_id: product.warehouse_id ? String(product.warehouse_id) : '',
                     brand_id: initialBrandIds.find(Boolean) || '',
                     brand_ids: initialBrandIds,
@@ -419,16 +421,27 @@ export default function EditProduct() {
                 gender_id: Number(form.gender_id),
                 brand_id: selectedBrandIds[0] ? Number(selectedBrandIds[0]) : (form.brand_id ? Number(form.brand_id) : null),
                 brand_ids: selectedBrandIds.map((value) => Number(value)),
-                barcodes: generateBarcodesMap({
-                    styleNumber: form.style_number,
-                    colorIds: selectedColorIds,
-                    fabricId: form.fabric_id,
-                    refNumber: form.ref_number,
-                    sizeIds: selectedSizeIds,
-                    colors,
-                    fabrics,
-                    sizes,
-                }),
+                barcodes: (() => {
+                    const generatedBarcodes = generateBarcodesMap({
+                        styleNumber: form.style_number,
+                        colorIds: selectedColorIds,
+                        fabricId: form.fabric_id,
+                        refNumber: form.ref_number,
+                        sizeIds: selectedSizeIds,
+                        colors,
+                        fabrics,
+                        sizes,
+                    });
+                    const overrides = form.barcodes && typeof form.barcodes === 'object' ? form.barcodes : {};
+
+                    Object.entries(overrides).forEach(([key, value]) => {
+                        if (typeof value === 'string' && value.trim()) {
+                            generatedBarcodes[key] = value.trim();
+                        }
+                    });
+
+                    return generatedBarcodes;
+                })(),
                 warehouse_id: Number(form.warehouse_id),
                 season_id: form.season_id ? Number(form.season_id) : null,
                 cover_image: form.cover_image,

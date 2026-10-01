@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Barcode, ShoppingCart, Trash2, Plus, Minus, X, ClipboardList } from 'lucide-react';
+import { Barcode as BarcodeIcon, ShoppingCart, Trash2, Plus, Minus, X, ClipboardList, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import {
     Select,
     SelectContent,
@@ -20,15 +28,23 @@ import {
     fetchPendingRemoteOrders,
     fetchWarehouses,
     lookupBarcode,
+    bookRemoteOrderVeeqoShipment,
+    fetchRemoteOrderById,
     updateRemoteOrderStatus,
 } from './api';
-
-function normalizeBarcode(value) {
-    return String(value ?? '').trim().toUpperCase();
-}
+import ShippingLabelSection from './ShippingLabelSection';
 
 function normalizeText(value) {
     return String(value ?? '').trim().toLowerCase();
+}
+
+// Veeqo sometimes returns label_url as a path relative to its dashboard, not an absolute URL.
+function normalizeVeeqoLabelUrl(labelUrl) {
+    const value = String(labelUrl ?? '').trim();
+    if (value === '' || /^https?:\/\//i.test(value)) {
+        return value || null;
+    }
+    return `https://app.veeqo.com/${value.replace(/^\/+/, '')}`;
 }
 
 function normalizeName(value) {
@@ -99,6 +115,7 @@ function extractSelectedOrderItems(order) {
                 || ''
             ).trim();
             const matchKey = buildOrderItemKey({ productId, color, size });
+            const barcode = String(item?.barcode || '').trim();
 
             return {
                 productId,
@@ -107,6 +124,7 @@ function extractSelectedOrderItems(order) {
                 nameKey: normalizeName(name),
                 color,
                 size,
+                barcode,
                 matchKey,
             };
         })
@@ -116,6 +134,15 @@ function extractSelectedOrderItems(order) {
 function formatCurrency(value) {
     const amount = Number(value ?? 0);
     return `$${(Number.isFinite(amount) ? amount : 0).toFixed(2)}`;
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
 }
 
 export default function RetailPOS() {
@@ -133,11 +160,14 @@ export default function RetailPOS() {
     const [barcodeInput, setBarcodeInput] = useState('');
     const [cart, setCart] = useState([]);
     const [paymentMethod, setPaymentMethod] = useState('cash');
+    const [isAmazonOrder, setIsAmazonOrder] = useState(false);
     const [note, setNote] = useState('');
     const [warehouseCartoons, setWarehouseCartoons] = useState([]);
     const [selectedWarehouseCartoon, setSelectedWarehouseCartoon] = useState('none');
     const [isLookingUp, setIsLookingUp] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
+    const [lastCheckoutSummary, setLastCheckoutSummary] = useState(null);
 
     // Dropdown pending orders states
     const [pendingOrders, setPendingOrders] = useState([]);
@@ -276,6 +306,7 @@ export default function RetailPOS() {
                 nameKey: item.nameKey,
                 color: item.color,
                 size: item.size,
+                barcode: item.barcode,
                 quantity: item.quantity,
             };
 
@@ -351,6 +382,10 @@ export default function RetailPOS() {
                 order_number: String(selection?.order_number || '').trim(),
                 customer_name: String(selection?.customer_name || '').trim(),
                 total: Number.parseFloat(selection?.total || 0) || 0,
+                state_tax: Number.parseFloat(selection?.state_tax || 0) || 0,
+                stripe_charge: Number.parseFloat(selection?.stripe_charge || 0) || 0,
+                delivery_cost: Number.parseFloat(selection?.delivery_cost || 0) || 0,
+                processing_fee: Number.parseFloat(selection?.processing_fee || 0) || 0,
                 raw_payload: selection?.raw_payload && typeof selection.raw_payload === 'object'
                     ? selection.raw_payload
                     : {},
@@ -730,6 +765,83 @@ export default function RetailPOS() {
 
     const subtotal = cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
 
+    // Order-level charges come from the matched remote order and are added on top of product cost.
+    const orderCharges = {
+        state_tax: Number.parseFloat(selectedRemoteOrder?.state_tax || 0) || 0,
+        delivery_cost: Number.parseFloat(selectedRemoteOrder?.delivery_cost || 0) || 0,
+        stripe_charge: Number.parseFloat(selectedRemoteOrder?.stripe_charge || 0) || 0,
+        processing_fee: Number.parseFloat(selectedRemoteOrder?.processing_fee || 0) || 0,
+    };
+    const orderChargesTotal = orderCharges.state_tax + orderCharges.delivery_cost + orderCharges.stripe_charge + orderCharges.processing_fee;
+    const grandTotal = subtotal + orderChargesTotal;
+
+    const handlePrintCheckoutSummary = () => {
+        if (!lastCheckoutSummary) {
+            return;
+        }
+
+        const printWindow = window.open('', '_blank', 'width=900,height=700');
+        if (!printWindow) {
+            toast.error('Unable to open print window. Please allow popups and try again.');
+            return;
+        }
+
+        const itemRows = (lastCheckoutSummary.items || [])
+            .map((item) => `
+                <tr>
+                    <td>${escapeHtml(item.product_name)}</td>
+                    <td style="text-align:right;">${escapeHtml(item.quantity)}</td>
+                    <td style="text-align:right;">${formatCurrency(item.unit_price)}</td>
+                </tr>
+            `)
+            .join('');
+
+        printWindow.document.open();
+        printWindow.document.write(`
+            <!doctype html>
+            <html>
+                <head>
+                    <meta charset="utf-8" />
+                    <title>Retail Checkout ${escapeHtml(lastCheckoutSummary.reference_number || '')}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 12px; color: #111; margin: 0; }
+                        h1 { font-size: 20px; margin: 0 0 8px; }
+                        p { margin: 4px 0; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }
+                        th, td { padding: 4px 6px; border-bottom: 1px solid #ddd; }
+                        th { text-align: left; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Retail Checkout Receipt</h1>
+                    <p><strong>Order:</strong> ${escapeHtml(lastCheckoutSummary.order_number || 'N/A')}</p>
+                    <p><strong>Reference:</strong> ${escapeHtml(lastCheckoutSummary.reference_number || '')}</p>
+                    <p><strong>Payment:</strong> ${escapeHtml(lastCheckoutSummary.payment_method || '')}</p>
+                    ${lastCheckoutSummary.shipping_level ? `<p><strong>Shipping Level:</strong> ${escapeHtml(lastCheckoutSummary.shipping_carrier ? `${lastCheckoutSummary.shipping_carrier} - ${lastCheckoutSummary.shipping_level}` : lastCheckoutSummary.shipping_level)}</p>` : ''}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th style="text-align:right;">Qty</th>
+                                <th style="text-align:right;">Unit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemRows}
+                        </tbody>
+                    </table>
+                    <p style="margin-top:12px; font-weight:700;">Grand Total: ${formatCurrency(lastCheckoutSummary.total_amount)}</p>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.onload = () => {
+            printWindow.print();
+            printWindow.close();
+        };
+    };
+
     const handleCheckout = async () => {
         if (!selectedWarehouse) {
             toast.error('Select a warehouse.');
@@ -743,11 +855,19 @@ export default function RetailPOS() {
 
         setIsSubmitting(true);
         try {
+            const checkoutItems = cart.map((item) => ({
+                product_name: item.product_name,
+                quantity: item.quantity,
+                unit_price: item.unit_price,
+            }));
+
             const sale = await createRetailSale({
                 warehouse_id: Number.parseInt(selectedWarehouse, 10),
                 brand_id: selectedBrand !== 'none' ? Number.parseInt(selectedBrand, 10) : null,
                 payment_method: paymentMethod,
+                is_amazon_order: isAmazonOrder,
                 note: note || null,
+                remote_order_id: selectedPendingOrder !== 'none' ? Number.parseInt(selectedPendingOrder, 10) : null,
                 items: cart.map((item) => ({
                     stock_id: item.stock_id,
                     product_id: item.product_id,
@@ -759,17 +879,73 @@ export default function RetailPOS() {
                 })),
             });
 
+            let shippingLabel = null;
+
             if (selectedPendingOrder !== 'none') {
+                const pendingOrderId = Number.parseInt(selectedPendingOrder, 10);
                 try {
-                    await updateRemoteOrderStatus(Number.parseInt(selectedPendingOrder, 10), 'processing');
+                    await updateRemoteOrderStatus(pendingOrderId, 'ready for shipment');
                 } catch (statusError) {
-                    toast.warning(statusError.message || 'Sale created, but failed to update remote order status to processing.');
+                    toast.warning(statusError.message || 'Sale created, but failed to update remote order status to ready for shipment.');
+                }
+
+                try {
+                    const booking = await bookRemoteOrderVeeqoShipment(pendingOrderId);
+                    const bookedOrder = booking?.order;
+                    if (bookedOrder?.shipping_service) {
+                        shippingLabel = {
+                            shipping_carrier: bookedOrder.shipping_carrier,
+                            shipping_level: bookedOrder.shipping_service,
+                            tracking_url: bookedOrder.tracking_url,
+                            label_url: normalizeVeeqoLabelUrl(bookedOrder.label_url),
+                            label_file_url: bookedOrder.label_file_url || null,
+                        };
+                        toast.success(`Shipment booked with Veeqo. Label purchased: ${bookedOrder.shipping_service}.`);
+                    } else {
+                        toast.success('Shipment booked with Veeqo (UPS Ground).');
+                    }
+                } catch (bookingError) {
+                    toast.warning(bookingError.message || 'Sale created, but the Veeqo shipment booking failed.');
+                }
+
+                // The booking call above can time out client-side while it keeps running on the
+                // server (label purchase takes several seconds), so re-fetch the order to make
+                // sure the popup always reflects the real Veeqo shipping level once it's saved.
+                if (!shippingLabel) {
+                    try {
+                        const latest = await fetchRemoteOrderById(pendingOrderId);
+                        const latestOrder = latest?.order;
+                        if (latestOrder?.shipping_service) {
+                            shippingLabel = {
+                                shipping_carrier: latestOrder.shipping_carrier,
+                                shipping_level: latestOrder.shipping_service,
+                                tracking_url: latestOrder.tracking_url,
+                                label_url: normalizeVeeqoLabelUrl(latestOrder.label_url),
+                                label_file_url: latestOrder.label_file_url || null,
+                            };
+                        }
+                    } catch {
+                        // Ignore - the popup will simply omit shipping info in this case.
+                    }
                 }
             }
+
+            setLastCheckoutSummary({
+                reference_number: sale.reference_number,
+                product_subtotal: subtotal,
+                charges: orderCharges,
+                total_amount: grandTotal,
+                payment_method: paymentMethod,
+                items: checkoutItems,
+                order_number: selectedRemoteOrder?.order_number || 'N/A',
+                ...shippingLabel,
+            });
+            setCheckoutModalOpen(true);
 
             toast.success(`Sale complete. Ref: ${sale.reference_number}`);
             setCart([]);
             setNote('');
+            setIsAmazonOrder(false);
             setSelectedPendingOrder('none');
             barcodeRef.current?.focus();
         } catch (err) {
@@ -780,7 +956,8 @@ export default function RetailPOS() {
     };
 
     return (
-        <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+        <>
+            <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
             <div className="space-y-4">
                 <Card>
                     <CardContent className="pt-5">
@@ -858,6 +1035,9 @@ export default function RetailPOS() {
                                                                 {item.size ? ` | Size: ${item.size}` : ''}
                                                             </span>
                                                             <span className="font-mono text-muted-foreground">
+                                                                {item.barcode || 'No barcode'}
+                                                            </span>
+                                                            <span className="font-mono text-muted-foreground">
                                                                 {scannedQty}/{item.quantity}
                                                             </span>
                                                         </div>
@@ -882,7 +1062,7 @@ export default function RetailPOS() {
                                         className="font-mono"
                                     />
                                     <Button type="submit" disabled={isLookingUp || !barcodeInput.trim()}>
-                                        <Barcode className="h-4 w-4" />
+                                        <BarcodeIcon className="h-4 w-4" />
                                     </Button>
                                 </form>
                             </div>
@@ -958,10 +1138,10 @@ export default function RetailPOS() {
                                         {item.cartoons && item.cartoons.length > 0 && (
                                             <Select value={item.cartoon_id ? String(item.cartoon_id) : 'none'} onValueChange={(val) => updateCartoon(item.cartKey, val)}>
                                                 <SelectTrigger className="h-8 text-xs">
-                                                    <SelectValue placeholder="Select cartoon to deduct from..." />
+                                                    <SelectValue placeholder="Select carton to deduct from..." />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="none">No cartoon (stock only)</SelectItem>
+                                                    <SelectItem value="none">No carton (stock only)</SelectItem>
                                                     {item.cartoons.map((cartoon) => (
                                                         <SelectItem key={cartoon.id} value={String(cartoon.id)}>
                                                             {cartoon.cartoon_number} (Qty: {cartoon.available_quantity})
@@ -1012,9 +1192,36 @@ export default function RetailPOS() {
                         </div>
                     </div>
 
+                    <div className="space-y-1 border-b pb-3 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Product Subtotal</span>
+                            <span className="font-medium">{formatCurrency(subtotal)}</span>
+                        </div>
+                        {selectedRemoteOrder && (
+                            <>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">State Tax</span>
+                                    <span>{formatCurrency(orderCharges.state_tax)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Delivery Charge</span>
+                                    <span>{formatCurrency(orderCharges.delivery_cost)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Stripe Charge</span>
+                                    <span>{formatCurrency(orderCharges.stripe_charge)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Processing Fee</span>
+                                    <span>{formatCurrency(orderCharges.processing_fee)}</span>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
                     <div className="flex justify-between text-lg font-bold">
                         <span>Total</span>
-                        <span>{formatCurrency(subtotal)}</span>
+                        <span>{formatCurrency(grandTotal)}</span>
                     </div>
 
                     <div className="space-y-1.5">
@@ -1033,13 +1240,37 @@ export default function RetailPOS() {
                     </div>
 
                     <div className="space-y-1.5">
-                        <Label>Warehouse Cartoon</Label>
+                        <Label>Amazon Order</Label>
+                        <div className="flex items-center gap-4">
+                            <label className="flex items-center gap-1.5 text-sm">
+                                <input
+                                    type="radio"
+                                    name="isAmazonOrder"
+                                    checked={isAmazonOrder === true}
+                                    onChange={() => setIsAmazonOrder(true)}
+                                />
+                                Yes
+                            </label>
+                            <label className="flex items-center gap-1.5 text-sm">
+                                <input
+                                    type="radio"
+                                    name="isAmazonOrder"
+                                    checked={isAmazonOrder === false}
+                                    onChange={() => setIsAmazonOrder(false)}
+                                />
+                                No
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <Label>Warehouse Carton</Label>
                         <Select value={selectedWarehouseCartoon} onValueChange={applyWarehouseCartoonToCart}>
                             <SelectTrigger>
-                                <SelectValue placeholder="Select available cartoon..." />
+                                <SelectValue placeholder="Select available carton..." />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="none">No cartoon (stock only)</SelectItem>
+                                <SelectItem value="none">No carton (stock only)</SelectItem>
                                 {filteredWarehouseCartoons.map((cartoon) => (
                                     <SelectItem key={cartoon.id} value={String(cartoon.id)}>
                                         {cartoon.cartoon_number} (Qty: {Number(cartoon.quantity || 0)})
@@ -1049,7 +1280,7 @@ export default function RetailPOS() {
                         </Select>
                         {cart.length > 0 && filteredWarehouseCartoons.length === 0 && (
                             <p className="text-xs text-muted-foreground">
-                                No common cartoon contains all products currently in cart.
+                                No common carton contains all products currently in cart.
                             </p>
                         )}
                     </div>
@@ -1060,10 +1291,102 @@ export default function RetailPOS() {
                     </div>
 
                     <Button className="w-full" size="lg" disabled={cart.length === 0 || !selectedWarehouse || isSubmitting} onClick={handleCheckout}>
-                        {isSubmitting ? 'Processing...' : `Checkout ${formatCurrency(subtotal)}`}
+                        {isSubmitting ? 'Processing...' : `Checkout ${formatCurrency(grandTotal)}`}
                     </Button>
                 </CardContent>
             </Card>
-        </div>
+            </div>
+
+            <Dialog open={checkoutModalOpen} onOpenChange={setCheckoutModalOpen}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Checkout Complete</DialogTitle>
+                        <DialogDescription>
+                            Reference: {lastCheckoutSummary?.reference_number || '-'}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3 text-sm">
+                        <div className="grid gap-2 rounded-md border p-3 sm:grid-cols-2">
+                            <p>
+                                <span className="font-medium">Order:</span> {lastCheckoutSummary?.order_number || 'N/A'}
+                            </p>
+                            <p>
+                                <span className="font-medium">Payment:</span> {lastCheckoutSummary?.payment_method || '-'}
+                            </p>
+                            {(lastCheckoutSummary?.shipping_level || lastCheckoutSummary?.label_url) && (
+                                <div className="sm:col-span-2">
+                                    <ShippingLabelSection
+                                        carrier={lastCheckoutSummary.shipping_carrier}
+                                        service={lastCheckoutSummary.shipping_level}
+                                        trackingUrl={lastCheckoutSummary.tracking_url}
+                                        labelUrl={lastCheckoutSummary.label_url}
+                                        labelFileUrl={lastCheckoutSummary.label_file_url}
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="rounded-md border">
+                            <div className="grid grid-cols-12 border-b bg-muted/40 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                <span className="col-span-6">Product</span>
+                                <span className="col-span-2 text-right">Qty</span>
+                                <span className="col-span-2 text-right">Unit</span>
+                                <span className="col-span-2 text-right">Total</span>
+                            </div>
+                            <div className="max-h-64 overflow-auto">
+                                {(lastCheckoutSummary?.items || []).map((item, index) => (
+                                    <div key={`${item.product_name}-${index}`} className="grid grid-cols-12 px-3 py-2 text-sm">
+                                        <span className="col-span-6 truncate" title={item.product_name}>{item.product_name}</span>
+                                        <span className="col-span-2 text-right">{item.quantity}</span>
+                                        <span className="col-span-2 text-right">{formatCurrency(item.unit_price)}</span>
+                                        <span className="col-span-2 text-right font-semibold">{formatCurrency(Number(item.quantity || 0) * Number(item.unit_price || 0))}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Product Subtotal</span>
+                                <span>{formatCurrency(lastCheckoutSummary?.product_subtotal || 0)}</span>
+                            </div>
+                            {lastCheckoutSummary?.charges && (
+                                <>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">State Tax</span>
+                                        <span>{formatCurrency(lastCheckoutSummary.charges.state_tax)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Delivery Charge</span>
+                                        <span>{formatCurrency(lastCheckoutSummary.charges.delivery_cost)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Stripe Charge</span>
+                                        <span>{formatCurrency(lastCheckoutSummary.charges.stripe_charge)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Processing Fee</span>
+                                        <span>{formatCurrency(lastCheckoutSummary.charges.processing_fee)}</span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <p className="text-right text-base font-semibold">
+                            Grand Total: {formatCurrency(lastCheckoutSummary?.total_amount || 0)}
+                        </p>
+                    </div>
+
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={handlePrintCheckoutSummary}>
+                            <Printer className="mr-1.5 h-4 w-4" />
+                            Print
+                        </Button>
+                        <Button type="button" onClick={() => setCheckoutModalOpen(false)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }

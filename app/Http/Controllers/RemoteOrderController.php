@@ -2,34 +2,91 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\AuthorizesOrderCategory;
+use App\Models\Product;
 use App\Models\RemoteOrder;
+use App\Models\Stock;
+use App\Services\AmazonOrderSyncService;
+use App\Services\RemoteOrderRefundService;
 use App\Services\RemoteOrderSyncService;
-use App\Services\ShipStationService;
-use App\Services\UpsService;
+use App\Services\RemoteOrderVeeqoBookingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use RuntimeException;
 use Throwable;
 
 class RemoteOrderController extends Controller
 {
+    use AuthorizesOrderCategory;
 
 
-    public function getPendingOrders(): JsonResponse
+    public function getPendingOrders(Request $request): JsonResponse
     {
-        $orders = RemoteOrder::where('status', 'approved')
+        if ($response = $this->authorizeOrderAction($request, 'read', null)) {
+            return $response;
+        }
+
+        $orders = RemoteOrder::whereIn('status', ['approved', 'waiting for shipment'])
             ->orderByDesc('id')
-            ->get(['id', 'remote_id', 'order_number', 'customer_name', 'total', 'raw_payload']);
+            ->get([
+                'id',
+                'remote_id',
+                'order_number',
+                'customer_name',
+                'total',
+                'state_tax',
+                'stripe_charge',
+                'delivery_cost',
+                'processing_fee',
+                'raw_payload',
+            ]);
+
+        $productIds = $orders
+            ->flatMap(fn (RemoteOrder $order) => is_array($order->raw_payload['items'] ?? null) ? $order->raw_payload['items'] : [])
+            ->pluck('productId')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $barcodesByProductId = Product::whereIn('id', $productIds)->pluck('barCode', 'id');
+
+        $orders->each(function (RemoteOrder $order) use ($barcodesByProductId) {
+            $payload = $order->raw_payload;
+
+            if (is_array($payload['items'] ?? null)) {
+                $payload['items'] = array_map(function ($item) use ($barcodesByProductId) {
+                    $productId = $item['productId'] ?? null;
+                    $item['barcode'] = $productId ? ($barcodesByProductId[$productId] ?? null) : null;
+
+                    return $item;
+                }, $payload['items']);
+            }
+
+            $order->raw_payload = $payload;
+        });
 
         return response()->json($orders);
     }
 
-    public function getApprovedCount(): JsonResponse
+    public function getApprovedCount(Request $request): JsonResponse
     {
-        $count = RemoteOrder::where('status', 'approved')->count();
+        $orderFrom = trim((string) $request->query('order_from', ''));
+
+        if ($response = $this->authorizeOrderAction($request, 'read', $orderFrom ?: null)) {
+            return $response;
+        }
+
+        $query = RemoteOrder::whereIn('status', ['approved', 'waiting for shipment']);
+
+        if ($orderFrom !== '') {
+            $query->where('order_from', $orderFrom);
+        }
+
+        $count = $query->count();
 
         return response()->json([
             'success' => true,
@@ -42,10 +99,15 @@ class RemoteOrderController extends Controller
         $validated = $request->validate([
             'search' => 'nullable|string|max:255',
             'status' => 'nullable|string|max:100',
+            'order_from' => 'nullable|string|max:50',
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date',
             'per_page' => 'nullable|integer|min:1|max:200',
         ]);
+
+        if ($response = $this->authorizeOrderAction($request, 'read', $validated['order_from'] ?? null)) {
+            return $response;
+        }
 
         if (! empty($validated['date_from']) && ! empty($validated['date_to'])) {
             $from = Carbon::parse((string) $validated['date_from'])->startOfDay();
@@ -59,6 +121,10 @@ class RemoteOrderController extends Controller
         }
 
         $query = RemoteOrder::query()->orderByDesc('remote_id');
+
+        if (! empty($validated['order_from'])) {
+            $query->where('order_from', (string) $validated['order_from']);
+        }
 
         if (! empty($validated['status'])) {
             $query->where('status', (string) $validated['status']);
@@ -89,12 +155,171 @@ class RemoteOrderController extends Controller
         );
     }
 
-    public function show(int $id, RemoteOrderSyncService $syncService): JsonResponse
+    /**
+     * Manually create an order that isn't synced from an upstream store (e.g. Amazon),
+     * saved into remote_orders with the given order_from tag (defaults to "amazon").
+     */
+    public function store(Request $request): JsonResponse
     {
-        $localOrder = RemoteOrder::query()
-            ->where('remote_id', $id)
-            ->orWhere('id', $id)
-            ->first();
+        $validated = $request->validate([
+            'order_from' => 'nullable|string|max:50',
+            'order_number' => 'nullable|string|max:255',
+            'customer_name' => 'nullable|string|max:255',
+            'total' => 'nullable|numeric|min:0',
+            'first_name' => 'nullable|string|max:255',
+            'last_name' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:100',
+            'address_line_1' => 'nullable|string|max:255',
+            'address_line_2' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:255',
+            'state' => 'nullable|string|max:255',
+            'postal_code' => 'nullable|string|max:50',
+            'country' => 'nullable|string|max:100',
+            'status' => 'nullable|string|max:100',
+            'notes' => 'nullable|string|max:2000',
+            'items' => 'required|array|min:1',
+            'items.*.name' => 'required|string|max:255',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.price' => 'nullable|numeric|min:0',
+            'items.*.selected_color' => 'nullable|string|max:100',
+            'items.*.selected_size' => 'nullable|string|max:100',
+        ]);
+
+        if ($response = $this->authorizeOrderAction($request, 'create', trim((string) ($validated['order_from'] ?? '')) ?: 'amazon')) {
+            return $response;
+        }
+
+        $customerNameInput = trim((string) ($validated['customer_name'] ?? ''));
+        if ($customerNameInput === '' && trim((string) ($validated['first_name'] ?? '')) === '' && trim((string) ($validated['last_name'] ?? '')) === '') {
+            throw ValidationException::withMessages([
+                'customer_name' => ['Enter a customer name for this order.'],
+            ]);
+        }
+
+        $orderFrom = trim((string) ($validated['order_from'] ?? '')) ?: 'amazon';
+        $status = trim((string) ($validated['status'] ?? '')) ?: 'pending';
+
+        $items = array_values(array_map(static function (array $item, int $index): array {
+            return [
+                'lineId' => $index + 1,
+                'productId' => null,
+                'name' => (string) $item['name'],
+                'priceValue' => (float) ($item['price'] ?? 0),
+                'quantity' => (int) $item['quantity'],
+                'weight' => null,
+                'image' => null,
+                'selectedColor' => trim((string) ($item['selected_color'] ?? '')) ?: null,
+                'selectedSize' => trim((string) ($item['selected_size'] ?? '')) ?: null,
+            ];
+        }, $validated['items'], array_keys($validated['items'])));
+
+        $itemsTotal = array_reduce($items, static function (float $carry, array $item): float {
+            return $carry + ($item['priceValue'] * $item['quantity']);
+        }, 0.0);
+
+        $total = array_key_exists('total', $validated) && $validated['total'] !== null
+            ? (float) $validated['total']
+            : $itemsTotal;
+
+        $customerName = $customerNameInput !== '' ? $customerNameInput : trim(
+            Str::of((string) ($validated['first_name'] ?? ''))
+                ->append(' ')
+                ->append((string) ($validated['last_name'] ?? ''))
+                ->value()
+        );
+
+        $order = DB::transaction(function () use ($orderFrom, $status, $items, $total, $customerName, $validated) {
+            $remoteId = ((int) RemoteOrder::query()->where('order_from', $orderFrom)->lockForUpdate()->max('remote_id')) + 1;
+
+            $orderNumber = trim((string) ($validated['order_number'] ?? ''));
+            if ($orderNumber === '') {
+                $orderNumber = strtoupper($orderFrom) . '-' . $remoteId;
+            }
+
+            $rawPayload = [
+                'id' => $remoteId,
+                'order_number' => $orderNumber,
+                'orders_from' => $orderFrom,
+                'first_name' => (string) ($validated['first_name'] ?? ''),
+                'last_name' => (string) ($validated['last_name'] ?? ''),
+                'email' => (string) ($validated['email'] ?? ''),
+                'phone' => (string) ($validated['phone'] ?? ''),
+                'address_line_1' => (string) ($validated['address_line_1'] ?? ''),
+                'address_line_2' => (string) ($validated['address_line_2'] ?? ''),
+                'city' => (string) ($validated['city'] ?? ''),
+                'state' => (string) ($validated['state'] ?? ''),
+                'postal_code' => (string) ($validated['postal_code'] ?? ''),
+                'country' => (string) ($validated['country'] ?? ''),
+                'notes' => (string) ($validated['notes'] ?? ''),
+                'status' => $status,
+                'total' => $total,
+                'items' => $items,
+                'manually_created' => true,
+            ];
+
+            return RemoteOrder::query()->create([
+                'remote_id' => $remoteId,
+                'order_number' => $orderNumber,
+                'order_from' => $orderFrom,
+                'customer_name' => $customerName,
+                'total' => $total,
+                'status' => $status,
+                'raw_payload' => $rawPayload,
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Order created successfully.',
+            'order' => $order,
+        ], 201);
+    }
+
+    /**
+     * Distinct product/color/size variants for the manual order creation form's cascading selects.
+     */
+    public function productOptions(Request $request): JsonResponse
+    {
+        if ($response = $this->authorizeOrderAction($request, 'read', null)) {
+            return $response;
+        }
+
+        $products = Product::query()
+            ->with(['color:id,name,color_code', 'size:id,size'])
+            ->orderBy('name')
+            ->get(['id', 'name', 'color_id', 'size_id']);
+
+        $sellingPrices = Stock::query()
+            ->whereNotNull('product_id')
+            ->orderByDesc('updated_at')
+            ->get(['product_id', 'selling_price'])
+            ->groupBy('product_id')
+            ->map(fn ($rows) => (float) ($rows->first()->selling_price ?? 0));
+
+        $variants = $products->map(fn (Product $product) => [
+            'id' => $product->id,
+            'name' => $product->name,
+            'color_id' => $product->color_id,
+            'color_name' => $product->color?->name,
+            'size_id' => $product->size_id,
+            'size_name' => $product->size?->size,
+            'selling_price' => (float) ($sellingPrices[$product->id] ?? 0),
+        ]);
+
+        return response()->json([
+            'variants' => $variants,
+        ]);
+    }
+
+    public function show(Request $request, int $id, RemoteOrderSyncService $syncService): JsonResponse
+    {
+        $localOrder = RemoteOrder::query()->where('id', $id)->first()
+            ?? RemoteOrder::query()->where('remote_id', $id)->first();
+
+        if ($response = $this->authorizeOrderAction($request, 'read', $localOrder?->order_from)) {
+            return $response;
+        }
 
         if ($localOrder) {
             return response()->json([
@@ -125,8 +350,12 @@ class RemoteOrderController extends Controller
         ]);
     }
 
-    public function sync(Request $request, RemoteOrderSyncService $syncService): JsonResponse
+    public function sync(Request $request, RemoteOrderSyncService $syncService, AmazonOrderSyncService $amazonSyncService): JsonResponse
     {
+        if ($response = $this->authorizeOrderAction($request, 'update', null)) {
+            return $response;
+        }
+
         $validated = $request->validate([
             'since_id' => 'nullable|integer|min:0',
             'limit' => 'nullable|integer|min:1|max:200',
@@ -142,6 +371,20 @@ class RemoteOrderController extends Controller
                 'success' => false,
                 'message' => $e->getMessage(),
             ], 502);
+        }
+
+        // Amazon uses its own SP-API sync (LWA auth, LastUpdatedAfter/NextToken pagination),
+        // kept separate from the other stores' simple API-key polling. A failure here shouldn't
+        // fail the whole sync response since the other stores already synced successfully above.
+        try {
+            $amazonResult = $amazonSyncService->syncRecent((int) ($validated['limit'] ?? 100));
+            $result['stores']['amazon'] = $amazonResult;
+            $result['synced_count'] = (int) ($result['synced_count'] ?? 0) + (int) ($amazonResult['synced_count'] ?? 0);
+        } catch (Throwable $e) {
+            $result['stores']['amazon'] = [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ];
         }
 
         return response()->json([
@@ -205,7 +448,11 @@ class RemoteOrderController extends Controller
                 continue;
             }
 
-            $saved++;
+            if ($remoteOrder->wasRecentlyCreated) {
+                $saved++;
+            } else {
+                $skipped++;
+            }
             $latestRemoteId = max($latestRemoteId, (int) $remoteOrder->remote_id);
         }
 
@@ -218,13 +465,12 @@ class RemoteOrderController extends Controller
         ]);
     }
 
-    public function update(Request $request, int $id, ShipStationService $shipStationService, UpsService $upsService): JsonResponse
+    public function update(Request $request, int $id, RemoteOrderSyncService $syncService, RemoteOrderVeeqoBookingService $bookingService, RemoteOrderRefundService $refundService): JsonResponse
     {
         $validated = $request->validate([
             'order_number' => 'nullable|string|max:255',
             'customer_name' => 'nullable|string|max:255',
             'status' => 'nullable|string|max:100',
-            'courier_company' => 'nullable|string|max:100',
             'total' => 'nullable|numeric|min:0',
             'first_name' => 'nullable|string|max:255',
             'last_name' => 'nullable|string|max:255',
@@ -239,16 +485,18 @@ class RemoteOrderController extends Controller
             'notes' => 'nullable|string|max:2000',
         ]);
 
-        $order = RemoteOrder::query()
-            ->where('remote_id', $id)
-            ->orWhere('id', $id)
-            ->first();
+        $order = RemoteOrder::query()->where('id', $id)->first()
+            ?? RemoteOrder::query()->where('remote_id', $id)->first();
 
         if (! $order) {
             return response()->json([
                 'success' => false,
                 'message' => 'Remote order not found in local inventory database.',
             ], 404);
+        }
+
+        if ($response = $this->authorizeOrderAction($request, 'update', $order->order_from)) {
+            return $response;
         }
 
         $rawPayload = is_array($order->raw_payload) ? $order->raw_payload : [];
@@ -277,13 +525,6 @@ class RemoteOrderController extends Controller
             $rawPayload['status'] = $validated['status'];
         }
 
-        if (array_key_exists('courier_company', $validated)) {
-            $rawPayload['courier_company'] = $validated['courier_company'];
-            $rawPayload['courier_service'] = strtolower((string) $validated['courier_company']) === 'ups'
-                ? 'ups'
-                : (strtolower((string) $validated['courier_company']) === 'shipstation' ? 'shipstation' : ($rawPayload['courier_service'] ?? null));
-        }
-
         if (array_key_exists('total', $validated)) {
             $rawPayload['total'] = $validated['total'];
         }
@@ -299,8 +540,6 @@ class RemoteOrderController extends Controller
                 ->value()
         );
 
-        $previousStatus = (string) ($order->status ?? '');
-
         $order->fill([
             'order_number' => array_key_exists('order_number', $validated)
                 ? (string) ($validated['order_number'] ?? '')
@@ -311,36 +550,52 @@ class RemoteOrderController extends Controller
             'status' => array_key_exists('status', $validated)
                 ? (string) ($validated['status'] ?? '')
                 : $order->status,
-            'courier_company' => array_key_exists('courier_company', $validated)
-                ? (string) ($validated['courier_company'] ?? '')
-                : $order->courier_company,
             'total' => array_key_exists('total', $validated)
                 ? (float) ($validated['total'] ?? 0)
                 : $order->total,
             'raw_payload' => $rawPayload,
         ]);
 
-        $order->save();
-
-        $bookingResult = null;
-        if ($this->shouldTriggerProcessingBooking($previousStatus, (string) $order->status)) {
+        // Send the Stripe refund before persisting the status so a failed refund doesn't get saved as "refunded".
+        if (array_key_exists('status', $validated) && strtolower(trim((string) $validated['status'])) === 'refunded') {
             try {
-                $bookingResult = $this->dispatchCourierBooking($order, $shipStationService, $upsService);
-                $order->courier_api_connected = true;
-                $order->courier_api_checked_at = Carbon::now();
-                $order->courier_api_message = null;
-                $order->save();
+                $refundService->refund($order);
             } catch (Throwable $e) {
-                $order->courier_api_connected = false;
-                $order->courier_api_checked_at = Carbon::now();
-                $order->courier_api_message = $this->limitStatusMessage($e->getMessage());
-                $order->save();
-
                 return response()->json([
                     'success' => false,
-                    'message' => 'Order status was updated to Processing, but courier booking failed: ' . $e->getMessage(),
-                    'order' => $order->fresh(),
+                    'message' => $e->getMessage(),
                 ], 502);
+            }
+        }
+
+        $order->save();
+
+        // Reflect the status change on the order's origin store (1971co or viveren).
+        if (array_key_exists('status', $validated) && $order->remote_id > 0) {
+            try {
+                $syncService->pushStatusUpdate(
+                    (int) $order->remote_id,
+                    $syncService->mapStatusForStore((string) $validated['status']),
+                    (string) ($order->order_from ?? 'website')
+                );
+            } catch (Throwable $e) {
+                Log::warning('Failed to push status update to origin store', [
+                    'remote_id' => $order->remote_id,
+                    'order_from' => $order->order_from,
+                    'status' => $validated['status'],
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if (array_key_exists('status', $validated) && strtolower(trim((string) $validated['status'])) === 'cancelled') {
+            try {
+                $bookingService->cancel($order);
+            } catch (Throwable $e) {
+                Log::warning('Failed to cancel Veeqo booking', [
+                    'remote_order_id' => $order->id,
+                    'message' => $e->getMessage(),
+                ]);
             }
         }
 
@@ -348,12 +603,10 @@ class RemoteOrderController extends Controller
             'success' => true,
             'message' => 'Remote order updated successfully.',
             'order' => $order->fresh(),
-            'booking' => $bookingResult,
         ]);
     }
 
-
-    public function bulkUpdateStatus(Request $request, ShipStationService $shipStationService, UpsService $upsService): JsonResponse
+    public function bulkUpdateStatus(Request $request, RemoteOrderVeeqoBookingService $bookingService, RemoteOrderRefundService $refundService, RemoteOrderSyncService $syncService): JsonResponse
     {
         $validated = $request->validate([
             'ids' => 'required|array|min:1',
@@ -363,14 +616,19 @@ class RemoteOrderController extends Controller
 
         $orders = RemoteOrder::query()
             ->whereIn('id', $validated['ids'])
-            ->orWhereIn('remote_id', $validated['ids'])
             ->get();
 
-        $bookedCount = 0;
-        $bookingFailures = [];
+        foreach ($orders->pluck('order_from')->unique() as $orderFrom) {
+            if ($response = $this->authorizeOrderAction($request, 'update', $orderFrom)) {
+                return $response;
+            }
+        }
+
+        $normalizedStatus = strtolower(trim((string) $validated['status']));
+        $isCancelling = $normalizedStatus === 'cancelled';
+        $isRefunding = $normalizedStatus === 'refunded';
 
         foreach ($orders as $order) {
-            $previousStatus = (string) ($order->status ?? '');
             $rawPayload = is_array($order->raw_payload) ? $order->raw_payload : [];
             $rawPayload['status'] = $validated['status'];
 
@@ -380,313 +638,50 @@ class RemoteOrderController extends Controller
             ]);
             $order->save();
 
-            if (! $this->shouldTriggerProcessingBooking($previousStatus, (string) $order->status)) {
-                continue;
+            if ($order->remote_id > 0) {
+                try {
+                    $syncService->pushStatusUpdate(
+                        (int) $order->remote_id,
+                        $syncService->mapStatusForStore($validated['status']),
+                        (string) ($order->order_from ?? 'website')
+                    );
+                } catch (Throwable $e) {
+                    Log::warning('Failed to push status update to origin store', [
+                        'remote_id' => $order->remote_id,
+                        'order_from' => $order->order_from,
+                        'status' => $validated['status'],
+                        'message' => $e->getMessage(),
+                    ]);
+                }
             }
 
-            try {
-                $this->dispatchCourierBooking($order, $shipStationService, $upsService);
-                $order->courier_api_connected = true;
-                $order->courier_api_checked_at = Carbon::now();
-                $order->courier_api_message = null;
-                $order->save();
-                $bookedCount++;
-            } catch (Throwable $e) {
-                $order->courier_api_connected = false;
-                $order->courier_api_checked_at = Carbon::now();
-                $order->courier_api_message = $this->limitStatusMessage($e->getMessage());
-                $order->save();
+            if ($isCancelling) {
+                try {
+                    $bookingService->cancel($order);
+                } catch (Throwable $e) {
+                    Log::warning('Failed to cancel Veeqo booking', [
+                        'remote_order_id' => $order->id,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
+            }
 
-                $bookingFailures[] = [
-                    'id' => $order->id,
-                    'remote_id' => $order->remote_id,
-                    'order_number' => $order->order_number,
-                    'message' => $e->getMessage(),
-                ];
+            if ($isRefunding) {
+                try {
+                    $refundService->refund($order);
+                } catch (Throwable $e) {
+                    Log::warning('Failed to refund Stripe charge', [
+                        'remote_order_id' => $order->id,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
             }
         }
 
         return response()->json([
             'success' => true,
             'message' => count($orders) . ' orders status updated successfully.',
-            'booked_count' => $bookedCount,
-            'booking_failures' => $bookingFailures,
         ]);
-    }
-
-    private function shouldTriggerProcessingBooking(string $previousStatus, string $currentStatus): bool
-    {
-        return strtolower(trim($previousStatus)) !== 'processing'
-            && strtolower(trim($currentStatus)) === 'processing';
-    }
-
-    private function dispatchCourierBooking(RemoteOrder $order, ShipStationService $shipStationService, UpsService $upsService): array
-    {
-        $courier = $this->resolveCourierService($order);
-
-        if ($courier === 'shipstation') {
-            $response = $shipStationService->createOrder($this->buildShipStationPayload($order));
-
-            return [
-                'courier' => 'shipstation',
-                'response' => $response,
-            ];
-        }
-
-        if ($courier === 'ups') {
-            $response = $upsService->createShipment($this->buildUpsShipmentPayload($order));
-
-            return [
-                'courier' => 'ups',
-                'tracking_number' => data_get($response, 'ShipmentResponse.ShipmentResults.ShipmentIdentificationNumber'),
-                'response' => $response,
-            ];
-        }
-
-        throw new RuntimeException('Courier must be either ShipStation or UPS to create booking.');
-    }
-
-    private function resolveCourierService(RemoteOrder $order): ?string
-    {
-        $rawPayload = is_array($order->raw_payload) ? $order->raw_payload : [];
-
-        $candidates = [
-            (string) ($order->courier_company ?? ''),
-            (string) ($rawPayload['courier_company'] ?? ''),
-            (string) ($rawPayload['courier_service'] ?? ''),
-        ];
-
-        foreach ($candidates as $candidate) {
-            $normalized = strtolower(trim($candidate));
-            if ($normalized === 'shipstation') {
-                return 'shipstation';
-            }
-
-            if ($normalized === 'ups') {
-                return 'ups';
-            }
-        }
-
-        return null;
-    }
-
-    private function buildShipStationPayload(RemoteOrder $order): array
-    {
-        $rawPayload = is_array($order->raw_payload) ? $order->raw_payload : [];
-        $name = trim((string) ($rawPayload['first_name'] ?? '') . ' ' . (string) ($rawPayload['last_name'] ?? ''));
-        $street1 = trim((string) ($rawPayload['address_line_1'] ?? ''));
-
-        if ($street1 === '') {
-            throw new RuntimeException('Shipping address is required for ShipStation booking.');
-        }
-
-        return [
-            'orderNumber' => (string) ($order->order_number ?? ('remote-' . $order->remote_id)),
-            'orderDate' => optional($order->updated_at ?? $order->created_at)->toIso8601String(),
-            'orderStatus' => 'awaiting_shipment',
-            'customerUsername' => (string) ($rawPayload['email'] ?? ''),
-            'customerEmail' => (string) ($rawPayload['email'] ?? ''),
-            'billTo' => [
-                'name' => $name !== '' ? $name : (string) ($order->customer_name ?? 'Customer'),
-                'phone' => (string) ($rawPayload['phone'] ?? ''),
-                'email' => (string) ($rawPayload['email'] ?? ''),
-            ],
-            'shipTo' => [
-                'name' => $name !== '' ? $name : (string) ($order->customer_name ?? 'Customer'),
-                'street1' => $street1,
-                'street2' => (string) ($rawPayload['address_line_2'] ?? ''),
-                'city' => (string) ($rawPayload['city'] ?? ''),
-                'state' => (string) ($rawPayload['state'] ?? ''),
-                'postalCode' => (string) ($rawPayload['postal_code'] ?? ''),
-                'country' => $this->normalizeCountryCode((string) ($rawPayload['country'] ?? 'US')),
-                'phone' => (string) ($rawPayload['phone'] ?? ''),
-            ],
-            'amountPaid' => number_format((float) ($order->total ?? 0), 2, '.', ''),
-            'shippingAmount' => number_format((float) ($rawPayload['shipping'] ?? 0), 2, '.', ''),
-            'taxAmount' => number_format((float) ($rawPayload['tax'] ?? 0), 2, '.', ''),
-            'internalNotes' => (string) ($rawPayload['notes'] ?? ''),
-            'items' => $this->mapShipStationItems(
-                is_array($rawPayload['items'] ?? null) ? $rawPayload['items'] : []
-            ),
-        ];
-    }
-
-    private function mapShipStationItems(array $items): array
-    {
-        $mapped = [];
-
-        foreach (array_values($items) as $index => $item) {
-            if (! is_array($item)) {
-                continue;
-            }
-
-            $quantity = max(1, (int) ($item['quantity'] ?? 1));
-
-            $priceCandidates = [
-                $item['unitPrice'] ?? null,
-                $item['unit_price'] ?? null,
-                $item['price'] ?? null,
-                $item['priceValue'] ?? null,
-                $item['item_price'] ?? null,
-            ];
-
-            $unitPrice = null;
-            foreach ($priceCandidates as $candidate) {
-                if ($candidate === null || $candidate === '') {
-                    continue;
-                }
-
-                $unitPrice = (float) $candidate;
-                break;
-            }
-
-            if ($unitPrice === null) {
-                $lineTotal = $item['line_total'] ?? $item['subtotal'] ?? $item['total'] ?? null;
-                if ($lineTotal !== null && $lineTotal !== '') {
-                    $unitPrice = ((float) $lineTotal) / max(1, $quantity);
-                }
-            }
-
-            if ($unitPrice === null) {
-                $unitPrice = 0.0;
-            }
-
-            $name = trim((string) ($item['name'] ?? $item['title'] ?? 'Item ' . ($index + 1)));
-
-            $mapped[] = [
-                'lineItemKey' => (string) ($item['lineItemKey'] ?? $item['line_id'] ?? $item['id'] ?? ('item-' . ($index + 1))),
-                'sku' => (string) ($item['sku'] ?? $item['product_sku'] ?? $item['product_id'] ?? ''),
-                'name' => $name !== '' ? $name : ('Item ' . ($index + 1)),
-                'quantity' => $quantity,
-                'unitPrice' => number_format($unitPrice, 2, '.', ''),
-            ];
-        }
-
-        return $mapped;
-    }
-
-    private function buildUpsShipmentPayload(RemoteOrder $order): array
-    {
-        $rawPayload = is_array($order->raw_payload) ? $order->raw_payload : [];
-        $name = trim((string) ($rawPayload['first_name'] ?? '') . ' ' . (string) ($rawPayload['last_name'] ?? ''));
-        $street1 = trim((string) ($rawPayload['address_line_1'] ?? ''));
-
-        if ($street1 === '') {
-            throw new RuntimeException('Shipping address is required for UPS booking.');
-        }
-
-        return [
-            'ShipmentRequest' => [
-                'Request' => [
-                    'RequestOption' => 'nonvalidate',
-                    'TransactionReference' => [
-                        'CustomerContext' => 'Remote Order ' . ((string) ($order->order_number ?? $order->remote_id)),
-                    ],
-                ],
-                'Shipment' => [
-                    'Description' => 'Remote Order ' . ((string) ($order->order_number ?? $order->remote_id)),
-                    'Shipper' => [
-                        'Name' => config('services.ups.shipper_name', '1971Co'),
-                        'ShipperNumber' => config('services.ups.shipper_number'),
-                        'Address' => [
-                            'AddressLine' => [config('services.ups.origin_address_1', '123 Warehouse Rd')],
-                            'City' => config('services.ups.origin_city', 'New York'),
-                            'StateProvinceCode' => config('services.ups.origin_state', 'NY'),
-                            'PostalCode' => config('services.ups.origin_postal_code', '10001'),
-                            'CountryCode' => config('services.ups.origin_country', 'US'),
-                        ],
-                    ],
-                    'ShipTo' => [
-                        'Name' => $name !== '' ? $name : (string) ($order->customer_name ?? 'Customer'),
-                        'Address' => [
-                            'AddressLine' => [$street1],
-                            'City' => (string) ($rawPayload['city'] ?? ''),
-                            'StateProvinceCode' => strtoupper(substr((string) ($rawPayload['state'] ?? ''), 0, 2)),
-                            'PostalCode' => (string) ($rawPayload['postal_code'] ?? ''),
-                            'CountryCode' => $this->normalizeCountryCode((string) ($rawPayload['country'] ?? 'US')),
-                        ],
-                    ],
-                    'Service' => [
-                        'Code' => config('services.ups.service_code', '03'),
-                        'Description' => config('services.ups.service_description', 'UPS Ground'),
-                    ],
-                    'PaymentInformation' => [
-                        'ShipmentCharge' => [
-                            'Type' => '01',
-                            'BillShipper' => [
-                                'AccountNumber' => config('services.ups.shipper_number'),
-                            ],
-                        ],
-                    ],
-                    'Package' => [[
-                        'Packaging' => [
-                            'Code' => config('services.ups.packaging_code', '02'),
-                            'Description' => 'Customer Box',
-                        ],
-                        'PackageWeight' => [
-                            'UnitOfMeasurement' => [
-                                'Code' => 'LBS',
-                            ],
-                            'Weight' => number_format(max(1, (float) ($rawPayload['weight'] ?? 1)), 2, '.', ''),
-                        ],
-                    ]],
-                ],
-                'LabelSpecification' => [
-                    'LabelImageFormat' => [
-                        'Code' => 'GIF',
-                    ],
-                ],
-            ],
-        ];
-    }
-
-    private function normalizeCountryCode(?string $country): string
-    {
-        $value = strtoupper(trim((string) $country));
-
-        if ($value === '') {
-            return 'US';
-        }
-
-        if (strlen($value) === 2) {
-            return $value;
-        }
-
-        $map = [
-            'UNITED STATES' => 'US',
-            'USA' => 'US',
-            'UNITED STATES OF AMERICA' => 'US',
-            'CANADA' => 'CA',
-            'BANGLADESH' => 'BD',
-            'INDIA' => 'IN',
-            'PAKISTAN' => 'PK',
-            'UNITED KINGDOM' => 'GB',
-            'GREAT BRITAIN' => 'GB',
-            'ENGLAND' => 'GB',
-            'AUSTRALIA' => 'AU',
-            'NEW ZEALAND' => 'NZ',
-            'GERMANY' => 'DE',
-            'FRANCE' => 'FR',
-            'ITALY' => 'IT',
-            'SPAIN' => 'ES',
-            'NETHERLANDS' => 'NL',
-            'SWEDEN' => 'SE',
-            'NORWAY' => 'NO',
-            'DENMARK' => 'DK',
-            'SWITZERLAND' => 'CH',
-            'JAPAN' => 'JP',
-            'CHINA' => 'CN',
-            'SINGAPORE' => 'SG',
-            'UNITED ARAB EMIRATES' => 'AE',
-            'SAUDI ARABIA' => 'SA',
-        ];
-
-        return $map[$value] ?? 'US';
-    }
-
-    private function limitStatusMessage(string $message): string
-    {
-        return mb_substr($message, 0, 1000);
     }
 
     public function bulkDelete(Request $request): JsonResponse
@@ -696,9 +691,16 @@ class RemoteOrderController extends Controller
             'ids.*' => 'integer',
         ]);
 
+        $orders = RemoteOrder::query()->whereIn('id', $validated['ids'])->get(['id', 'order_from']);
+
+        foreach ($orders->pluck('order_from')->unique() as $orderFrom) {
+            if ($response = $this->authorizeOrderAction($request, 'delete', $orderFrom)) {
+                return $response;
+            }
+        }
+
         $deletedCount = RemoteOrder::query()
             ->whereIn('id', $validated['ids'])
-            ->orWhereIn('remote_id', $validated['ids'])
             ->delete();
 
         return response()->json([

@@ -22,6 +22,7 @@ const initialForm = {
     
     category_id: '',
     skus: {},
+    barcodes: {},
 
     style_number: '',
     hs_number: '',
@@ -417,16 +418,27 @@ export default function AddProduct() {
                 season_id: form.season_id ? Number(form.season_id) : null,
                 cover_image: form.cover_image,
                 gallery_images: form.gallery_images,
-                barcodes: generateBarcodesMap({
-                    styleNumber: form.style_number,
-                    colorIds: selectedColorIds,
-                    fabricId: form.fabric_id,
-                    refNumber: form.ref_number,
-                    sizeIds: selectedSizeIds,
-                    colors,
-                    fabrics,
-                    sizes,
-                }),
+                barcodes: (() => {
+                    const generatedBarcodes = generateBarcodesMap({
+                        styleNumber: form.style_number,
+                        colorIds: selectedColorIds,
+                        fabricId: form.fabric_id,
+                        refNumber: form.ref_number,
+                        sizeIds: selectedSizeIds,
+                        colors,
+                        fabrics,
+                        sizes,
+                    });
+                    const overrides = form.barcodes && typeof form.barcodes === 'object' ? form.barcodes : {};
+
+                    Object.entries(overrides).forEach(([key, value]) => {
+                        if (typeof value === 'string' && value.trim()) {
+                            generatedBarcodes[key] = value.trim();
+                        }
+                    });
+
+                    return generatedBarcodes;
+                })(),
                 skus: JSON.stringify(form.skus || {}),
             });
 

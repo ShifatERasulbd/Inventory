@@ -137,6 +137,7 @@ class QuickBooksPurchaseSyncService
         // Always refresh using the *current* refresh_token stored for this realm.
         // If the stored refresh_token is stale, Intuit returns invalid_grant.
         $response = Http::asForm()
+            ->withOptions(['verify' => $this->resolveCaBundlePath()])
             ->withBasicAuth(
                 (string) config('services.quickbooks_test1.client_id'),
                 (string) config('services.quickbooks_test1.client_secret')
@@ -284,6 +285,7 @@ class QuickBooksPurchaseSyncService
 
         $request = Http::withToken($accessToken)
             ->acceptJson()
+            ->withOptions(['verify' => $this->resolveCaBundlePath()])
             ->withHeaders([
                 'Content-Type' => 'application/json',
             ]);
@@ -317,6 +319,17 @@ class QuickBooksPurchaseSyncService
         }
 
         throw new \RuntimeException($errorMessage);
+    }
+
+    /**
+     * Resolve a CA bundle for local/XAMPP environments where PHP has no system CA store
+     * configured, avoiding "cURL error 60: SSL certificate problem" against Intuit endpoints.
+     */
+    private function resolveCaBundlePath(): string|bool
+    {
+        $bundled = base_path('vendor/quickbooks/v3-php-sdk/src/Core/OAuth/OAuth2/certs/cacert.pem');
+
+        return is_file($bundled) ? $bundled : true;
     }
 
     private function resolveApiBaseUrl(): string

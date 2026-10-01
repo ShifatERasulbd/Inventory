@@ -12,20 +12,6 @@ function formatMoney(value) {
     return Number(value || 0).toFixed(2);
 }
 
-function normalizeCourierCompany(value) {
-    const normalized = String(value || '').trim().toLowerCase();
-
-    if (normalized === 'ups') {
-        return 'UPS';
-    }
-
-    if (normalized === 'shipstation') {
-        return 'ShipStation';
-    }
-
-    return '';
-}
-
 function buildRetailPosPrefill(order, fallbackForm = {}) {
     const raw = order?.raw_payload || {};
     const rawItems = Array.isArray(raw?.items) ? raw.items : [];
@@ -69,7 +55,11 @@ function buildRetailPosPrefill(order, fallbackForm = {}) {
     };
 }
 
-export default function EditRemoteOrderPage() {
+export default function EditRemoteOrderPage({
+    backPath = '/remote-orders',
+    pageTitle = 'Edit 1971co Order',
+    sourceLabel = '1971co',
+} = {}) {
     const { id } = useParams();
     const navigate = useNavigate();
     const { setPageTitle } = useAppContext();
@@ -78,7 +68,6 @@ export default function EditRemoteOrderPage() {
         order_number: '',
         customer_name: '',
         status: '',
-        courier_company: '',
         total: '',
         first_name: '',
         last_name: '',
@@ -98,8 +87,8 @@ export default function EditRemoteOrderPage() {
     const [errorMessage, setErrorMessage] = useState('');
 
     useEffect(() => {
-        setPageTitle('Edit 1971co Order');
-    }, [setPageTitle]);
+        setPageTitle(pageTitle);
+    }, [setPageTitle, pageTitle]);
 
     useEffect(() => {
         let ignore = false;
@@ -119,9 +108,6 @@ export default function EditRemoteOrderPage() {
                         order_number: nextOrder?.order_number || raw?.order_number || '',
                         customer_name: nextOrder?.customer_name || '',
                         status: nextOrder?.status || raw?.status || 'pending',
-                        courier_company: normalizeCourierCompany(
-                            nextOrder?.courier_company || raw?.courier_company || raw?.courier_service
-                        ),
                         total: String(nextOrder?.total ?? raw?.total ?? ''),
                         first_name: raw?.first_name || '',
                         last_name: raw?.last_name || '',
@@ -181,14 +167,15 @@ export default function EditRemoteOrderPage() {
         setFieldErrors({});
         setErrorMessage('');
 
-        const wasProcessing = String(record?.status || '').trim().toLowerCase() === 'processing';
+        const wasProcessing = ['processing', 'ready for shipment', 'ready-for-shipment'].includes(
+            String(record?.status || '').trim().toLowerCase()
+        );
 
         try {
             const payload = {
                 order_number: form.order_number.trim(),
                 customer_name: form.customer_name.trim(),
                 status: form.status.trim(),
-                courier_company: form.courier_company.trim(),
                 total: form.total === '' ? null : Number(form.total),
                 first_name: form.first_name.trim(),
                 last_name: form.last_name.trim(),
@@ -213,9 +200,6 @@ export default function EditRemoteOrderPage() {
                 order_number: nextOrder?.order_number || previous.order_number,
                 customer_name: nextOrder?.customer_name || previous.customer_name,
                 status: nextOrder?.status || previous.status,
-                courier_company: normalizeCourierCompany(
-                    nextOrder?.courier_company || raw?.courier_company || raw?.courier_service || previous.courier_company
-                ),
                 total: String(nextOrder?.total ?? previous.total),
                 first_name: raw?.first_name || previous.first_name,
                 last_name: raw?.last_name || previous.last_name,
@@ -234,7 +218,9 @@ export default function EditRemoteOrderPage() {
                 style: { color: '#16a34a' },
             });
 
-            const isProcessing = String(nextOrder?.status || form.status || '').trim().toLowerCase() === 'processing';
+            const isProcessing = ['processing', 'ready for shipment', 'ready-for-shipment'].includes(
+                String(nextOrder?.status || form.status || '').trim().toLowerCase()
+            );
             if (isProcessing && !wasProcessing) {
                 navigate('/retail', {
                     state: {
@@ -273,9 +259,9 @@ export default function EditRemoteOrderPage() {
             <div className="flex items-center justify-between gap-3">
                 <div>
                     <h2 className="text-xl font-semibold">Remote Order {record?.order_number || `#${id}`}</h2>
-                    <p className="text-sm text-muted-foreground">Synced from 1971co and stored in the local Inventory database.</p>
+                    <p className="text-sm text-muted-foreground">Synced from {sourceLabel} and stored in the local Inventory database.</p>
                 </div>
-                <Button type="button" variant="outline" onClick={() => navigate('/remote-orders')}>
+                <Button type="button" variant="outline" onClick={() => navigate(backPath)}>
                     Back to Orders
                 </Button>
             </div>
@@ -284,7 +270,7 @@ export default function EditRemoteOrderPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Edit Form</CardTitle>
-                        <CardDescription>Update local 1971co order data saved in Inventory.</CardDescription>
+                        <CardDescription>Update local {sourceLabel} order data saved in Inventory.</CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-4 md:grid-cols-2">
                         <div>
@@ -304,27 +290,14 @@ export default function EditRemoteOrderPage() {
                                 className="h-9 w-full rounded-md border bg-white px-3 text-sm"
                             >
                                 <option value="pending">Pending</option>
-                                <option value="approved">Approved</option>
-                                <option value="processing">Processing</option>
+                                <option value="waiting for shipment">Waiting for Shipment</option>
+                                <option value="ready for shipment">Ready for Shipment</option>
                                 <option value="shipped">Shipped</option>
                                 <option value="delivered">Delivered</option>
                                 <option value="cancelled">Cancelled</option>
                                 <option value="refunded">Refunded</option>
                             </select>
                             {fieldErrors.status && <p className="mt-1 text-xs text-destructive">{fieldErrors.status[0]}</p>}
-                        </div>
-                        <div>
-                            <label className="mb-1 block text-sm font-medium">Courier Company</label>
-                            <select
-                                value={form.courier_company}
-                                onChange={(event) => onChangeField('courier_company', event.target.value)}
-                                className="h-9 w-full rounded-md border bg-white px-3 text-sm"
-                            >
-                                <option value="">Select courier</option>
-                                <option value="UPS">UPS</option>
-                                <option value="ShipStation">ShipStation</option>
-                            </select>
-                            {fieldErrors.courier_company && <p className="mt-1 text-xs text-destructive">{fieldErrors.courier_company[0]}</p>}
                         </div>
                         <div>
                             <label className="mb-1 block text-sm font-medium">Customer Name</label>
@@ -452,7 +425,7 @@ export default function EditRemoteOrderPage() {
                 </Card>
 
                 <div className="flex items-center justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => navigate('/remote-orders')}>
+                    <Button type="button" variant="outline" onClick={() => navigate(backPath)}>
                         Cancel
                     </Button>
                     <Button type="submit" disabled={isSaving}>

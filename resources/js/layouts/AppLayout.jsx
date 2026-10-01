@@ -60,7 +60,7 @@ export default function AppLayout() {
 
         async function loadApprovedOrderCount() {
             try {
-                const response = await fetch('/api/remote-orders/approved-count', {
+                const response = await fetch('/api/remote-orders/approved-count?order_from=1971co', {
                     credentials: 'include',
                     headers: {
                         Accept: 'application/json',

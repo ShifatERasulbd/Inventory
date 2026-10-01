@@ -48,7 +48,7 @@ export default function StockLocationModal({
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Warehouse</TableHead>
-                                        <TableHead>Cartoon</TableHead>
+                                        <TableHead>Carton</TableHead>
                                         <TableHead>Rack</TableHead>
                                         <TableHead>Rack Row</TableHead>
                                         <TableHead className="text-right">Qty</TableHead>
@@ -58,7 +58,7 @@ export default function StockLocationModal({
                                     {(item.matches || []).length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={5} className="text-center text-muted-foreground">
-                                                No cartoon found for this product.
+                                                No carton found for this product.
                                             </TableCell>
                                         </TableRow>
                                     ) : (

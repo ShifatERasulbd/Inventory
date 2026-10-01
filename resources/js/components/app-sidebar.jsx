@@ -54,7 +54,7 @@ const StrorageItems = [
     { title: 'Rack', icon: ChartBarDecreasing, path: '/racks', permission: 'read-racks' },
     { title: 'Stock', icon: Boxes, path: '/stocks', permission: 'read-stocks' },
     { title: 'Purchase Order', icon: CreditCard, path: '/purchases', permission: 'read-purchases' },
-    { title: 'Received Cartoons', icon: ScanBarcode, path: '/received-cartoons', permission: 'read-cartoons' },
+    { title: 'Received Cartons', icon: ScanBarcode, path: '/received-cartoons', permission: 'read-cartoons' },
     { title: 'PO Sell', icon: Banknote, path: '/sells', permission: 'read-sales' },
 ];
 
@@ -89,7 +89,12 @@ const userAccessItems = [
 ];
 
 const OrderItems = [
-    { title: '1971co Orders', icon: FileBarChart2, path: '/remote-orders' },
+    { title: '1971co Orders', icon: FileBarChart2, path: '/remote-orders', orderFrom: '1971co', permission: 'read-1971co-orders' },
+    { title: 'Viveren Orders', icon: FileBarChart2, path: '/viveren-orders', orderFrom: 'website', permission: 'read-viveren-orders' },
+    { title: 'Joor Orders', icon: FileBarChart2, path: '/joor-orders', orderFrom: 'joor', permission: 'read-joor-orders' },
+    { title: 'Amazon Orders', icon: FileBarChart2, path: '/amazon-orders', orderFrom: 'amazon', permission: 'read-amazon-orders' },
+    { title: 'Return Orders', icon: FileBarChart2, path: '/return-orders', orderFrom: 'return', permission: 'read-return-orders' },
+    { title: '1971co Return Requests', icon: FileBarChart2, path: '/return-requests', orderFrom: 'return-request', permission: 'read-1971co-return-requests' }
 ];
 
 export function AppSidebar(props) {
@@ -97,41 +102,7 @@ export function AppSidebar(props) {
     const location = useLocation();
     const { user, setUser } = useAppContext();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
-    const [approvedCount, setApprovedCount] = useState(0);
-
-    useEffect(() => {
-        let cancelled = false;
-        let intervalId = null;
-
-        async function fetchApprovedCount() {
-            try {
-                const response = await fetch('/api/remote-orders/approved-count', {
-                    credentials: 'include',
-                    headers: {
-                        Accept: 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                });
-
-                if (!response.ok) return;
-
-                const payload = await response.json();
-                if (!cancelled && payload?.success) {
-                    setApprovedCount(payload.count ?? 0);
-                }
-            } catch {
-                // Silently fail; badge will just show 0 or previous value.
-            }
-        }
-
-        fetchApprovedCount();
-        intervalId = window.setInterval(fetchApprovedCount, 60_000);
-
-        return () => {
-            cancelled = true;
-            if (intervalId) window.clearInterval(intervalId);
-        };
-    }, []);
+    const [approvedCounts, setApprovedCounts] = useState({});
 
     const permissionSlugs = Array.isArray(user?.permission_slugs) ? user.permission_slugs : [];
     const roleSlugs = Array.isArray(user?.role_slugs) ? user.role_slugs : [];
@@ -142,6 +113,52 @@ export function AppSidebar(props) {
         if (isSuperAdmin) return true;
         return permissionSlugs.includes(permission);
     };
+
+    useEffect(() => {
+        let cancelled = false;
+        let intervalId = null;
+
+        const trackedOrderItems = OrderItems.filter((item) => !['return', 'return-request'].includes(item.orderFrom) && canAccess(item.permission));
+
+        async function fetchApprovedCounts() {
+            if (trackedOrderItems.length === 0) {
+                return;
+            }
+
+            try {
+                const entries = await Promise.all(
+                    trackedOrderItems.map(async (item) => {
+                        const response = await fetch(`/api/remote-orders/approved-count?order_from=${encodeURIComponent(item.orderFrom)}`, {
+                            credentials: 'include',
+                            headers: {
+                                Accept: 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                        });
+
+                        if (!response.ok) return [item.orderFrom, 0];
+
+                        const payload = await response.json();
+                        return [item.orderFrom, payload?.success ? (payload.count ?? 0) : 0];
+                    })
+                );
+
+                if (!cancelled) {
+                    setApprovedCounts(Object.fromEntries(entries));
+                }
+            } catch {
+                // Silently fail; badges will just show 0 or previous value.
+            }
+        }
+
+        fetchApprovedCounts();
+        intervalId = window.setInterval(fetchApprovedCounts, 60_000);
+
+        return () => {
+            cancelled = true;
+            if (intervalId) window.clearInterval(intervalId);
+        };
+    }, [isSuperAdmin, permissionSlugs.join(',')]);
 
     const visibleHomeItems = homeItems.filter((item) => canAccess(item.permission));
     const visibleLocationItems=locationItems.filter((item)=>canAccess(item.permission));
@@ -368,9 +385,9 @@ export function AppSidebar(props) {
                                                 <span>{item.title}</span>
                                             </Link>
                                         </SidebarMenuButton>
-                                        {item.title === '1971co Orders' && approvedCount > 0 && (
+                                        {approvedCounts[item.orderFrom] > 0 && (
                                             <SidebarMenuBadge className="bg-primary text-primary-foreground peer-hover/menu-button:!text-primary-foreground peer-data-[active=true]/menu-button:!text-primary-foreground">
-                                                {approvedCount}
+                                                {approvedCounts[item.orderFrom]}
                                             </SidebarMenuBadge>
                                         )}
                                     </SidebarMenuItem>

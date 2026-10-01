@@ -12,10 +12,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Barcode, ChevronDown, ChevronRight, Eye, Minus, PackageCheck, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Barcode, ChevronDown, ChevronRight, Eye, Minus, PackageCheck, Pencil, Plus, Printer, Search, Trash2 } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 
 function formatProductLabel(product) {
@@ -33,10 +34,11 @@ function getPurchaseGroupLabel(cartoon) {
 
 const PO_PAGE_SIZE = 20;
 
-export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuantity, onAssignRack, onViewBarcode, onEdit, onRequestDelete, deletingId, isLoading, onViewPurchaseDetails }) {
+export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuantity, onAssignRack, onViewBarcode, onEdit, onRequestDelete, deletingId, isLoading, onViewPurchaseDetails, onPrintSelectedCartons }) {
     const [search, setSearch] = useState('');
     const [expandedGroups, setExpandedGroups] = useState({});
     const [poPageState, setPoPageState] = useState({});
+    const [selectedCartonIds, setSelectedCartonIds] = useState(() => new Set());
 
     const filtered = cartoons.filter((c) => {
         const q = search.toLowerCase();
@@ -75,13 +77,48 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
         }));
     };
 
+    const isCartonSelected = (cartoonId) => selectedCartonIds.has(cartoonId);
+
+    const toggleCartonSelection = (cartoonId, checked) => {
+        setSelectedCartonIds((previous) => {
+            const next = new Set(previous);
+            if (checked) {
+                next.add(cartoonId);
+            } else {
+                next.delete(cartoonId);
+            }
+            return next;
+        });
+    };
+
+    const getGroupSelectionState = (group) => {
+        const selectedCount = group.cartoons.filter((cartoon) => selectedCartonIds.has(cartoon.id)).length;
+        if (selectedCount === 0) return false;
+        if (selectedCount === group.cartoons.length) return true;
+        return 'indeterminate';
+    };
+
+    const toggleGroupSelection = (group, checked) => {
+        setSelectedCartonIds((previous) => {
+            const next = new Set(previous);
+            group.cartoons.forEach((cartoon) => {
+                if (checked) {
+                    next.add(cartoon.id);
+                } else {
+                    next.delete(cartoon.id);
+                }
+            });
+            return next;
+        });
+    };
+
     return (
         <>
         <div className="flex items-center gap-3 justify-between">
             <div className="relative min-w-0 flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                    placeholder="Search purchase order or cartoon..."
+                    placeholder="Search purchase order or carton..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full pl-9"
@@ -89,7 +126,7 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
             </div>
             <Button className="shrink-0 gap-2" onClick={onAdd}>
                 <Plus />
-                Add Cartoon
+                Add Carton
             </Button>
         </div>
 
@@ -97,8 +134,9 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
             <Table>
                 <TableHeader>
                     <TableRow>
+                        <TableHead className="text-center">Select</TableHead>
                         <TableHead className="text-center">SL No.</TableHead>
-                        <TableHead className="text-center">Cartoon Count</TableHead>
+                        <TableHead className="text-center">Carton Count</TableHead>
                         <TableHead className="text-center">Quantity Of Products</TableHead>
                         <TableHead className="text-center">Action</TableHead>
                     </TableRow>
@@ -107,24 +145,24 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                 <TableBody>
                     {isLoading && (
                         <TableRow>
-                            <TableCell colSpan={4} className="text-center text-muted-foreground">
-                                Loading Cartoon...
+                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                Loading Carton...
                             </TableCell>
                         </TableRow>
                     )}
 
                     {!isLoading && cartoons.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={4} className="text-center text-muted-foreground">
-                                No Cartoon found.
+                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                No Carton found.
                             </TableCell>
                         </TableRow>
                     )}
 
                     {!isLoading && filtered.length === 0 && cartoons.length > 0 && (
                         <TableRow>
-                            <TableCell colSpan={4} className="text-center text-muted-foreground">
-                                No Cartoons match your search.
+                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                No Cartons match your search.
                             </TableCell>
                         </TableRow>
                     )}
@@ -133,10 +171,19 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                         groupedCartoons.map((group, index) => {
                             const isExpanded = expandedGroups[group.key] ?? true;
                             const purchaseId = group.cartoons[0]?.purchase?.id;
+                            const groupSelectionState = getGroupSelectionState(group);
+                            const selectedInGroupCount = group.cartoons.filter((cartoon) => selectedCartonIds.has(cartoon.id)).length;
 
                             return (
                                 <Fragment key={group.key}>
                                     <TableRow>
+                                        <TableCell className="text-center">
+                                            <Checkbox
+                                                checked={groupSelectionState}
+                                                onCheckedChange={(checked) => toggleGroupSelection(group, checked === true)}
+                                                aria-label={`Select all cartons for ${group.purchaseOrder}`}
+                                            />
+                                        </TableCell>
                                         <TableCell className="text-center">
                                             <div className="flex items-center justify-center gap-2">
                                                 <Button
@@ -156,6 +203,24 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                                         <TableCell className="text-center">{group.totalQuantity}</TableCell>
                                         <TableCell className="text-center">
                                             <div className="flex items-center justify-center gap-2">
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                aria-label={`Print selected cartons for ${group.purchaseOrder}`}
+                                                                disabled={selectedInGroupCount === 0}
+                                                                onClick={() => onPrintSelectedCartons?.(group.cartoons.filter((cartoon) => selectedCartonIds.has(cartoon.id)))}
+                                                            >
+                                                                <Printer />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="bottom">
+                                                            <p>{selectedInGroupCount > 0 ? `Print ${selectedInGroupCount} Selected Sticker(s)` : 'Select cartons to print'}</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
                                                 {purchaseId && (
                                                     <TooltipProvider>
                                                         <Tooltip>
@@ -189,13 +254,14 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
 
                                     {isExpanded && (
                                         <TableRow>
-                                            <TableCell colSpan={4} className="bg-muted/20 p-0">
+                                            <TableCell colSpan={5} className="bg-muted/20 p-0">
                                                 <div className="p-3">
                                                     <Table>
                                                         <TableHeader>
                                                             <TableRow>
+                                                                <TableHead className="text-center">Select</TableHead>
                                                                 <TableHead className="text-right">SL No.</TableHead>
-                                                                <TableHead className="text-center">Cartoon</TableHead>
+                                                                <TableHead className="text-center">Carton</TableHead>
                                                                 <TableHead className="text-center">Product Details</TableHead>
                                                                 <TableHead className="text-center">Warehouse</TableHead>
                                                                 <TableHead className="text-center">Quantity</TableHead>
@@ -214,6 +280,13 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
 
                                                                 return (
                                                                 <TableRow key={cartoon.id}>
+                                                                    <TableCell className="text-center">
+                                                                        <Checkbox
+                                                                            checked={isCartonSelected(cartoon.id)}
+                                                                            onCheckedChange={(checked) => toggleCartonSelection(cartoon.id, checked === true)}
+                                                                            aria-label={`Select carton ${cartoon.cartoon_number}`}
+                                                                        />
+                                                                    </TableCell>
                                                                     <TableCell className="text-right font-medium">{startIndex + detailIndex + 1}</TableCell>
                                                                     <TableCell className="text-center">{cartoon.cartoon_number}</TableCell>
                                                                     <TableCell className="text-center">
@@ -390,7 +463,7 @@ export function CartoonTable({ cartoons = [], onAdd, onAddQuantity, onDeductQuan
                                                         return (
                                                             <div className="flex items-center justify-between gap-4 px-2 pt-2">
                                                                 <p className="text-sm text-muted-foreground">
-                                                                    Showing {Math.min((currentPoPage - 1) * PO_PAGE_SIZE + 1, group.cartoons.length)}-{Math.min(currentPoPage * PO_PAGE_SIZE, group.cartoons.length)} of {group.cartoons.length} cartoons
+                                                                    Showing {Math.min((currentPoPage - 1) * PO_PAGE_SIZE + 1, group.cartoons.length)}-{Math.min(currentPoPage * PO_PAGE_SIZE, group.cartoons.length)} of {group.cartoons.length} cartons
                                                                 </p>
                                                                 <div className="flex items-center gap-2">
                                                                     <Button

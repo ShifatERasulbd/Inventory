@@ -65,10 +65,11 @@ export default function EditPurchaseForm({
 
     const getProductOptionLabel = (product) => {
         const name = product?.name || `Product #${product?.id}`;
+        const styleNumber = String(product?.style_number || '').trim();
         const size = product?.size?.size || product?.size || product?.size_name;
         const color = product?.color?.color_code || product?.color?.name || product?.color_name;
 
-        return [name, color, size]
+        return [styleNumber ? `Style ${styleNumber}` : null, name, color, size]
             .filter(Boolean)
             .join(' - ');
     };
@@ -325,7 +326,7 @@ export default function EditPurchaseForm({
                                                                         return (
                                                                             <CommandItem
                                                                                 key={product.id}
-                                                                                value={label} // Allows searching by full configured label text
+                                                                                value={`${label} ${String(product?.style_number ?? '')}`}
                                                                                 onSelect={() => {
                                                                                     onProductSelectChange(index, String(product.id));
                                                                                     setOpenPopoverIndex(null);

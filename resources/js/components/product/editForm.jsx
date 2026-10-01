@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import BarcodePreview from './BarcodePreview';
+import { useAppContext } from '@/context/AppContext';
 
 const stripHtmlTags = (value) => {
     if (typeof value !== 'string') {
@@ -149,8 +150,22 @@ export default function EditForm({
     currentGalleryImageUrls = [],
     onRemoveCurrentCover,
     onRemoveCurrentGallery,
-    barcodes = {},
 }) {
+    const { can } = useAppContext();
+    const canEditBarcodes = can('update', 'products');
+
+    const handleBarcodeOverrideChange = (key, value) => {
+        const nextBarcodes = { ...(form.barcodes && typeof form.barcodes === 'object' ? form.barcodes : {}) };
+
+        if (value) {
+            nextBarcodes[key] = value;
+        } else {
+            delete nextBarcodes[key];
+        }
+
+        onChange?.({ target: { name: 'barcodes', value: nextBarcodes } });
+    };
+
     const colorOptions = useMemo(
         () =>
             (colors || []).map((color) => ({
@@ -391,6 +406,11 @@ export default function EditForm({
 
                     <div className="space-y-3">
                         <Label>Generated Barcodes</Label>
+                        {canEditBarcodes && (
+                            <p className="text-xs text-muted-foreground">
+                                You have permission to edit product barcodes. Override any value below, or leave it as-is to keep the auto-generated code.
+                            </p>
+                        )}
                         <BarcodePreview
                             styleNumber={form.style_number}
                             colorIds={form.color_ids}
@@ -400,6 +420,9 @@ export default function EditForm({
                             colors={colors}
                             fabrics={fabrics}
                             sizes={sizes}
+                            editable={canEditBarcodes}
+                            overrides={form.barcodes}
+                            onOverrideChange={handleBarcodeOverrideChange}
                         />
                         {errors.barcodes && <p className="text-xs text-destructive">{errors.barcodes[0]}</p>}
                     </div>

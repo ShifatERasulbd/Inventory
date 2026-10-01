@@ -3,14 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cartoon;
+use App\Models\RemoteOrder;
 use App\Models\RetailSale;
 use App\Models\Sell;
 use App\Models\Stock;
 use App\Services\AccountingService;
 use App\Services\QuickBooksRetailSaleSyncService;
+use App\Services\RemoteOrderSyncService;
+use App\Services\RemoteOrderVeeqoBookingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class RetailController extends Controller
 {
@@ -139,7 +145,9 @@ class RetailController extends Controller
             'warehouse_id'           => ['nullable', 'integer', 'exists:warehouses,id'],
             'brand_id'               => ['nullable', 'integer', 'exists:brands,id'],
             'payment_method'         => ['required', 'string', 'in:cash,card,transfer,other'],
+            'is_amazon_order'        => ['nullable', 'boolean'],
             'note'                   => ['nullable', 'string', 'max:1000'],
+            'remote_order_id'        => ['nullable', 'integer'],
             'items'                  => ['required', 'array', 'min:1'],
             'items.*.stock_id'       => ['required', 'integer', 'exists:stocks,id'],
             'items.*.product_id'     => ['required', 'integer', 'exists:products,id'],
@@ -307,7 +315,9 @@ class RetailController extends Controller
                 'items'            => $lineItems,
                 'total_amount'     => round($totalAmount, 2),
                 'payment_method'   => $validated['payment_method'],
+                'is_amazon_order'  => (bool) ($validated['is_amazon_order'] ?? false),
                 'note'             => $validated['note'] ?? null,
+                'remote_order_id'  => $validated['remote_order_id'] ?? null,
             ]);
 
             app(AccountingService::class)->syncRetailSaleAccount($sale->fresh());
@@ -326,6 +336,7 @@ class RetailController extends Controller
                 'total_amount'     => (float) $sale->total_amount,
                 'brand_id'         => $sale->brand_id,
                 'payment_method'   => $sale->payment_method,
+                'is_amazon_order'  => (bool) $sale->is_amazon_order,
                 'items'            => $sale->items,
                 'created_at'       => $sale->created_at?->toDateTimeString(),
             ], 201);
@@ -344,7 +355,7 @@ class RetailController extends Controller
         $warehouseIds = $this->resolveWarehouseIds($user);
 
         $query = RetailSale::query()
-            ->with(['warehouse:id,name', 'brand:id,name', 'seller:id,name'])
+            ->with(['warehouse:id,name', 'brand:id,name', 'seller:id,name', 'remoteOrder:id,order_number,shipping_carrier,shipping_service,tracking_url,label_url,label_file_path'])
             ->orderByDesc('id');
 
         if ($warehouseIds !== null) {
@@ -354,6 +365,7 @@ class RetailController extends Controller
         return response()->json(
             $query->get()->map(fn (RetailSale $sale) => [
                 'id'               => $sale->id,
+                'order_number'     => $sale->remoteOrder?->order_number,
                 'reference_number' => $sale->reference_number,
                 'warehouse_id'     => $sale->warehouse_id,
                 'warehouse_name'   => $sale->warehouse?->name,
@@ -364,10 +376,73 @@ class RetailController extends Controller
                 'items'            => $sale->items,
                 'total_amount'     => (float) $sale->total_amount,
                 'payment_method'   => $sale->payment_method,
+                'is_amazon_order'  => (bool) $sale->is_amazon_order,
                 'note'             => $sale->note,
+                'status'           => $sale->status,
+                'remote_order_id'  => $sale->remote_order_id,
+                'shipping_carrier' => $sale->remoteOrder?->shipping_carrier,
+                'shipping_level'   => $sale->remoteOrder?->shipping_service,
+                'tracking_url'     => $sale->remoteOrder?->tracking_url,
+                'label_url'        => $sale->remoteOrder?->label_url,
+                'label_file_url'   => $sale->remoteOrder?->label_file_url,
                 'created_at'       => $sale->created_at?->format('Y-m-d H:i'),
             ])
         );
+    }
+
+    public function updateStatus(Request $request, int $id, RemoteOrderVeeqoBookingService $bookingService, RemoteOrderSyncService $syncService): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'string', 'in:refunded,cancelled'],
+        ]);
+
+        $sale = RetailSale::query()->find($id);
+        if (! $sale) {
+            return response()->json(['message' => 'Retail sale not found.'], 404);
+        }
+
+        $sale->update(['status' => $validated['status']]);
+
+        if ($sale->remote_order_id) {
+            $remoteOrder = RemoteOrder::query()->find($sale->remote_order_id);
+            if ($remoteOrder) {
+                $rawPayload = is_array($remoteOrder->raw_payload) ? $remoteOrder->raw_payload : [];
+                $rawPayload['status'] = $validated['status'];
+                $remoteOrder->fill([
+                    'status' => $validated['status'],
+                    'raw_payload' => $rawPayload,
+                ]);
+                $remoteOrder->save();
+
+                if ($validated['status'] === 'cancelled') {
+                    try {
+                        $bookingService->cancel($remoteOrder);
+                    } catch (Throwable $e) {
+                        Log::warning('Failed to cancel Veeqo booking for retail sale', [
+                            'retail_sale_id' => $sale->id,
+                            'remote_order_id' => $sale->remote_order_id,
+                            'message' => $e->getMessage(),
+                        ]);
+                    }
+
+                    if ($remoteOrder->remote_id > 0) {
+                        try {
+                            $syncService->pushStatusUpdate((int) $remoteOrder->remote_id, 'cancelled', (string) ($remoteOrder->order_from ?? 'website'));
+                        } catch (Throwable $e) {
+                            Log::warning('Failed to push cancelled status to main store', [
+                                'remote_id' => $remoteOrder->remote_id,
+                                'message' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
+
+        return response()->json([
+            'id'     => $sale->id,
+            'status' => $sale->status,
+        ]);
     }
 
     private function resolveWarehouseIds($user): ?array

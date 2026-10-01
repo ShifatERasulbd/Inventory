@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { Printer } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import {
     AlertDialog,
     AlertDialogCancel,
@@ -11,6 +22,12 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import {
     Table,
     TableBody,
@@ -22,7 +39,8 @@ import {
 import { useAppContext } from '@/context/AppContext';
 import Preloader from '@/components/Preloader';
 
-import { fetchRetailSales } from './api';
+import { fetchRetailSales, updateRetailSaleStatus } from './api';
+import ShippingLabelSection from './ShippingLabelSection';
 
 function formatMoney(value) {
     const numberValue = Number(value ?? 0);
@@ -54,10 +72,31 @@ export default function RetailSales() {
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
     const [selectedSale, setSelectedSale] = useState(null);
+    const [updatingSaleId, setUpdatingSaleId] = useState(null);
+    const [labelSale, setLabelSale] = useState(null);
 
     useEffect(() => {
         setPageTitle('Retail Sell');
     }, [setPageTitle]);
+
+    const handleStatusChange = async (sale, status) => {
+        setUpdatingSaleId(sale.id);
+        try {
+            await updateRetailSaleStatus(sale.id, status);
+            setSales((previous) => previous.map((row) => (
+                row.id === sale.id ? { ...row, status } : row
+            )));
+            toast.success(
+                status === 'cancelled'
+                    ? 'Sale cancelled. Veeqo booking (if any) was also cancelled.'
+                    : 'Sale marked as refunded.'
+            );
+        } catch (error) {
+            toast.error(error.message || 'Failed to update sale status.');
+        } finally {
+            setUpdatingSaleId(null);
+        }
+    };
 
     useEffect(() => {
         let ignore = false;
@@ -139,6 +178,7 @@ export default function RetailSales() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Ref</TableHead>
+                                <TableHead>Shipping Level</TableHead>
                                 <TableHead>Date</TableHead>
                                 <TableHead>Warehouse</TableHead>
                                 <TableHead>Brand</TableHead>
@@ -146,12 +186,13 @@ export default function RetailSales() {
                                 <TableHead>Payment</TableHead>
                                 <TableHead className="text-right">Items</TableHead>
                                 <TableHead className="text-right">Total</TableHead>
+                                <TableHead>Status</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoading && (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                                    <TableCell colSpan={9} className="text-center text-muted-foreground">
                                         Loading retail sales...
                                     </TableCell>
                                 </TableRow>
@@ -159,7 +200,7 @@ export default function RetailSales() {
 
                             {!isLoading && filteredSales.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                                    <TableCell colSpan={9} className="text-center text-muted-foreground">
                                         No retail sales found.
                                     </TableCell>
                                 </TableRow>
@@ -176,7 +217,30 @@ export default function RetailSales() {
                                         className="cursor-pointer"
                                         onClick={() => setSelectedSale(sale)}
                                     >
-                                        <TableCell className="font-medium">{sale.reference_number || `Sale #${sale.id}`}</TableCell>
+                                        <TableCell className="font-medium">{sale.order_number || `Sale #${sale.id}`}</TableCell>
+                                        <TableCell onClick={(event) => event.stopPropagation()}>
+                                            {sale.shipping_level ? (
+                                                <span className="inline-flex items-center gap-1.5">
+                                                    <span title={sale.tracking_url || undefined}>
+                                                        {sale.shipping_carrier ? `${sale.shipping_carrier} - ` : ''}{sale.shipping_level}
+                                                    </span>
+                                                    {(sale.label_url || sale.label_file_url) && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-6 w-6"
+                                                            title="View / print shipping label"
+                                                            onClick={() => setLabelSale(sale)}
+                                                        >
+                                                            <Printer className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    )}
+                                                </span>
+                                            ) : (
+                                                <span className="text-muted-foreground">N/A</span>
+                                            )}
+                                        </TableCell>
                                         <TableCell>{formatDate(sale.created_at)}</TableCell>
                                         <TableCell>{sale.warehouse_name || 'N/A'}</TableCell>
                                         <TableCell>{sale.brand_name || 'Unassigned'}</TableCell>
@@ -184,6 +248,27 @@ export default function RetailSales() {
                                         <TableCell className="capitalize">{sale.payment_method || 'N/A'}</TableCell>
                                         <TableCell className="text-right">{itemCount}</TableCell>
                                         <TableCell className="text-right font-semibold">{formatMoney(sale.total_amount)}</TableCell>
+                                        <TableCell onClick={(event) => event.stopPropagation()}>
+                                            {sale.status ? (
+                                                <Badge variant={sale.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize">
+                                                    {sale.status}
+                                                </Badge>
+                                            ) : (
+                                                <Select
+                                                    value=""
+                                                    disabled={updatingSaleId === sale.id}
+                                                    onValueChange={(status) => handleStatusChange(sale, status)}
+                                                >
+                                                    <SelectTrigger size="sm" className="w-[130px]">
+                                                        <SelectValue placeholder="Update status" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="refunded">Refunded</SelectItem>
+                                                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                        </TableCell>
                                     </TableRow>
                                 );
                             })}
@@ -245,6 +330,23 @@ export default function RetailSales() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <Dialog open={Boolean(labelSale)} onOpenChange={(open) => !open && setLabelSale(null)}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>
+                            Shipping Label - {labelSale?.reference_number || labelSale?.order_number || `Sale #${labelSale?.id || ''}`}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <ShippingLabelSection
+                        carrier={labelSale?.shipping_carrier}
+                        service={labelSale?.shipping_level}
+                        trackingUrl={labelSale?.tracking_url}
+                        labelUrl={labelSale?.label_url}
+                        labelFileUrl={labelSale?.label_file_url}
+                    />
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAppContext } from '@/context/AppContext';
 
-import { deleteStock, fetchStocks, updateStock } from './api';
+import { createStock, deleteStock, fetchStocks, updateStock } from './api';
 import Preloader from '@/components/Preloader';
 
 export default function Stock() {
@@ -174,13 +174,24 @@ export default function Stock() {
         setAdjustErrorMessage('');
 
         try {
-            const updated = await updateStock(targetStock.id, {
-                barcode: scannedBarcodes,
-                adjust_mode: adjustMode,
-            });
+            // Placeholder rows (zero-stock size/color combos) have no Stock record yet - create one instead of updating.
+            const updated = targetStock.is_placeholder
+                ? await createStock({
+                      product_id: targetStock.product_id,
+                      warehouse_id: targetStock.warehouse_id,
+                      brand_id: targetStock.brand_id,
+                      buying_price: 0,
+                      selling_price: 0,
+                      stocks: quantity,
+                      barcode: scannedBarcodes,
+                  })
+                : await updateStock(targetStock.id, {
+                      barcode: scannedBarcodes,
+                      adjust_mode: adjustMode,
+                  });
 
             setStocks((previous) =>
-                previous.map((stock) => (stock.id === updated.id ? updated : stock))
+                previous.map((stock) => (stock.id === targetStock.id ? updated : stock))
             );
 
             toast.success(adjustMode === 'add' ? 'Stock added successfully.' : 'Stock deducted successfully.', {

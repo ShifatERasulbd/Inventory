@@ -9,8 +9,8 @@ export default function EditForm({ form, onChange, onPurchaseChange, purchases =
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Edit Cartoon</CardTitle>
-                <CardDescription>Update Cartoon information and save your changes.</CardDescription>
+                <CardTitle>Edit Carton</CardTitle>
+                <CardDescription>Update Carton information and save your changes.</CardDescription>
             </CardHeader>
 
             <Separator />
@@ -38,13 +38,13 @@ export default function EditForm({ form, onChange, onPurchaseChange, purchases =
 
                         
                         <div className="space-y-2">
-                            <Label htmlFor="cartoon_number">Cartoon Number</Label>
+                            <Label htmlFor="cartoon_number">Carton Number</Label>
                             <Input
                                 id="cartoon_number"
                                 name="cartoon_number"
                                 value={form.cartoon_number}
                                 onChange={onChange}
-                                placeholder="e.g. Cartoon Number"
+                                placeholder="e.g. Carton Number"
                                 required
                             />
                             {errors.cartoon_number && <p className="text-xs text-destructive">{errors.cartoon_number[0]}</p>}
@@ -139,7 +139,7 @@ export default function EditForm({ form, onChange, onPurchaseChange, purchases =
                         Cancel
                     </Button>
                     <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? 'Updating...' : 'Update Cartoon'}
+                        {isSubmitting ? 'Updating...' : 'Update Carton'}
                     </Button>
                 </CardFooter>
             </form>

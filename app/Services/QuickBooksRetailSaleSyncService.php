@@ -364,6 +364,7 @@ class QuickBooksRetailSaleSyncService
         }
 
         $response = Http::asForm()
+            ->withOptions(['verify' => $this->resolveCaBundlePath()])
             ->withBasicAuth(
                 (string) config('services.quickbooks_test1.client_id'),
                 (string) config('services.quickbooks_test1.client_secret')
@@ -407,6 +408,7 @@ class QuickBooksRetailSaleSyncService
 
         $request = Http::withToken($accessToken)
             ->acceptJson()
+            ->withOptions(['verify' => $this->resolveCaBundlePath()])
             ->withHeaders([
                 'Content-Type' => 'application/json',
             ]);
@@ -462,6 +464,17 @@ class QuickBooksRetailSaleSyncService
     private function escapeQuickBooksString(string $value): string
     {
         return str_replace("'", "\\'", $value);
+    }
+
+    /**
+     * Resolve a CA bundle for local/XAMPP environments where PHP has no system CA store
+     * configured, avoiding "cURL error 60: SSL certificate problem" against Intuit endpoints.
+     */
+    private function resolveCaBundlePath(): string|bool
+    {
+        $bundled = base_path('vendor/quickbooks/v3-php-sdk/src/Core/OAuth/OAuth2/certs/cacert.pem');
+
+        return is_file($bundled) ? $bundled : true;
     }
 
     private function isConnectionFailure(string $message): bool
