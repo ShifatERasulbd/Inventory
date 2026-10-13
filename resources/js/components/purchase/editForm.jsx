@@ -98,7 +98,7 @@ export default function EditPurchaseForm({
                 <CardContent className="space-y-6 pt-6">
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                         <div className="space-y-2">
-                            <Label htmlFor="purchase_form">Purchase From</Label>
+                            <Label htmlFor="purchase_form">Vendor</Label>
                             <Select value={form.purchase_form} onValueChange={(value) => onSelectChange('purchase_form', value)}>
                                 <SelectTrigger id="purchase_form" className="w-full">
                                     <SelectValue placeholder="Select warehouse" />
@@ -114,27 +114,37 @@ export default function EditPurchaseForm({
                             {errors.purchase_form && <p className="text-xs text-destructive">{errors.purchase_form[0]}</p>}
                         </div>
 
+                       <div className="space-y-2">
+                            {/* CHANGED: label no longer says "(Login Warehouse)" because every user can now pick */}
+                            <Label htmlFor="purchase_to">Purchase To</Label>
+
+                            {/* CHANGED: removed the `isSuperAdmin ? <Select/> : <Input disabled/>` condition.
+                                The dropdown now renders for all users, same as "Purchase From". */}
+                            <Select value={form.purchase_to} onValueChange={(value) => onSelectChange('purchase_to', value)}>
+                                <SelectTrigger id="purchase_to" className="w-full">
+                                    <SelectValue placeholder="Select warehouse" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {warehouses.map((warehouse) => (
+                                        <SelectItem key={warehouse.id} value={String(warehouse.id)}>
+                                            {warehouse.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {errors.purchase_to && <p className="text-xs text-destructive">{errors.purchase_to[0]}</p>}
+                        </div>
+
                         <div className="space-y-2">
-                            <Label htmlFor="purchase_to">Purchase To {isSuperAdmin ? '' : '(Login Warehouse)'}</Label>
-                            {isSuperAdmin ? (
-                                <>
-                                    <Select value={form.purchase_to} onValueChange={(value) => onSelectChange('purchase_to', value)}>
-                                        <SelectTrigger id="purchase_to" className="w-full">
-                                            <SelectValue placeholder="Select warehouse" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {warehouses.map((warehouse) => (
-                                                <SelectItem key={warehouse.id} value={String(warehouse.id)}>
-                                                    {warehouse.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {errors.purchase_to && <p className="text-xs text-destructive">{errors.purchase_to[0]}</p>}
-                                </>
-                            ) : (
-                                <Input value={purchaseToLabel} disabled />
-                            )}
+                            <Label htmlFor="buyer">Buyer</Label>
+                            <Input
+                                id="buyer"
+                                name="buyer"
+                                value={form.buyer}
+                                onChange={onChange}
+                                placeholder="e.g. PO-2026-001"
+                            />
+                            {errors.buyer && <p className="text-xs text-destructive">{errors.buyer[0]}</p>}
                         </div>
 
                         <div className="space-y-2">

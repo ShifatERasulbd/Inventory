@@ -93,12 +93,17 @@ function resolveOrderLineForProduct(product, requiredItems, scannedQtyByOrderKey
 }
 
 function extractSelectedOrderItems(order) {
-    const sourceItems = Array.isArray(order?.raw_payload?.items) ? order.raw_payload.items : [];
+    const payload = order?.raw_payload && typeof order.raw_payload === 'object'
+        ? order.raw_payload
+        : order;
+    const sourceItems = Array.isArray(payload?.items) ? payload.items : [];
 
     return sourceItems
         .map((item) => {
             const quantity = Math.max(1, Number.parseInt(item?.quantity ?? item?.qty ?? 1, 10) || 1);
-            const name = String(item?.name || item?.title || item?.product_name || 'Unknown Product');
+            const sku = String(item?.sku || item?.SellerSKU || '').trim();
+            const asin = String(item?.asin || item?.ASIN || '').trim();
+            const name = String(item?.name || item?.title || item?.product_name || sku || asin || 'Unknown Product');
             const productId = Number.parseInt(item?.productId ?? item?.product_id ?? 0, 10) || 0;
             const color = String(
                 item?.selectedColor
@@ -114,13 +119,16 @@ function extractSelectedOrderItems(order) {
                 || item?.size_variant?.size
                 || ''
             ).trim();
-            const matchKey = buildOrderItemKey({ productId, color, size });
+            const matchKey = productId > 0
+                ? buildOrderItemKey({ productId, color, size })
+                : `external::${normalizeText(sku || asin || name)}::${normalizeText(color)}::${normalizeText(size)}`;
             const barcode = String(item?.barcode || '').trim();
 
             return {
                 productId,
                 quantity,
                 name,
+                sku,
                 nameKey: normalizeName(name),
                 color,
                 size,
@@ -128,7 +136,7 @@ function extractSelectedOrderItems(order) {
                 matchKey,
             };
         })
-        .filter((item) => item.productId > 0);
+        .filter((item) => item.productId > 0 || item.nameKey !== normalizeName('Unknown Product'));
 }
 
 function formatCurrency(value) {
@@ -172,6 +180,7 @@ export default function RetailPOS() {
     // Dropdown pending orders states
     const [pendingOrders, setPendingOrders] = useState([]);
     const [selectedPendingOrder, setSelectedPendingOrder] = useState('none');
+    const [isLoadingSelectedOrder, setIsLoadingSelectedOrder] = useState(false);
 
     const barcodeRef = useRef(null);
     const prefillAppliedRef = useRef(false);
@@ -303,6 +312,7 @@ export default function RetailPOS() {
                 matchKey: item.matchKey,
                 productId: item.productId,
                 name: item.name,
+                sku: item.sku,
                 nameKey: item.nameKey,
                 color: item.color,
                 size: item.size,
@@ -334,11 +344,12 @@ export default function RetailPOS() {
     }, [cart]);
 
     // Handle approved order selection and reset to scan-driven matching mode.
-    const handleSelectPendingOrderChange = (orderIdString) => {
+    const handleSelectPendingOrderChange = async (orderIdString) => {
         setSelectedPendingOrder(orderIdString);
         if (orderIdString === 'none') {
             setCart([]);
             setNote('');
+            setIsLoadingSelectedOrder(false);
             return;
         }
 
@@ -355,6 +366,26 @@ export default function RetailPOS() {
 
         setCart([]);
         setNote(match.raw_payload?.notes || match.raw_payload?.comment || '');
+
+        const isAmazonOrder = match.order_from === 'amazon' || match.raw_payload?.orders_from === 'amazon';
+        const hasSavedAmazonItems = Array.isArray(match.raw_payload?.items) && match.raw_payload.items.length > 0;
+        if (isAmazonOrder && !hasSavedAmazonItems) {
+            setIsLoadingSelectedOrder(true);
+            try {
+                const response = await fetchRemoteOrderById(match.id);
+                const refreshedOrder = response?.order;
+                if (refreshedOrder) {
+                    setPendingOrders((orders) => orders.map((order) => (
+                        String(order.id) === orderIdString ? refreshedOrder : order
+                    )));
+                }
+            } catch (error) {
+                toast.error(error?.message || 'Unable to load Amazon order items.');
+            } finally {
+                setIsLoadingSelectedOrder(false);
+            }
+        }
+
         toast.success(`Selected approved order ${match.order_number || match.id}. Scan barcodes to match order items.`);
     };
 
@@ -1021,7 +1052,9 @@ export default function RetailPOS() {
                                 {selectedPendingOrder !== 'none' && (
                                     <div className="rounded-md border bg-muted/30 p-2 text-xs">
                                         <p className="mb-1 font-medium">Required items from selected order</p>
-                                        {selectedOrderRequiredItems.length === 0 ? (
+                                        {isLoadingSelectedOrder ? (
+                                            <p className="text-muted-foreground">Loading Amazon order items...</p>
+                                        ) : selectedOrderRequiredItems.length === 0 ? (
                                             <p className="text-muted-foreground">No valid order items found in this order payload.</p>
                                         ) : (
                                             <div className="space-y-1">
@@ -1031,6 +1064,7 @@ export default function RetailPOS() {
                                                         <div key={item.matchKey} className="flex items-center justify-between gap-2">
                                                             <span className="truncate">
                                                                 {item.name}
+                                                                {item.sku ? ` | SKU: ${item.sku}` : ''}
                                                                 {item.color ? ` | Color: ${item.color}` : ''}
                                                                 {item.size ? ` | Size: ${item.size}` : ''}
                                                             </span>

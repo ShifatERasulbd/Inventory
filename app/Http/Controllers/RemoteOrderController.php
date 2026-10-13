@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Traits\AuthorizesOrderCategory;
+use App\Services\VeeqoService;
 use App\Models\Product;
 use App\Models\RemoteOrder;
 use App\Models\Stock;
@@ -23,6 +24,45 @@ class RemoteOrderController extends Controller
 {
     use AuthorizesOrderCategory;
 
+    /**
+     * Automatically background sync shipping status from Veeqo for active orders.
+     */
+    private function autoSyncOrderFromVeeqo(RemoteOrder $order, VeeqoService $veeqoService): void
+    {
+        if (! $order->remote_id || in_array(strtolower($order->status), ['delivered', 'cancelled', 'refunded'])) {
+            return;
+        }
+
+        try {
+            $veeqoData = $veeqoService->getOrderStatus((int) $order->remote_id);
+            $rawVeeqoStatus = $veeqoData['status'] ?? null;
+
+            if ($rawVeeqoStatus) {
+                $newStatus = match (strtolower($rawVeeqoStatus)) {
+                    'awaiting_stock', 'allocated', 'pending' => 'waiting for shipment',
+                    'shipped' => 'shipped',
+                    'delivered' => 'delivered',
+                    'cancelled' => 'cancelled',
+                    default => $rawVeeqoStatus,
+                };
+
+                if ($order->status !== $newStatus) {
+                    $rawPayload = is_array($order->raw_payload) ? $order->raw_payload : [];
+                    $rawPayload['status'] = $newStatus;
+
+                    $order->update([
+                        'status' => $newStatus,
+                        'raw_payload' => $rawPayload,
+                    ]);
+                }
+            }
+        } catch (Throwable $e) {
+            Log::warning('Automatic Veeqo status background sync failed', [
+                'remote_order_id' => $order->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
 
     public function getPendingOrders(Request $request): JsonResponse
     {
@@ -94,7 +134,63 @@ class RemoteOrderController extends Controller
         ]);
     }
 
-    public function index(Request $request): JsonResponse
+    public function handleVeeqoWebhook(Request $request): JsonResponse
+    {
+        $payload = $request->json()->all();
+
+        $veeqoOrderId = $payload['id'] ?? null; 
+        $status = $payload['status'] ?? null;     
+
+        if ($veeqoOrderId) {
+            $order = RemoteOrder::where('remote_id', $veeqoOrderId)->first();
+            if ($order) {
+                $order->update(['status' => $status]);
+            }
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    public function syncVeeqoShippingStatus(Request $request, VeeqoService $veeqoService, int $id): JsonResponse
+    {
+        $order = RemoteOrder::query()->where('id', $id)->first();
+
+        if (! $order || ! $order->remote_id) {
+            return response()->json(['success' => false, 'message' => 'Order or Veeqo reference not found.'], 404);
+        }
+
+        try {
+            $veeqoData = $veeqoService->getOrderStatus((int) $order->remote_id);
+            $rawVeeqoStatus = $veeqoData['status'] ?? null;
+
+            $newStatus = match (strtolower((string) $rawVeeqoStatus)) {
+                'awaiting_stock', 'allocated', 'pending' => 'waiting for shipment',
+                'shipped' => 'shipped',
+                'delivered' => 'delivered',
+                'cancelled' => 'cancelled',
+                default => $rawVeeqoStatus ?? $order->status,
+            };
+
+            $order->update([
+                'status' => $newStatus,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Shipping status synchronized successfully from Veeqo.',
+                'status' => $newStatus,
+                'order' => $order->fresh(),
+            ]);
+
+        } catch (Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to sync status from Veeqo: ' . $e->getMessage(),
+            ], 502);
+        }
+    }
+
+    public function index(Request $request, VeeqoService $veeqoService): JsonResponse
     {
         $validated = $request->validate([
             'search' => 'nullable|string|max:255',
@@ -150,15 +246,18 @@ class RemoteOrderController extends Controller
             $query->where('updated_at', '<=', Carbon::parse((string) $validated['date_to'])->endOfDay());
         }
 
-        return response()->json(
-            $query->paginate((int) ($validated['per_page'] ?? 20))
-        );
+        $paginatedOrders = $query->paginate((int) ($validated['per_page'] ?? 20));
+
+        // Automatically background sync active orders on this page view
+        foreach ($paginatedOrders->items() as $order) {
+            if (in_array($order->status, ['waiting for shipment', 'ready for shipment', 'pending'])) {
+                $this->autoSyncOrderFromVeeqo($order, $veeqoService);
+            }
+        }
+
+        return response()->json($paginatedOrders);
     }
 
-    /**
-     * Manually create an order that isn't synced from an upstream store (e.g. Amazon),
-     * saved into remote_orders with the given order_from tag (defaults to "amazon").
-     */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -276,9 +375,6 @@ class RemoteOrderController extends Controller
         ], 201);
     }
 
-    /**
-     * Distinct product/color/size variants for the manual order creation form's cascading selects.
-     */
     public function productOptions(Request $request): JsonResponse
     {
         if ($response = $this->authorizeOrderAction($request, 'read', null)) {
@@ -312,7 +408,7 @@ class RemoteOrderController extends Controller
         ]);
     }
 
-    public function show(Request $request, int $id, RemoteOrderSyncService $syncService): JsonResponse
+    public function show(Request $request, int $id, RemoteOrderSyncService $syncService, VeeqoService $veeqoService, AmazonOrderSyncService $amazonSyncService): JsonResponse
     {
         $localOrder = RemoteOrder::query()->where('id', $id)->first()
             ?? RemoteOrder::query()->where('remote_id', $id)->first();
@@ -322,9 +418,22 @@ class RemoteOrderController extends Controller
         }
 
         if ($localOrder) {
+            $this->autoSyncOrderFromVeeqo($localOrder, $veeqoService);
+
+            if ($localOrder->order_from === 'amazon') {
+                try {
+                    $localOrder = $amazonSyncService->hydrateMissingItems($localOrder);
+                } catch (Throwable $e) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unable to load Amazon order items: '.$e->getMessage(),
+                    ], 502);
+                }
+            }
+
             return response()->json([
                 'success' => true,
-                'order' => $localOrder,
+                'order' => $localOrder->fresh(),
             ]);
         }
 
@@ -373,9 +482,6 @@ class RemoteOrderController extends Controller
             ], 502);
         }
 
-        // Amazon uses its own SP-API sync (LWA auth, LastUpdatedAfter/NextToken pagination),
-        // kept separate from the other stores' simple API-key polling. A failure here shouldn't
-        // fail the whole sync response since the other stores already synced successfully above.
         try {
             $amazonResult = $amazonSyncService->syncRecent((int) ($validated['limit'] ?? 100));
             $result['stores']['amazon'] = $amazonResult;
@@ -556,7 +662,6 @@ class RemoteOrderController extends Controller
             'raw_payload' => $rawPayload,
         ]);
 
-        // Send the Stripe refund before persisting the status so a failed refund doesn't get saved as "refunded".
         if (array_key_exists('status', $validated) && strtolower(trim((string) $validated['status'])) === 'refunded') {
             try {
                 $refundService->refund($order);
@@ -570,7 +675,6 @@ class RemoteOrderController extends Controller
 
         $order->save();
 
-        // Reflect the status change on the order's origin store (1971co or viveren).
         if (array_key_exists('status', $validated) && $order->remote_id > 0) {
             try {
                 $syncService->pushStatusUpdate(
@@ -709,3 +813,4 @@ class RemoteOrderController extends Controller
         ]);
     }
 }
+

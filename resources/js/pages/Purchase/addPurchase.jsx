@@ -13,6 +13,7 @@ const initialForm = {
     purchase_form: '',
     purchase_to: '',
     brand_id: '',
+    buyer:'',
     po_number: '',
     expected_delivery_date: '',
     status: 'pending',
@@ -177,6 +178,10 @@ function validateForm(form, isSuperAdmin, minExpectedDeliveryDate) {
 
     if (!form.po_number.trim()) {
         validationErrors.po_number = ['PO number is required.'];
+    }
+
+    if(!form.buyer.trim()){
+        validationErrors.buyer=['Buyer Name is Required'];
     }
 
     if(!form.expected_delivery_date.trim()) {
@@ -591,6 +596,7 @@ export default function AddPurchase() {
                 payment_method: form.payment_method || null,
                 paid_amount: paidAmount,
                 po_number: form.po_number.trim(),
+                buyer:form.buyer.trim(),
                 expected_delivery_date: form.expected_delivery_date.trim(),
                 status: form.status.trim(),
                 shipping_date: form.shipping_date || null,

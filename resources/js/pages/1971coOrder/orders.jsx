@@ -17,8 +17,8 @@ import Preloader from '@/components/Preloader';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const BULK_STATUS_OPTIONS = ['pending', 'waiting for shipment', 'ready for shipment', 'shipped', 'delivered', 'cancelled', 'refunded'];
-const STATUS_TABS = ['all', 'pending', 'waiting for shipment', 'ready for shipment', 'shipped', 'delivered', 'cancelled', 'refunded'];
+const BULK_STATUS_OPTIONS = ['pending', 'waiting for shipment', 'ready for shipment', 'shipped', 'delivered', 'cancel_order', 'refund_initiated'];
+const STATUS_TABS = ['all', 'pending', 'waiting for shipment', 'ready for shipment', 'shipped', 'delivered', 'cancel_order', 'refund_initiated'];
 
 function firstNonEmptyString(...values) {
     for (const value of values) {

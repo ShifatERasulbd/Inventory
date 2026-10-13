@@ -264,6 +264,20 @@ class VeeqoService
     }
 
     /**
+ * Fetch the latest order details from Veeqo to check its current shipping status.
+ */
+public function getOrderStatus(int $veeqoOrderId): array
+{
+    $response = $this->client()->get("{$this->baseUrl}/orders/{$veeqoOrderId}");
+
+    if ($response->failed()) {
+        throw new Exception("Veeqo API Error [GET /orders/{$veeqoOrderId}, status {$response->status()}]: " . $response->body());
+    }
+
+    return (array) $response->json();
+}
+
+    /**
      * Resolve the Veeqo delivery method (carrier) ID by name, e.g. "UPS Ground",
      * creating it in Veeqo on the fly if it doesn't exist yet.
      */

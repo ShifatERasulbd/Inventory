@@ -112,6 +112,25 @@ class StockController extends Controller
 
     private function resolveProductForLocationLookup(array $item): ?Product
     {
+        // ADDED: color & size sent from the order item (e.g. "Taupe" / "L").
+        $color = strtolower(trim((string) ($item['selectedColor'] ?? '')));
+        $size  = strtolower(trim((string) ($item['selectedSize'] ?? '')));
+
+        // ADDED: helper that narrows any product query to the matching color & size variant.
+        // If color/size are empty it adds nothing, so older items without them still work.
+        $withVariant = function ($query) use ($color, $size) {
+            if ($color !== '') {
+                $query->whereHas('color', fn ($q) => $q->whereRaw('LOWER(name) = ?', [$color]));
+            }
+
+            if ($size !== '') {
+                $query->whereHas('size', fn ($q) => $q->whereRaw('LOWER(size) = ?', [$size]));
+            }
+
+            return $query;
+        };
+
+        // 1) SKU / barcode / product_code match (unchanged)
         $codeCandidates = $this->normalizeLookupValues([
             $item['sku'] ?? null,
             $item['barcode'] ?? null,
@@ -133,21 +152,24 @@ class StockController extends Controller
             $item['title'] ?? null,
         ]);
 
+        // 2) Exact name match
+        // CHANGED: now also requires the matching color & size ($withVariant).
         foreach ($nameCandidates as $candidate) {
-            $product = Product::query()
-                ->whereRaw('LOWER(name) = ?', [strtolower($candidate)])
-                ->first();
+            $product = $withVariant(
+                Product::query()->whereRaw('LOWER(name) = ?', [strtolower($candidate)])
+            )->orderBy('id')->first();
 
             if ($product) {
                 return $product;
             }
         }
 
+        // 3) Partial name match (LIKE)
+        // CHANGED: now also requires the matching color & size ($withVariant).
         foreach ($nameCandidates as $candidate) {
-            $product = Product::query()
-                ->where('name', 'like', '%' . $candidate . '%')
-                ->orderBy('id')
-                ->first();
+            $product = $withVariant(
+                Product::query()->where('name', 'like', '%' . $candidate . '%')
+            )->orderBy('id')->first();
 
             if ($product) {
                 return $product;
@@ -369,6 +391,9 @@ class StockController extends Controller
             'items.*.barcode' => ['nullable', 'string', 'max:255'],
             'items.*.product_code' => ['nullable', 'string', 'max:255'],
             'items.*.quantity' => ['nullable', 'integer', 'min:1'],
+            // ADDED: without these two rules validate() strips the keys and the variant match never sees them.
+            'items.*.selectedColor' => ['nullable', 'string', 'max:255'],
+            'items.*.selectedSize' => ['nullable', 'string', 'max:255'],
             'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
         ]);
 

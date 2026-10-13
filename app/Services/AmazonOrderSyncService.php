@@ -136,6 +136,20 @@ class AmazonOrderSyncService
         return $items;
     }
 
+    public function hydrateMissingItems(RemoteOrder $order): RemoteOrder
+    {
+        $rawPayload = is_array($order->raw_payload) ? $order->raw_payload : [];
+        if ($order->order_from !== 'amazon' || ! empty($rawPayload['items'])) {
+            return $order;
+        }
+
+        $rawPayload['items'] = $this->mapItems($this->fetchOrderItems($order->order_number));
+        $order->raw_payload = $rawPayload;
+        $order->save();
+
+        return $order->fresh();
+    }
+
     private function upsertAmazonOrder(array $amazonOrder, ?RemoteOrder $existing, ?array $amazonItems): RemoteOrder
     {
         $amazonOrderId = (string) $amazonOrder['AmazonOrderId'];

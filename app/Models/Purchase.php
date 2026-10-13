@@ -37,6 +37,7 @@ class Purchase extends Model
         'quickbooks_synced_at',
         'quickbooks_txn_id',
         'quickbooks_last_error',
+        'buyer'
     ];
 
     protected $casts = [

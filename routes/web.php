@@ -67,6 +67,10 @@ Route::prefix('api')->group(function () {
             Route::delete('/{token}', [ApiKeyController::class, 'destroy']);
         });
 
+
+        // veeqo webhook
+        Route::post('/veeqo/webhook', [RemoteOrderController::class, 'handleVeeqoWebhook']);
+
         // Country Controller
         Route::get('/countries/trashed', [CountryController::class, 'trashed'])->middleware('resource.permission:countries');
         Route::post('/countries/{id}/restore', [CountryController::class, 'restore'])->middleware('resource.permission:countries');
