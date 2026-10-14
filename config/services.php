@@ -76,6 +76,7 @@ return [
         'url' => env('VEEQO_API_URL', 'https://api.veeqo.com'),
         'dashboard_url' => env('VEEQO_DASHBOARD_URL', 'https://app.veeqo.com'),
         'verify_ssl' => env('VEEQO_VERIFY_SSL', true),
+        'ca_bundle' => env('VEEQO_CA_BUNDLE'),
         'origin' => [
             'address1' => env('VEEQO_ORIGIN_ADDRESS1'),
             'city' => env('VEEQO_ORIGIN_CITY'),

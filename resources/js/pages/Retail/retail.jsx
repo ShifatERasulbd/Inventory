@@ -973,7 +973,7 @@ export default function RetailPOS() {
             });
             setCheckoutModalOpen(true);
 
-            toast.success(`Sale complete. Ref: ${sale.reference_number}`);
+            // toast.success(`Sale complete. Ref: ${sale.reference_number}`);
             setCart([]);
             setNote('');
             setIsAmazonOrder(false);

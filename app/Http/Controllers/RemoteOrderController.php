@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Database\QueryException;
 use Throwable;
 
 class RemoteOrderController extends Controller
@@ -259,121 +260,156 @@ class RemoteOrderController extends Controller
     }
 
     public function store(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'order_from' => 'nullable|string|max:50',
-            'order_number' => 'nullable|string|max:255',
-            'customer_name' => 'nullable|string|max:255',
-            'total' => 'nullable|numeric|min:0',
-            'first_name' => 'nullable|string|max:255',
-            'last_name' => 'nullable|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:100',
-            'address_line_1' => 'nullable|string|max:255',
-            'address_line_2' => 'nullable|string|max:255',
-            'city' => 'nullable|string|max:255',
-            'state' => 'nullable|string|max:255',
-            'postal_code' => 'nullable|string|max:50',
-            'country' => 'nullable|string|max:100',
-            'status' => 'nullable|string|max:100',
-            'notes' => 'nullable|string|max:2000',
-            'items' => 'required|array|min:1',
-            'items.*.name' => 'required|string|max:255',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.price' => 'nullable|numeric|min:0',
-            'items.*.selected_color' => 'nullable|string|max:100',
-            'items.*.selected_size' => 'nullable|string|max:100',
-        ]);
-
-        if ($response = $this->authorizeOrderAction($request, 'create', trim((string) ($validated['order_from'] ?? '')) ?: 'amazon')) {
-            return $response;
-        }
-
-        $customerNameInput = trim((string) ($validated['customer_name'] ?? ''));
-        if ($customerNameInput === '' && trim((string) ($validated['first_name'] ?? '')) === '' && trim((string) ($validated['last_name'] ?? '')) === '') {
-            throw ValidationException::withMessages([
-                'customer_name' => ['Enter a customer name for this order.'],
+        {
+            $validated = $request->validate([
+                'order_from' => 'nullable|string|max:50',
+                'order_number' => 'nullable|string|max:255',
+                'total' => 'nullable|numeric|min:0',
+                'subtotal' => 'nullable|numeric|min:0',
+                'shipping_amazon' => 'nullable|numeric|min:0',
+                'shipping_actual' => 'nullable|numeric|min:0',
+                'tax' => 'nullable|numeric|min:0',
+                'amazon_fee' => 'nullable|numeric|min:0',
+                'first_name' => 'nullable|string|max:255',
+                'last_name' => 'nullable|string|max:255',
+                'email' => 'nullable|email|max:255',
+                'phone' => 'nullable|string|max:100',
+                'address_line_1' => 'nullable|string|max:255',
+                'city' => 'nullable|string|max:255',
+                'state' => 'nullable|string|max:255',
+                'postal_code' => 'nullable|string|max:50',
+                'country' => 'nullable|string|max:100',
+                'status' => 'nullable|string|max:100',
+                'notes' => 'nullable|string|max:2000',
+                'items' => 'required|array|min:1',
+                'items.*.name' => 'required|string|max:255',
+                'items.*.quantity' => 'required|integer|min:1',
+                'items.*.price' => 'nullable|numeric|min:0',
+                'items.*.selected_color' => 'nullable|string|max:100',
+                'items.*.selected_size' => 'nullable|string|max:100',
             ]);
-        }
 
-        $orderFrom = trim((string) ($validated['order_from'] ?? '')) ?: 'amazon';
-        $status = trim((string) ($validated['status'] ?? '')) ?: 'pending';
-
-        $items = array_values(array_map(static function (array $item, int $index): array {
-            return [
-                'lineId' => $index + 1,
-                'productId' => null,
-                'name' => (string) $item['name'],
-                'priceValue' => (float) ($item['price'] ?? 0),
-                'quantity' => (int) $item['quantity'],
-                'weight' => null,
-                'image' => null,
-                'selectedColor' => trim((string) ($item['selected_color'] ?? '')) ?: null,
-                'selectedSize' => trim((string) ($item['selected_size'] ?? '')) ?: null,
-            ];
-        }, $validated['items'], array_keys($validated['items'])));
-
-        $itemsTotal = array_reduce($items, static function (float $carry, array $item): float {
-            return $carry + ($item['priceValue'] * $item['quantity']);
-        }, 0.0);
-
-        $total = array_key_exists('total', $validated) && $validated['total'] !== null
-            ? (float) $validated['total']
-            : $itemsTotal;
-
-        $customerName = $customerNameInput !== '' ? $customerNameInput : trim(
-            Str::of((string) ($validated['first_name'] ?? ''))
-                ->append(' ')
-                ->append((string) ($validated['last_name'] ?? ''))
-                ->value()
-        );
-
-        $order = DB::transaction(function () use ($orderFrom, $status, $items, $total, $customerName, $validated) {
-            $remoteId = ((int) RemoteOrder::query()->where('order_from', $orderFrom)->lockForUpdate()->max('remote_id')) + 1;
-
-            $orderNumber = trim((string) ($validated['order_number'] ?? ''));
-            if ($orderNumber === '') {
-                $orderNumber = strtoupper($orderFrom) . '-' . $remoteId;
+            if ($response = $this->authorizeOrderAction($request, 'create', trim((string) ($validated['order_from'] ?? '')) ?: 'amazon')) {
+                return $response;
             }
 
-            $rawPayload = [
-                'id' => $remoteId,
-                'order_number' => $orderNumber,
-                'orders_from' => $orderFrom,
-                'first_name' => (string) ($validated['first_name'] ?? ''),
-                'last_name' => (string) ($validated['last_name'] ?? ''),
-                'email' => (string) ($validated['email'] ?? ''),
-                'phone' => (string) ($validated['phone'] ?? ''),
-                'address_line_1' => (string) ($validated['address_line_1'] ?? ''),
-                'address_line_2' => (string) ($validated['address_line_2'] ?? ''),
-                'city' => (string) ($validated['city'] ?? ''),
-                'state' => (string) ($validated['state'] ?? ''),
-                'postal_code' => (string) ($validated['postal_code'] ?? ''),
-                'country' => (string) ($validated['country'] ?? ''),
-                'notes' => (string) ($validated['notes'] ?? ''),
-                'status' => $status,
-                'total' => $total,
-                'items' => $items,
-                'manually_created' => true,
+            $customerNameInput = trim((string) ($validated['customer_name'] ?? ''));
+            if ($customerNameInput === '' && trim((string) ($validated['first_name'] ?? '')) === '' && trim((string) ($validated['last_name'] ?? '')) === '') {
+                throw ValidationException::withMessages([
+                    'customer_name' => ['Enter a customer name for this order.'],
+                ]);
+            }
+
+            $orderFrom = trim((string) ($validated['order_from'] ?? '')) ?: 'amazon';
+            $status = trim((string) ($validated['status'] ?? '')) ?: 'pending';
+
+            $items = array_values(array_map(static function (array $item, int $index): array {
+                return [
+                    'lineId' => $index + 1,
+                    'productId' => null,
+                    'name' => (string) $item['name'],
+                    'priceValue' => (float) ($item['price'] ?? 0),
+                    'quantity' => (int) $item['quantity'],
+                    'weight' => null,
+                    'image' => null,
+                    'selectedColor' => trim((string) ($item['selected_color'] ?? '')) ?: null,
+                    'selectedSize' => trim((string) ($item['selected_size'] ?? '')) ?: null,
+                ];
+            }, $validated['items'], array_keys($validated['items'])));
+
+            $itemsTotal = array_reduce($items, static function (float $carry, array $item): float {
+                return $carry + ($item['priceValue'] * $item['quantity']);
+            }, 0.0);
+
+            // Charges are calculated on the server so the saved total can't drift from its parts.
+            $shippingAmazon = round((float) ($validated['shipping_amazon'] ?? 0), 2);
+            $shippingActual = round((float) ($validated['shipping_actual'] ?? 0), 2);
+            $tax            = round((float) ($validated['tax'] ?? 0), 2);
+            $amazonFee      = round((float) ($validated['amazon_fee'] ?? 0), 2);
+
+            $subtotal = round($itemsTotal, 2);
+            // Customer total = items + Amazon shipping + tax.
+            // Actual shipping and Amazon fee are internal costs and are stored but not added.
+            $total = round($subtotal + $shippingAmazon + $tax, 2);
+
+            $charges = [
+                'subtotal' => $subtotal,
+                'shipping_amazon' => $shippingAmazon,
+                'shipping_actual' => $shippingActual,
+                'tax' => $tax,
+                'amazon_fee' => $amazonFee,
             ];
 
-            return RemoteOrder::query()->create([
-                'remote_id' => $remoteId,
-                'order_number' => $orderNumber,
-                'order_from' => $orderFrom,
-                'customer_name' => $customerName,
-                'total' => $total,
-                'status' => $status,
-                'raw_payload' => $rawPayload,
-            ]);
-        });
+            $customerName = $customerNameInput !== '' ? $customerNameInput : trim(
+                Str::of((string) ($validated['first_name'] ?? ''))
+                    ->append(' ')
+                    ->append((string) ($validated['last_name'] ?? ''))
+                    ->value()
+            );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Order created successfully.',
-            'order' => $order,
-        ], 201);
-    }
+            $order = null;
+            $maxAttempts = 5;
+
+            for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+                try {
+                    $order = DB::transaction(function () use ($orderFrom, $status, $items, $total, $charges, $customerName, $validated) {
+                        // Highest remote_id across ALL orders + 1, so a manual order never reuses an existing id.
+                        $remoteId = ((int) RemoteOrder::query()->lockForUpdate()->max('remote_id')) + 1;
+
+                        $orderNumber = trim((string) ($validated['order_number'] ?? ''));
+                        if ($orderNumber === '') {
+                            $orderNumber = strtoupper($orderFrom) . '-' . $remoteId;
+                        }
+
+                        $rawPayload = [
+                            'id' => $remoteId,
+                            'order_number' => $orderNumber,
+                            'orders_from' => $orderFrom,
+                            'first_name' => (string) ($validated['first_name'] ?? ''),
+                            'last_name' => (string) ($validated['last_name'] ?? ''),
+                            'email' => (string) ($validated['email'] ?? ''),
+                            'phone' => (string) ($validated['phone'] ?? ''),
+                            'address_line_1' => (string) ($validated['address_line_1'] ?? ''),
+                            'city' => (string) ($validated['city'] ?? ''),
+                            'state' => (string) ($validated['state'] ?? ''),
+                            'postal_code' => (string) ($validated['postal_code'] ?? ''),
+                            'country' => (string) ($validated['country'] ?? ''),
+                            'notes' => (string) ($validated['notes'] ?? ''),
+                            'status' => $status,
+                            'total' => $total,
+                            ...$charges,
+                            'items' => $items,
+                            'manually_created' => true,
+                        ];
+
+                        return RemoteOrder::query()->create([
+                            'remote_id' => $remoteId,
+                            'order_number' => $orderNumber,
+                            'order_from' => $orderFrom,
+                            'customer_name' => $customerName,
+                            'total' => $total,
+                            ...$charges,
+                            'status' => $status,
+                            'raw_payload' => $rawPayload,
+                        ]);
+                    });
+
+                    break;
+                } catch (QueryException $e) {
+                    // SQLSTATE 23000 = duplicate key: another request took this id first.
+                    // Loop again so max('remote_id') + 1 picks the next free number.
+                    if ($e->getCode() !== '23000' || $attempt === $maxAttempts) {
+                        throw $e;
+                    }
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Order created successfully.',
+                'order' => $order,
+            ], 201);
+        }
 
     public function productOptions(Request $request): JsonResponse
     {
@@ -583,7 +619,7 @@ class RemoteOrderController extends Controller
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:100',
             'address_line_1' => 'nullable|string|max:255',
-            'address_line_2' => 'nullable|string|max:255',
+         
             'city' => 'nullable|string|max:255',
             'state' => 'nullable|string|max:255',
             'postal_code' => 'nullable|string|max:50',
@@ -613,7 +649,7 @@ class RemoteOrderController extends Controller
             'email',
             'phone',
             'address_line_1',
-            'address_line_2',
+          
             'city',
             'state',
             'postal_code',

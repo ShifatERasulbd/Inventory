@@ -7,6 +7,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 class VeeqoService
 {
@@ -23,14 +24,43 @@ class VeeqoService
 
     protected function client(): PendingRequest
     {
+        if (trim($this->apiKey) === '') {
+            throw new RuntimeException('Veeqo API key is not configured. Set VEEQO_API_KEY in the application environment.');
+        }
+
         return Http::withHeaders([
             'x-api-key' => $this->apiKey,
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
         ])
-            ->withOptions(['verify' => $this->verifySsl])
+            ->withOptions(['verify' => $this->verifySsl ? $this->resolveCaBundlePath() : false])
             ->connectTimeout(5)
             ->timeout(10);
+    }
+
+    /**
+     * Resolve a CA bundle for PHP installations without a configured system CA store.
+     */
+    private function resolveCaBundlePath(): string|bool
+    {
+        $configuredBundle = trim((string) config('services.veeqo.ca_bundle', ''));
+        if ($configuredBundle !== '') {
+            if (! is_file($configuredBundle) || ! is_readable($configuredBundle)) {
+                throw new RuntimeException('The configured VEEQO_CA_BUNDLE file does not exist or is not readable.');
+            }
+
+            return $configuredBundle;
+        }
+
+        foreach ([ini_get('curl.cainfo'), ini_get('openssl.cafile')] as $iniBundle) {
+            if (is_string($iniBundle) && $iniBundle !== '' && is_file($iniBundle) && is_readable($iniBundle)) {
+                return $iniBundle;
+            }
+        }
+
+        $bundledBundle = base_path('vendor/quickbooks/v3-php-sdk/src/Core/OAuth/OAuth2/certs/cacert.pem');
+
+        return is_file($bundledBundle) && is_readable($bundledBundle) ? $bundledBundle : true;
     }
 
     /**
@@ -79,6 +109,45 @@ class VeeqoService
         }
 
         return (array) $response->json();
+    }
+
+    /**
+     * Find an order by its Veeqo order number.
+     */
+    public function findOrderByNumber(string $orderNumber): ?array
+    {
+        $orderNumber = trim($orderNumber);
+        if ($orderNumber === '') {
+            return null;
+        }
+
+        $response = $this->client()->get("{$this->baseUrl}/orders", [
+            'query' => $orderNumber,
+            'page_size' => 100,
+        ]);
+
+        if ($response->failed()) {
+            throw new Exception("Veeqo API Error [GET /orders, status {$response->status()}]: " . $response->body());
+        }
+
+        $data = (array) $response->json();
+        $orders = $data['orders'] ?? $data['data'] ?? $data;
+        if (isset($data['id'])) {
+            $orders = [$data];
+        }
+
+        foreach ((array) $orders as $order) {
+            if (! is_array($order)) {
+                continue;
+            }
+
+            $number = trim((string) ($order['number'] ?? $order['order_number'] ?? ''));
+            if ($number !== '' && strcasecmp($number, $orderNumber) === 0) {
+                return $order;
+            }
+        }
+
+        return null;
     }
 
     public function getDeliveryMethods(): array

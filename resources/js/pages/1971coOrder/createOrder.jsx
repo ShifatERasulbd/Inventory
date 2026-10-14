@@ -12,10 +12,19 @@ import Preloader from '@/components/Preloader';
 
 import { createRemoteOrder, fetchProductOptions } from './api';
 
-const STATUS_OPTIONS = ['pending', 'waiting for shipment', 'ready for shipment', 'shipped', 'delivered', 'cancelled', 'refunded'];
+const STATUS_OPTIONS = ['approved', 'pending', 'waiting for shipment', 'ready for shipment', 'shipped', 'delivered', 'cancelled', 'refunded'];
+
+function Req() {
+    return <span className="ml-0.5 text-red-500">*</span>;
+}
 
 function emptyItem() {
     return { name: '', color_id: '', size_id: '', quantity: 1, price: '' };
+}
+
+function toMoney(value) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
 }
 
 export default function CreateRemoteOrderPage({
@@ -35,20 +44,21 @@ export default function CreateRemoteOrderPage({
 
     const [form, setForm] = useState({
         order_number: '',
-        status: 'pending',
-        customer_name: '',
-        total: '',
+        status: 'approved',
         first_name: '',
         last_name: '',
         email: '',
         phone: '',
         address_line_1: '',
-        address_line_2: '',
         city: '',
         state: '',
         postal_code: '',
-        country: '',
+        country: 'United States',
         notes: '',
+        shipping_amazon: '',
+        shipping_actual: '',
+        tax: '',
+        amazon_fee: '',
     });
 
     const [items, setItems] = useState([emptyItem()]);
@@ -168,18 +178,16 @@ export default function CreateRemoteOrderPage({
         return sum + (qty * price);
     }, 0), [items]);
 
-    function handleUseAsTotal() {
-        updateField('total', itemsSubtotal.toFixed(2));
-    }
+    // Customer-facing total: items + Amazon shipping + taxes.
+    // Actual shipping and Amazon fee are internal costs and are not added.
+    const orderTotal = useMemo(
+        () => itemsSubtotal + toMoney(form.shipping_amazon) + toMoney(form.tax),
+        [itemsSubtotal, form.shipping_amazon, form.tax],
+    );
 
     async function handleSubmit(event) {
         event.preventDefault();
         setErrorMessage('');
-
-        if (!form.customer_name.trim() && !form.first_name.trim() && !form.last_name.trim()) {
-            setErrorMessage('Enter a customer name for this order.');
-            return;
-        }
 
         const cleanedItems = items
             .filter((item) => item.name.trim() !== '')
@@ -205,14 +213,17 @@ export default function CreateRemoteOrderPage({
             await createRemoteOrder({
                 order_from: orderFrom,
                 order_number: form.order_number.trim(),
-                customer_name: form.customer_name.trim(),
-                total: form.total === '' ? null : Number(form.total),
+                subtotal: Number(itemsSubtotal.toFixed(2)),
+                shipping_amazon: Number(toMoney(form.shipping_amazon).toFixed(2)),
+                shipping_actual: Number(toMoney(form.shipping_actual).toFixed(2)),
+                tax: Number(toMoney(form.tax).toFixed(2)),
+                amazon_fee: Number(toMoney(form.amazon_fee).toFixed(2)),
+                total: Number(orderTotal.toFixed(2)),
                 first_name: form.first_name.trim(),
                 last_name: form.last_name.trim(),
                 email: form.email.trim(),
                 phone: form.phone.trim(),
                 address_line_1: form.address_line_1.trim(),
-                address_line_2: form.address_line_2.trim(),
                 city: form.city.trim(),
                 state: form.state.trim(),
                 postal_code: form.postal_code.trim(),
@@ -257,203 +268,262 @@ export default function CreateRemoteOrderPage({
 
             {!!errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
 
+            {/* Part 1: Order Details */}
             <Card>
                 <CardHeader>
                     <CardTitle>Order Details</CardTitle>
                     <CardDescription>Fill in the details for the new {sourceLabel} order.</CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                        <Label>Order Number</Label>
-                        <Input value={form.order_number} onChange={(e) => updateField('order_number', e.target.value)} placeholder="Auto-generated if left blank" />
+                <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                            <Label>Order Number</Label>
+                            <CardDescription>Enter the order number as same as the Amazon order number please copy and paste the order number form Amazon portal</CardDescription>
+                            <Input value={form.order_number} onChange={(e) => updateField('order_number', e.target.value)} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label>Order Status <Req /></Label>
+                            <select
+                                value={form.status}
+                                onChange={(e) => updateField('status', e.target.value)}
+                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
+                            >
+                                {STATUS_OPTIONS.map((status) => (
+                                    <option key={status} value={status}>
+                                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                            <Label>Notes</Label>
+                            <textarea
+                                value={form.notes}
+                                onChange={(e) => updateField('notes', e.target.value)}
+                                rows={4}
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                            />
+                        </div>
                     </div>
-                    <div className="space-y-1.5">
-                        <Label>Status</Label>
-                        <select
-                            value={form.status}
-                            onChange={(e) => updateField('status', e.target.value)}
-                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
-                        >
-                            {STATUS_OPTIONS.map((status) => (
-                                <option key={status} value={status}>
-                                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="space-y-1.5">
-                        <Label>Customer Name</Label>
-                        <Input value={form.customer_name} onChange={(e) => updateField('customer_name', e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                        <Label>Total</Label>
-                        <Input type="number" min="0" step="0.01" value={form.total} onChange={(e) => updateField('total', e.target.value)} placeholder="Auto-calculated if left blank" />
-                    </div>
-                    <div className="space-y-1.5">
-                        <Label>First Name</Label>
-                        <Input value={form.first_name} onChange={(e) => updateField('first_name', e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                        <Label>Last Name</Label>
-                        <Input value={form.last_name} onChange={(e) => updateField('last_name', e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                        <Label>Email</Label>
-                        <Input type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                        <Label>Phone</Label>
-                        <Input value={form.phone} onChange={(e) => updateField('phone', e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5 sm:col-span-2">
-                        <Label>Address Line 1</Label>
-                        <Input value={form.address_line_1} onChange={(e) => updateField('address_line_1', e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5 sm:col-span-2">
-                        <Label>Address Line 2</Label>
-                        <Input value={form.address_line_2} onChange={(e) => updateField('address_line_2', e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                        <Label>City</Label>
-                        <Input value={form.city} onChange={(e) => updateField('city', e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                        <Label>State</Label>
-                        <Input value={form.state} onChange={(e) => updateField('state', e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                        <Label>Postal Code</Label>
-                        <Input value={form.postal_code} onChange={(e) => updateField('postal_code', e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                        <Label>Country</Label>
-                        <Input value={form.country} onChange={(e) => updateField('country', e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5 sm:col-span-2">
-                        <Label>Notes</Label>
-                        <textarea
-                            value={form.notes}
-                            onChange={(e) => updateField('notes', e.target.value)}
-                            rows={4}
-                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-                        />
+
+                    {/* Order Items */}
+                    <div className="space-y-4 border-t pt-6">
+                        <div className="flex items-center justify-between gap-3">
+                            
+                            <Button type="button" variant="outline" size="sm" onClick={addItem} className="gap-1.5">
+                                <Plus className="h-4 w-4" />
+                                Add Item
+                            </Button>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[720px] text-sm">
+                                <thead>
+                                    <tr className="border-b text-left text-muted-foreground">
+                                        <th className="py-2 pr-2 font-medium">Product <Req /></th>
+                                        <th className="py-2 pr-2 font-medium">Color <Req /></th>
+                                        <th className="py-2 pr-2 font-medium">Size <Req /></th>
+                                        <th className="py-2 pr-2 font-medium">Quantity <Req /></th>
+                                        <th className="py-2 pr-2 font-medium">Unit Price <Req /></th>
+                                        <th className="py-2 font-medium" />
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {items.map((item, index) => {
+                                        const colorOptions = colorsForProduct(item.name);
+                                        const sizeOptions = sizesForProduct(item.name, item.color_id);
+
+                                        return (
+                                            <tr key={index} className="border-b last:border-0">
+                                                <td className="py-2 pr-2">
+                                                    <select
+                                                        value={item.name}
+                                                        onChange={(e) => updateItem(index, 'name', e.target.value)}
+                                                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                                                    >
+                                                        <option value="">Select product...</option>
+                                                        {productNames.map((name) => (
+                                                            <option key={name} value={name}>{name}</option>
+                                                        ))}
+                                                    </select>
+                                                </td>
+                                                <td className="py-2 pr-2">
+                                                    <select
+                                                        value={item.color_id}
+                                                        onChange={(e) => updateItem(index, 'color_id', e.target.value)}
+                                                        disabled={!item.name || colorOptions.length === 0}
+                                                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+                                                    >
+                                                        <option value="">Select color...</option>
+                                                        {colorOptions.map((option) => (
+                                                            <option key={option.id} value={option.id}>{option.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </td>
+                                                <td className="py-2 pr-2">
+                                                    <select
+                                                        value={item.size_id}
+                                                        onChange={(e) => updateItem(index, 'size_id', e.target.value)}
+                                                        disabled={!item.name || sizeOptions.length === 0}
+                                                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+                                                    >
+                                                        <option value="">Select size...</option>
+                                                        {sizeOptions.map((option) => (
+                                                            <option key={option.id} value={option.id}>{option.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </td>
+                                                <td className="py-2 pr-2">
+                                                    <Input
+                                                        type="number"
+                                                        min="1"
+                                                        value={item.quantity}
+                                                        onChange={(e) => updateItem(index, 'quantity', e.target.value)}
+                                                        className="w-20"
+                                                    />
+                                                </td>
+                                                <td className="py-2 pr-2">
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        value={item.price}
+                                                        onChange={(e) => updateItem(index, 'price', e.target.value)}
+                                                        className="w-28"
+                                                    />
+                                                </td>
+                                                <td className="py-2 text-right">
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon-sm"
+                                                        onClick={() => removeItem(index)}
+                                                        disabled={items.length === 1}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Charges */}
+                        <div className="grid grid-cols-1 gap-4 border-t pt-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <div className="space-y-1.5">
+                                <Label>Shipping (Amazon)</Label>
+                                <CardDescription>Shipping charged on the {sourceLabel} order</CardDescription>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={form.shipping_amazon}
+                                    onChange={(e) => updateField('shipping_amazon', e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label>Shipping (Actual)</Label>
+                                <CardDescription>Actual shipping cost paid by you</CardDescription>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={form.shipping_actual}
+                                    onChange={(e) => updateField('shipping_actual', e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label>Taxes</Label>
+                                <CardDescription>Tax collected on this order</CardDescription>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={form.tax}
+                                    onChange={(e) => updateField('tax', e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label>{sourceLabel} Fee</Label>
+                                <CardDescription>Fee charged by {sourceLabel} for this order</CardDescription>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={form.amazon_fee}
+                                    onChange={(e) => updateField('amazon_fee', e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Totals */}
+                        <div className="flex items-center justify-end border-t pt-4">
+                            <div className="space-y-1 text-right">
+                                <div className="text-sm text-muted-foreground">
+                                    Items Subtotal: {itemsSubtotal.toFixed(2)}
+                                </div>
+                                <Label>Total</Label>
+                                <div className="text-lg font-semibold">{orderTotal.toFixed(2)}</div>
+                            </div>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
 
+            {/* Part 2: Customer Information */}
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                    <div>
-                        <CardTitle>Order Items</CardTitle>
-                        <CardDescription>Select a product, color and size for each item in this order.</CardDescription>
-                    </div>
-                    <Button type="button" variant="outline" size="sm" onClick={addItem} className="gap-1.5">
-                        <Plus className="h-4 w-4" />
-                        Add Item
-                    </Button>
+                <CardHeader>
+                    <CardTitle>Customer Information</CardTitle>
+                    <CardDescription>Enter the customer and delivery details for this order.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[720px] text-sm">
-                            <thead>
-                                <tr className="border-b text-left text-muted-foreground">
-                                    <th className="py-2 pr-2 font-medium">Product</th>
-                                    <th className="py-2 pr-2 font-medium">Color</th>
-                                    <th className="py-2 pr-2 font-medium">Size</th>
-                                    <th className="py-2 pr-2 font-medium">Quantity</th>
-                                    <th className="py-2 pr-2 font-medium">Unit Price</th>
-                                    <th className="py-2 font-medium" />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {items.map((item, index) => {
-                                    const colorOptions = colorsForProduct(item.name);
-                                    const sizeOptions = sizesForProduct(item.name, item.color_id);
-
-                                    return (
-                                        <tr key={index} className="border-b last:border-0">
-                                            <td className="py-2 pr-2">
-                                                <select
-                                                    value={item.name}
-                                                    onChange={(e) => updateItem(index, 'name', e.target.value)}
-                                                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-                                                >
-                                                    <option value="">Select product...</option>
-                                                    {productNames.map((name) => (
-                                                        <option key={name} value={name}>{name}</option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td className="py-2 pr-2">
-                                                <select
-                                                    value={item.color_id}
-                                                    onChange={(e) => updateItem(index, 'color_id', e.target.value)}
-                                                    disabled={!item.name || colorOptions.length === 0}
-                                                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-                                                >
-                                                    <option value="">Select color...</option>
-                                                    {colorOptions.map((option) => (
-                                                        <option key={option.id} value={option.id}>{option.label}</option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td className="py-2 pr-2">
-                                                <select
-                                                    value={item.size_id}
-                                                    onChange={(e) => updateItem(index, 'size_id', e.target.value)}
-                                                    disabled={!item.name || sizeOptions.length === 0}
-                                                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-                                                >
-                                                    <option value="">Select size...</option>
-                                                    {sizeOptions.map((option) => (
-                                                        <option key={option.id} value={option.id}>{option.label}</option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td className="py-2 pr-2">
-                                                <Input
-                                                    type="number"
-                                                    min="1"
-                                                    value={item.quantity}
-                                                    onChange={(e) => updateItem(index, 'quantity', e.target.value)}
-                                                    className="w-20"
-                                                />
-                                            </td>
-                                            <td className="py-2 pr-2">
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    step="0.01"
-                                                    value={item.price}
-                                                    onChange={(e) => updateItem(index, 'price', e.target.value)}
-                                                    className="w-28"
-                                                />
-                                            </td>
-                                            <td className="py-2 text-right">
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon-sm"
-                                                    onClick={() => removeItem(index)}
-                                                    disabled={items.length === 1}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                        <Label>Customer First Name <Req /></Label>
+                        <CardDescription>Enter the customer first name here</CardDescription>
+                        <Input value={form.first_name} onChange={(e) => updateField('first_name', e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label>Customer Last Name <Req /></Label>
+                        <CardDescription>Enter the customer last name here</CardDescription>
+                        <Input value={form.last_name} onChange={(e) => updateField('last_name', e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label>Customer Email <Req /></Label>
+                        <CardDescription>Enter the customer email here</CardDescription>
+                        <Input type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label>Customer Phone <Req /></Label>
+                        <CardDescription>Enter the customer phone number here</CardDescription>
+                        <Input value={form.phone} onChange={(e) => updateField('phone', e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                        <Label>Customer Address Line 1 <Req /></Label>
+                        <CardDescription>Enter the customer delivery address here where customer wants to deliver</CardDescription>
+                        <Input value={form.address_line_1} onChange={(e) => updateField('address_line_1', e.target.value)} />
                     </div>
 
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">
-                            Items Subtotal: {itemsSubtotal.toFixed(2)}
-                        </span>
-                        <Button type="button" variant="outline" size="sm" onClick={handleUseAsTotal}>
-                            Use as Total
-                        </Button>
+                    <div className="space-y-1.5">
+                        <Label>Customer City <Req /></Label>
+                        <CardDescription>Enter the customer city here according to delivery address</CardDescription>
+                        <Input value={form.city} onChange={(e) => updateField('city', e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label>Customer City State <Req /></Label>
+                        <CardDescription>Please mention the State of the City of Delivery Location</CardDescription>
+                        <Input value={form.state} onChange={(e) => updateField('state', e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label>Customer Postal Code <Req /></Label>
+                        <CardDescription>Enter the customer postal code according to the delivery city of Customer Address</CardDescription>
+                        <Input value={form.postal_code} onChange={(e) => updateField('postal_code', e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label>Customer Country <Req /></Label>
+                        <CardDescription>Enter the customer Country</CardDescription>
+                        <Input value={form.country} readOnly disabled className="bg-muted" />
                     </div>
                 </CardContent>
             </Card>

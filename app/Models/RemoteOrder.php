@@ -26,6 +26,13 @@ class RemoteOrder extends Model
         'label_file_path',
         'label_purchased_at',
         'tracking_email_sent_at',
+        'total',
+        'subtotal',
+        'shipping_amazon',
+        'shipping_actual',
+        'tax',
+        'amazon_fee',
+        'state_tax',
     ];
 
     protected $casts = [
@@ -37,6 +44,11 @@ class RemoteOrder extends Model
         'raw_payload' => 'array',
         'label_purchased_at' => 'datetime',
         'tracking_email_sent_at' => 'datetime',
+        'subtotal' => 'decimal:2',
+        'shipping_amazon' => 'decimal:2',
+        'shipping_actual' => 'decimal:2',
+        'tax' => 'decimal:2',
+        'amazon_fee' => 'decimal:2',
     ];
 
     protected $appends = ['label_file_url'];

@@ -26,6 +26,10 @@ class RemoteOrderVeeqoBookingService
     {
         $raw = is_array($order->raw_payload) ? $order->raw_payload : [];
 
+        if (strtolower((string) $order->order_from) === 'amazon') {
+            return $this->bookExistingAmazonOrder($order, $raw);
+        }
+
         $firstName = trim((string) ($raw['first_name'] ?? ''));
         $lastName = trim((string) ($raw['last_name'] ?? ''));
         if ($firstName === '' && $lastName === '') {
@@ -110,18 +114,51 @@ class RemoteOrderVeeqoBookingService
         $order->save();
 
         if ($allocationId !== null) {
-            try {
-                $this->purchaseLabel($order, $allocationId);
-            } catch (\Throwable $e) {
-                Log::warning('Failed to purchase Veeqo shipping label', [
-                    'remote_order_id' => $order->id,
-                    'allocation_id' => $allocationId,
-                    'message' => $e->getMessage(),
-                ]);
-            }
+            $this->purchaseLabel($order, $allocationId);
         }
 
         return $response;
+    }
+
+    /**
+     * Amazon orders are already imported into Veeqo, so only purchase a label for
+     * their existing allocation rather than creating a duplicate order.
+     */
+    private function bookExistingAmazonOrder(RemoteOrder $order, array $raw): array
+    {
+        $booking = is_array($raw['veeqo_booking'] ?? null) ? $raw['veeqo_booking'] : [];
+        $veeqoOrderId = (int) ($booking['veeqo_order_id'] ?? 0);
+
+        if ($veeqoOrderId <= 0) {
+            $existingOrder = $this->veeqo->findOrderByNumber((string) $order->order_number);
+            $veeqoOrderId = (int) ($existingOrder['id'] ?? 0);
+
+            if ($veeqoOrderId <= 0) {
+                throw new RemoteOrderBookingException(
+                    'Cannot buy a Veeqo shipping label: no existing Veeqo order matches this Amazon order number.'
+                );
+            }
+        }
+
+        $allocationId = $this->resolveAllocationId($veeqoOrderId);
+
+        if ($allocationId === null) {
+            throw new RemoteOrderBookingException(
+                'Cannot buy a Veeqo shipping label: the existing Amazon order has no allocation in Veeqo.'
+            );
+        }
+
+        $booking['veeqo_order_id'] = $veeqoOrderId;
+        $booking['allocation_id'] = $allocationId;
+        $booking['carrier'] = self::CARRIER;
+        $booking['booked_at'] = $booking['booked_at'] ?? Carbon::now()->toIso8601String();
+        $raw['veeqo_booking'] = $booking;
+        $order->raw_payload = $raw;
+        $order->save();
+
+        $this->purchaseLabel($order, $allocationId);
+
+        return ['id' => $veeqoOrderId];
     }
 
     /**
