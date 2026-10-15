@@ -29,7 +29,11 @@
         </div>
 
         <p style="font-size: 14px; color: #3f3f46;">
-            @if($refundAmount !== null)
+            @if(!$returnLabelAttached)
+                Your return has been approved, but a return shipping label could not be attached to this email. Please visit
+                <a href="https://1971co.com/user/orders" style="color: #0f172a; text-decoration: underline;">Your Orders</a>
+                to check for a label. If no label is available there, please contact 1971Co support before shipping the item.
+            @elseif($refundAmount !== null)
                 Your refund will be processed within 5–7 business days.
             @else
                 Please visit to <a href="https://1971co.com/user/orders" style="color: #0f172a; text-decoration: underline;">Your Orders</a>. to have the return label and drop the parcel at nearest UPS store. Please Keep in mind it will take 9-14 business days for the refund after we recive the product.

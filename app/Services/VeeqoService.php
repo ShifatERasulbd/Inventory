@@ -436,6 +436,64 @@ public function getOrderStatus(int $veeqoOrderId): array
     }
 
     /**
+     * Retrieve quotes for an inbound shipment using Veeqo's standalone Rate Shopping API.
+     */
+    public function getStandaloneShippingRates(array $payload): array
+    {
+        $response = $this->client()->timeout(30)->post("{$this->baseUrl}/shipping/api/v1/rates", $payload);
+
+        if ($response->failed()) {
+            throw new Exception("Veeqo API Error [POST /shipping/api/v1/rates, status {$response->status()}]: " . $response->body());
+        }
+
+        return (array) $response->json();
+    }
+
+    /**
+     * Book a standalone shipment quote and purchase its shipping label.
+     */
+    public function bookStandaloneShipment(array $payload): array
+    {
+        $response = $this->client()->timeout(30)->post("{$this->baseUrl}/shipping/api/v1/shipments", $payload);
+
+        if ($response->failed()) {
+            throw new Exception("Veeqo API Error [POST /shipping/api/v1/shipments, status {$response->status()}]: " . $response->body());
+        }
+
+        return (array) $response->json();
+    }
+
+    /**
+     * Retrieve a previously booked standalone shipment's printable label.
+     */
+    public function getStandaloneShippingLabel(string $shipmentId, string $format = 'pdf'): array
+    {
+        $shipmentId = trim($shipmentId);
+        $format = strtolower(trim($format, '. '));
+        if ($shipmentId === '' || ! in_array($format, ['pdf', 'png', 'zpl', 'jpeg'], true)) {
+            throw new RuntimeException('A valid Veeqo shipment ID and label format are required.');
+        }
+
+        $accept = match ($format) {
+            'pdf' => 'application/pdf',
+            'png' => 'image/png',
+            'zpl' => 'application/zpl',
+            'jpeg' => 'image/jpeg',
+        };
+        $url = "{$this->baseUrl}/shipping/api/v1/shipments/" . rawurlencode($shipmentId) . "/label.{$format}";
+        $response = $this->client()->timeout(30)->withHeaders(['Accept' => $accept])->get($url);
+
+        if ($response->failed()) {
+            throw new Exception("Veeqo API Error [GET /shipping/api/v1/shipments/{$shipmentId}/label.{$format}, status {$response->status()}]: " . $response->body());
+        }
+
+        return [
+            'content' => $response->body(),
+            'content_type' => $response->header('Content-Type') ?: $accept,
+        ];
+    }
+
+    /**
      * Purchase a shipping label for an allocation (POST /shipping/shipments).
      */
     public function purchaseShippingLabel(array $payload): array

@@ -196,6 +196,11 @@ class ReturnRequestSyncService
 
         if ($existing) {
             // Preserve the locally-managed workflow status; it isn't tracked by the 1971co store.
+            $existingPayload = is_array($existing->raw_payload) ? $existing->raw_payload : [];
+            if (isset($existingPayload['veeqo_return_label'])) {
+                $payload['raw_payload']['veeqo_return_label'] = $existingPayload['veeqo_return_label'];
+            }
+
             $existing->fill($payload);
             if ($existing->isDirty()) {
                 $existing->save();

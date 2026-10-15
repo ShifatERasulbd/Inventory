@@ -36,7 +36,7 @@ class RemoteOrderAmazonVeeqoBookingTest extends TestCase
             ]]]);
         $veeqo->shouldReceive('purchaseShippingLabel')
             ->once()
-            ->andReturn(['id' => 0]);
+            ->andReturn(['id' => 0, 'has_return_label' => true]);
 
         $order = Mockery::mock(new RemoteOrder([
             'order_from' => 'amazon',
@@ -50,6 +50,7 @@ class RemoteOrderAmazonVeeqoBookingTest extends TestCase
         $this->assertSame(['id' => 456], $result);
         $this->assertSame(456, $order->raw_payload['veeqo_booking']['veeqo_order_id']);
         $this->assertSame(789, $order->raw_payload['veeqo_booking']['allocation_id']);
+        $this->assertTrue($order->raw_payload['veeqo_booking']['label']['has_return_label']);
     }
 
     public function test_it_reports_a_missing_veeqo_api_key_before_sending_a_request(): void

@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\ReturnRefundInitiatedMail;
 use App\Models\RemoteOrder;
 use App\Services\RemoteOrderRefundService;
-use App\Services\VeeqoService;
+use App\Services\ReturnRequestShippingLabelService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -62,17 +62,26 @@ class ReturnRequestController extends Controller
     }
 
     /**
-     * Lets admins view/download the return label directly (rather than only having it
-     * land in the customer's approval email) once it's available on the Veeqo shipment.
+     * Lets admins view/download the return label directly after it has been generated.
      */
-    public function shippingLabel(int $id, VeeqoService $veeqo): mixed
+    public function shippingLabel(int $id, ReturnRequestShippingLabelService $labelService): mixed
     {
         $returnRequest = ReturnRequest::query()->findOrFail($id);
-        $labelPdfContent = $this->resolveReturnShippingLabel($returnRequest, $veeqo);
+        $remoteOrder = RemoteOrder::query()->where('order_number', $returnRequest->order_number)->first();
+
+        try {
+            $labelPdfContent = $labelService->resolve($returnRequest, $remoteOrder, false);
+        } catch (Throwable $e) {
+            Log::error("Failed to resolve Veeqo return label for return request #{$returnRequest->id}: {$e->getMessage()}");
+
+            return response()->json([
+                'message' => 'Could not retrieve the Veeqo return label: '.$e->getMessage(),
+            ], 502);
+        }
 
         if ($labelPdfContent === null) {
             return response()->json([
-                'message' => 'No return shipping label is available for this order yet.',
+                'message' => 'No return shipping label has been created for this request yet. Approve the return to create it.',
             ], 404);
         }
 
@@ -82,7 +91,13 @@ class ReturnRequestController extends Controller
         ]);
     }
 
-   public function update(Request $request, int $id, RemoteOrderRefundService $refundService, VeeqoService $veeqo, ReturnRequestSyncService $syncService): JsonResponse
+   public function update(
+       Request $request,
+       int $id,
+       RemoteOrderRefundService $refundService,
+       ReturnRequestSyncService $syncService,
+       ReturnRequestShippingLabelService $labelService
+   ): JsonResponse
 {
     $validated = $request->validate([
         'status' => 'required|string|in:pending,approved_return,product_received,rejected,refund_initiated',
@@ -94,6 +109,9 @@ class ReturnRequestController extends Controller
     $previousStatus = $returnRequest->status;
     $newStatus = $validated['status'];
     $isNewRefundInitiated = $newStatus === 'refund_initiated' && $previousStatus !== 'refund_initiated';
+    $approvalLabelPdf = null;
+    $returnLabelAvailable = null;
+    $hadReturnLabel = false;
 
     // Trigger the Stripe refund BEFORE persisting the status, so a failed refund
     // doesn't get saved as "refund_initiated".
@@ -118,6 +136,31 @@ class ReturnRequestController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Stripe refund failed: ' . $e->getMessage(),
+            ], 502);
+        }
+    }
+
+    if ($newStatus === 'approved_return') {
+        $labelPath = $returnRequest->return_label_file_path
+            ? public_path($returnRequest->return_label_file_path)
+            : null;
+        $hadReturnLabel = $labelPath !== null && is_file($labelPath);
+        $remoteOrderForLabel = RemoteOrder::query()
+            ->where('order_number', trim((string) $returnRequest->order_number))
+            ->first();
+
+        try {
+            $approvalLabelPdf = $labelService->resolve($returnRequest, $remoteOrderForLabel);
+            if ($approvalLabelPdf === null) {
+                throw new \RuntimeException('Veeqo did not return a return shipping label.');
+            }
+            $returnLabelAvailable = true;
+        } catch (Throwable $e) {
+            Log::error("Veeqo return label generation failed for return request #{$returnRequest->id} / order #{$returnRequest->order_number}: {$e->getMessage()}");
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not generate the Veeqo return shipping label: '.$e->getMessage(),
             ], 502);
         }
     }
@@ -154,12 +197,12 @@ class ReturnRequestController extends Controller
 
     $emailNotification = null;
 
-    if ($newStatus === 'approved_return' && $previousStatus !== 'approved_return') {
+    if ($newStatus === 'approved_return' && ($previousStatus !== 'approved_return' || ! $hadReturnLabel)) {
         $emailNotification = $this->sendReturnApprovedEmail(
             $returnRequest,
             $validated['refund_amount'] ?? null,
             $validated['refund_method'] ?? null,
-            $this->resolveReturnShippingLabel($returnRequest, $veeqo)
+            $approvalLabelPdf
         );
     } elseif ($newStatus === 'product_received' && $previousStatus !== 'product_received') {
         $emailNotification = $this->sendReturnProductReceivedEmail($returnRequest);
@@ -169,6 +212,9 @@ class ReturnRequestController extends Controller
 
     $response = $returnRequest->fresh()->toArray();
     $response['email_notification'] = $emailNotification;
+    if ($returnLabelAvailable !== null) {
+        $response['return_label_available'] = $returnLabelAvailable;
+    }
 
     return response()->json($response);
 }
@@ -202,75 +248,6 @@ private function sendReturnProductReceivedEmail(ReturnRequest $returnRequest): a
 
         return ['sent' => false, 'email' => $email, 'error' => $e->getMessage()];
     }
-}
-
-/**
- * Resolves the return (inbound) label PDF for the 1971co order's already-purchased Veeqo shipment.
- * Only works if that shipment was originally purchased with `try_inbound_label: true` (see
- * RemoteOrderVeeqoBookingService::purchaseLabel) - orders booked before that was enabled, or
- * non-1971co orders, simply won't have a return label available.
- *
- * A copy is saved under public/uploads/return-labels and the path recorded on the return_requests
- * row on first fetch, so later calls (admin view, resend) read from local disk instead of hitting
- * Veeqo again.
- */
-private function resolveReturnShippingLabel(ReturnRequest $returnRequest, VeeqoService $veeqo): ?string
-{
-    if ($returnRequest->return_label_file_path) {
-        $existingPath = public_path($returnRequest->return_label_file_path);
-        if (is_file($existingPath)) {
-            return file_get_contents($existingPath);
-        }
-    }
-
-    $remoteOrder = RemoteOrder::query()->where('order_number', $returnRequest->order_number)->first();
-
-    if (! $remoteOrder || $remoteOrder->order_from !== '1971co') {
-        return null;
-    }
-
-    $raw = is_array($remoteOrder->raw_payload) ? $remoteOrder->raw_payload : [];
-    $shipmentId = (int) ($raw['veeqo_booking']['label']['id'] ?? 0);
-
-    if ($shipmentId <= 0) {
-        Log::warning("No Veeqo shipment id found for order #{$remoteOrder->order_number} - skipping return label.");
-
-        return null;
-    }
-
-    try {
-        $label = $veeqo->getShippingLabel([$shipmentId], 'pdf');
-        $content = (string) ($label['content'] ?? '');
-
-        if ($content === '') {
-            return null;
-        }
-
-        $returnRequest->update([
-            'return_label_file_path' => $this->saveReturnLabelFile($returnRequest, $content),
-            'return_label_saved_at' => now(),
-        ]);
-
-        return $content;
-    } catch (\Throwable $e) {
-        Log::warning("Failed to fetch Veeqo return label for shipment {$shipmentId}: {$e->getMessage()}");
-
-        return null;
-    }
-}
-
-private function saveReturnLabelFile(ReturnRequest $returnRequest, string $content): string
-{
-    $directory = public_path('uploads/return-labels');
-    if (! is_dir($directory)) {
-        mkdir($directory, 0755, true);
-    }
-
-    $safeOrderNumber = preg_replace('/[^A-Za-z0-9_-]/', '-', (string) $returnRequest->order_number) ?: 'order';
-    $fileName = "return-label-{$safeOrderNumber}-{$returnRequest->id}.pdf";
-    file_put_contents($directory . DIRECTORY_SEPARATOR . $fileName, $content);
-
-    return 'uploads/return-labels/' . $fileName;
 }
 
 /**

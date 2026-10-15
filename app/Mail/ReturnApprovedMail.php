@@ -41,6 +41,7 @@ class ReturnApprovedMail extends Mailable implements ShouldQueue
                 'returnRequest' => $this->returnRequest,
                 'refundAmount' => $this->refundAmount,
                 'refundMethod' => $this->refundMethod,
+                'returnLabelAttached' => $this->labelPdfContent !== null && $this->labelPdfContent !== '',
             ],
         );
     }

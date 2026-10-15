@@ -219,6 +219,7 @@ class RemoteOrderVeeqoBookingService
             'tracking_url' => $response['tracking_url'] ?? null,
             'label_url' => $labelUrl,
             'label_file_path' => $labelFilePath,
+            'has_return_label' => (bool) ($response['has_return_label'] ?? false),
             'service_title' => $serviceTitle,
             'carrier' => $carrierLabel,
             'purchased_at' => Carbon::now()->toIso8601String(),

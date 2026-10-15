@@ -248,6 +248,13 @@ export default function ReturnRequests() {
             );
             toast.success('Return request status updated.', { style: { color: '#16a34a' } });
 
+            if (updated?.return_label_available === false) {
+                toast.warning(
+                    'Return approved, but Veeqo has no return label for this shipment. The label must be generated manually.',
+                    { duration: 8000 }
+                );
+            }
+
             const emailNotification = updated?.email_notification;
             if (emailNotification) {
                 if (emailNotification.sent) {
@@ -286,6 +293,40 @@ export default function ReturnRequests() {
             });
         } finally {
             setIsLoadingLabel(false);
+        }
+    };
+
+    const handleGenerateReturnLabel = async () => {
+        if (!selectedRequest || isUpdatingStatus) return;
+
+        setIsUpdatingStatus(true);
+
+        try {
+            const updated = await updateReturnRequestStatus(selectedRequest.id, 'approved_return');
+            setSelectedRequest(updated);
+            setReturnRequests((previous) =>
+                previous.map((item) => (item.id === updated.id ? updated : item))
+            );
+            toast.success('Veeqo return shipping label generated.', { style: { color: '#16a34a' } });
+
+            const emailNotification = updated?.email_notification;
+            if (emailNotification) {
+                if (emailNotification.sent) {
+                    toast.success(`Approval email sent to ${emailNotification.email}.`, {
+                        style: { color: '#16a34a' },
+                    });
+                } else {
+                    toast.error(`Approval email failed to send: ${emailNotification.error}`, {
+                        style: { color: '#dc2626' },
+                    });
+                }
+            }
+        } catch (error) {
+            toast.error(error.message || 'Failed to generate the Veeqo return label.', {
+                style: { color: '#dc2626' },
+            });
+        } finally {
+            setIsUpdatingStatus(false);
         }
     };
 
@@ -352,15 +393,38 @@ export default function ReturnRequests() {
                             {['approved_return', 'product_received', 'refund_initiated'].includes(selectedRequest.status) && (
                                 <div className="flex items-center justify-between">
                                     <span className="text-muted-foreground">Return Shipping Label</span>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={handleViewShippingLabel}
-                                        disabled={isLoadingLabel}
-                                    >
-                                        {isLoadingLabel ? 'Loading...' : 'View / Download'}
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        {!selectedRequest.return_label_file_path
+                                            && selectedRequest.status === 'approved_return'
+                                            && canUpdate && (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={handleGenerateReturnLabel}
+                                                    disabled={isUpdatingStatus}
+                                                >
+                                                    {isUpdatingStatus ? 'Generating...' : 'Generate label'}
+                                                </Button>
+                                            )}
+                                        {selectedRequest.return_label_file_path ? (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleViewShippingLabel}
+                                                disabled={isLoadingLabel}
+                                            >
+                                                {isLoadingLabel ? 'Loading...' : 'View / Download'}
+                                            </Button>
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground">
+                                                {selectedRequest.status === 'approved_return'
+                                                    ? 'Label not generated'
+                                                    : 'No label available'}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 
